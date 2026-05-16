@@ -1,15 +1,13 @@
 plugins {
     id 'com.android.application'
-    // ❌ Kotlin plugin hata do agar tum Java use kar rahe ho
-    // id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
 }
 
 android {
-    namespace 'com.korax.launcher'
+    namespace 'com.fearlouncher'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.korax.launcher"
+        applicationId "com.fearlouncher"
         minSdk 24
         targetSdk 34
         versionCode 1
@@ -17,20 +15,17 @@ android {
         multiDexEnabled true
     }
 
-    // ✅ Java 17 Compatibility
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
         coreLibraryDesugaringEnabled true
     }
 
-    // ✅ Build Features - Naya syntax (AGP 8.0+)
     buildFeatures {
         viewBinding true
-        buildConfig = true  // ✅ Purane 'android.defaults.buildfeatures.buildconfig' ki jagah ye use karo
+        buildConfig = true
     }
 
-    // ✅ Build Types
     buildTypes {
         release {
             minifyEnabled true
@@ -44,7 +39,6 @@ android {
         }
     }
 
-    // ✅ Packaging Options
     packagingOptions {
         resources {
             excludes += [
@@ -56,7 +50,6 @@ android {
         }
     }
 
-    // ✅ Lint Options
     lint {
         abortOnError false
         checkReleaseBuilds false
@@ -64,19 +57,6 @@ android {
     }
 }
 
-// ✅ Kotlin Options - AGAR KOTLIN USE KAR RAHE HO TOH YE TOP-LEVEL PE HOGA (android {} ke bahar)
-// ❌ Agar sirf Java use kar rahe ho toh ye pura block DELETE kar do!
-/*
-kotlin {
-    jvmToolchain(17)
-}
-// Ya fir purane style mein:
-// kotlinOptions {
-//     jvmTarget = '17'
-// }
-*/
-
-// ✅ Dependencies
 dependencies {
     // AndroidX Core
     implementation 'androidx.core:core-ktx:1.12.0'
@@ -84,29 +64,20 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.activity:activity:1.8.2'
-    
-    // MultiDex
     implementation 'androidx.multidex:multidex:2.0.1'
-    
-    // Desugaring (Java 8+ features)
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
-    
-    // Lifecycle
-    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-livedata:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-runtime:2.7.0'
-    
-    // Networking (Optional - launcher ke liye useful)
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+    // Account System & Networking
     implementation 'com.google.code.gson:gson:2.10.1'
-    
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'androidx.browser:browser:1.8.0'
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
 
-// ✅ Dependency Resolution (conflicts avoid karne ke liye)
 configurations.all {
     resolutionStrategy {
         force 'androidx.core:core-ktx:1.12.0'
