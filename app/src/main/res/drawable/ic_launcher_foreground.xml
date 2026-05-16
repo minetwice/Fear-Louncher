@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#1a1a25"
+        android:pathData="M54,54m-46,0a46,46 0,1 1,92 0a46,46 0,1 1,-92 0"/>
+
+    <!-- "K" Letter for Korax - Minecraft Style -->
+    <path
+        android:fillColor="#adff2f"
+        android:pathData="M32,28 L32,34 L42,44 L32,54 L32,60 L38,60 L54,44 L70,60 L76,60 L76,54 L66,44 L76,34 L76,28 L70,28 L54,44 L38,28 Z"/>
+
+    <!-- Border Glow Effect -->
+    <path
+        android:strokeColor="#33adff2f"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,54m-46,0a46,46 0,1 1,92 0a46,46 0,1 1,-92 0"/>
+
+</vector>
