@@ -3,11 +3,13 @@ plugins {
 }
 
 android {
-    namespace 'com.fearlouncher.app'
+    // ✅ CRITICAL: Ye namespace tumhare Java package se EXACT match hona chahiye
+    namespace 'com.fearlauncher.app'
+    
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.fearlouncher.app"
+        applicationId "com.fearlauncher.app"
         minSdk 24
         targetSdk 34
         versionCode 1
