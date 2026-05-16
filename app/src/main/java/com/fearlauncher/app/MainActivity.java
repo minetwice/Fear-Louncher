@@ -29,13 +29,9 @@ public class MainActivity extends AppCompatActivity {
 
     // Menu Views
     private LinearLayout menuHome, menuPlay, menuInstall, menuMods, menuSettings, menuAccount;
-    
-    // Managers
     private AccountManager accountManager;
     private MicrosoftAuth microsoftAuth;
     private SkinManager skinManager;
-    
-    // Dialog
     private Dialog accountDialog;
 
     // Character Preview Views
@@ -63,7 +59,6 @@ public class MainActivity extends AppCompatActivity {
         menuSettings = findViewById(R.id.menuSettings);
         menuAccount = findViewById(R.id.menuAccount);
 
-        // Character Preview UI
         textUsername = findViewById(R.id.textUsername);
         textCharacterName = findViewById(R.id.textCharacterName);
         characterPreview = findViewById(R.id.characterPreview);
@@ -94,11 +89,8 @@ public class MainActivity extends AppCompatActivity {
         View playNowBtn = findViewById(R.id.btnPlayNow);
         if (playNowBtn != null) playNowBtn.setOnClickListener(v -> launchMinecraft());
 
-        // ✅ Model Toggles
         btnModelSteve.setOnClickListener(v -> setModelType(ModelType.STEVE));
         btnModelAlex.setOnClickListener(v -> setModelType(ModelType.ALEX));
-
-        // ✅ Skin Upload
         btnUploadSkin.setOnClickListener(v -> pickSkinImage());
     }
 
@@ -161,7 +153,6 @@ public class MainActivity extends AppCompatActivity {
         showToast(getString(R.string.launching));
     }
 
-    // ✅ Update UI based on selected account
     private void updateUIForSelectedAccount() {
         Account selected = accountManager.getSelectedAccount();
         String displayName = selected != null ? selected.getDisplayName() : "FearUser";
