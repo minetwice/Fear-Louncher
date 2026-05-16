@@ -155,9 +155,6 @@ public class MainActivity extends AppCompatActivity {
         showToast(message);
 
         // TODO: Implement actual Minecraft launch logic here
-        // Example: Start Minecraft Java process with account credentials
-        // launchMinecraftProcess(selected);
-        
         showToast(getString(R.string.launching));
     }
 
@@ -165,22 +162,14 @@ public class MainActivity extends AppCompatActivity {
     private void updateUIForSelectedAccount() {
         Account selected = accountManager.getSelectedAccount();
         
-        // Optional: Update welcome text with account name
-        TextView welcomeUser = findViewById(R.id.textUsername); // Adjust ID as needed
+        // Update welcome text with account name
+        TextView welcomeUser = findViewById(R.id.textUsername);
         if (welcomeUser != null && selected != null) {
             welcomeUser.setText(selected.getDisplayName());
         }
-        
-        // Optional: Update status indicator
-        TextView statusText = findViewById(R.id.statusText); // Adjust ID as needed
-        if (statusText != null) {
-            statusText.setText(selected != null ? 
-                (selected.isMicrosoft() ? getString(R.string.online) : getString(R.string.offline)) 
-                : getString(R.string.offline));
-        }
     }
 
-    // ✅ Show slide-up quick account dialog (optional alternative to dashboard)
+    // ✅ Show slide-up quick account dialog (optional)
     private void showQuickAccountDialog() {
         if (accountDialog != null && accountDialog.isShowing()) return;
 
@@ -257,8 +246,6 @@ public class MainActivity extends AppCompatActivity {
         dialog.findViewById(R.id.btnSignInMicrosoft).setOnClickListener(v -> {
             dialog.findViewById(R.id.progressLoading).setVisibility(View.VISIBLE);
             dialog.findViewById(R.id.btnSignInMicrosoft).setEnabled(false);
-            
-            // Start Microsoft OAuth flow
             microsoftAuth.startLogin(this);
         });
     }
@@ -315,7 +302,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh UI when returning from AccountDashboard
         updateUIForSelectedAccount();
     }
 }
