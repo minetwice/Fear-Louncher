@@ -17,7 +17,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-// ✅ FIXED: Correct package imports matching your folder structure
+// ✅ Correct Imports matching your package structure
 import com.fearlauncher.app.auth.MicrosoftAuth;
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.model.Account;
@@ -47,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
         menuMods = findViewById(R.id.menuMods);
         menuSettings = findViewById(R.id.menuSettings);
         
-        // Note: Ensure your layout has android:id="@+id/menuAccount"
+        // Make sure activity_main.xml mein ye ID hai: android:id="@+id/menuAccount"
         menuAccount = findViewById(R.id.menuAccount);
 
         accountManager = AccountManager.getInstance(this);
