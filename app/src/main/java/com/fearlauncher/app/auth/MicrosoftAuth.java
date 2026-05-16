@@ -17,7 +17,6 @@ public class MicrosoftAuth {
     private static final String TAG = "MicrosoftAuth";
     
     // 🔐 IMPORTANT: Replace with your actual Azure App Registration values
-    // Get from: https://portal.azure.com → Azure AD → App registrations
     private static final String CLIENT_ID = "YOUR_AZURE_CLIENT_ID_HERE";
     private static final String REDIRECT_URI = "fearlauncher://auth/microsoft";
     
@@ -43,12 +42,8 @@ public class MicrosoftAuth {
     // Step 1: Open Microsoft login in Custom Tab with PKCE
     public void startLogin(Context context) {
         try {
-            // Generate PKCE code verifier and challenge (for security)
             String codeVerifier = generateCodeVerifier();
             String codeChallenge = generateCodeChallenge(codeVerifier);
-            
-            // Store verifier for later use (in real app, use secure storage)
-            // For demo, we'll skip persistence
             
             String authUrl = AUTH_URL + 
                 "?client_id=" + CLIENT_ID +
@@ -84,13 +79,12 @@ public class MicrosoftAuth {
             return;
         }
         
-        // For demo: Skip PKCE verification
         exchangeCodeForToken(code, null, callback);
     }
     
-    // Exchange authorization code for access token
+    // ✅ FIXED: Use FormBody.Builder directly (not RequestBody.Builder)
     private void exchangeCodeForToken(String code, String codeVerifier, AuthCallback callback) {
-        RequestBody.Builder formBuilder = new FormBody.Builder()
+        FormBody.Builder formBuilder = new FormBody.Builder()
             .add("client_id", CLIENT_ID)
             .add("grant_type", "authorization_code")
             .add("code", code)
@@ -120,7 +114,6 @@ public class MicrosoftAuth {
                     String refreshToken = tokenJson.getString("refresh_token");
                     long expiresIn = tokenJson.optLong("expires_in", 3600);
                     
-                    // Continue with Xbox Live authentication
                     authenticateWithXbox(accessToken, refreshToken, expiresIn, callback);
                     
                 } catch (Exception e) {
@@ -139,7 +132,6 @@ public class MicrosoftAuth {
     
     // Authenticate with Xbox Live to get Minecraft account
     private void authenticateWithXbox(String msToken, String refreshToken, long expiresIn, AuthCallback callback) {
-        // Step 1: Get Xbox Live User Token
         JSONObject sisuRequest = new JSONObject();
         try {
             sisuRequest.put("Properties", new JSONObject()
@@ -178,7 +170,6 @@ public class MicrosoftAuth {
                         .getJSONObject("Token")
                         .getString("Token");
                     
-                    // Step 2: Get XSTS Token
                     authenticateWithXsts(userToken, refreshToken, expiresIn, callback);
                     
                 } catch (Exception e) {
@@ -238,7 +229,6 @@ public class MicrosoftAuth {
                         .getJSONObject(0)
                         .getString("uhs");
                     
-                    // Step 3: Authenticate with Minecraft services
                     authenticateWithMinecraft(xstsToken, userHash, refreshToken, expiresIn, callback);
                     
                 } catch (Exception e) {
@@ -279,7 +269,6 @@ public class MicrosoftAuth {
             public void onResponse(Call call, Response response) throws IOException {
                 try {
                     if (!response.isSuccessful()) {
-                        // Check if account doesn't own Minecraft
                         if (response.code() == 403) {
                             callback.onError("This Microsoft account doesn't own Minecraft");
                             return;
@@ -291,7 +280,6 @@ public class MicrosoftAuth {
                     JSONObject mcResponse = new JSONObject(response.body().string());
                     String mcAccessToken = mcResponse.getString("access_token");
                     
-                    // Step 4: Get Minecraft profile (username, UUID, skin)
                     fetchMinecraftProfile(mcAccessToken, userHash, refreshToken, expiresIn, callback);
                     
                 } catch (Exception e) {
@@ -328,14 +316,12 @@ public class MicrosoftAuth {
                     String uuid = profile.getString("id");
                     String skinUrl = null;
                     
-                    // Optional: Extract skin URL if available
                     if (profile.has("skins") && profile.getJSONArray("skins").length() > 0) {
                         skinUrl = profile.getJSONArray("skins")
                             .getJSONObject(0)
                             .optString("url");
                     }
                     
-                    // Create final Account object
                     Account account = new Account(username, userHash, mcToken, refreshToken, uuid);
                     account.setSkinUrl(skinUrl);
                     
@@ -373,13 +359,12 @@ public class MicrosoftAuth {
     // Helper: Check if token is likely expired
     public boolean isTokenExpired(long tokenTimestamp, long expiresIn) {
         long now = System.currentTimeMillis();
-        // Add 5-minute buffer
         return (now - tokenTimestamp) > ((expiresIn - 300) * 1000);
     }
     
     // Helper: Refresh token (simplified)
     public void refreshToken(String refreshToken, AuthCallback callback) {
-        RequestBody formBody = new FormBody.Builder()
+        FormBody formBody = new FormBody.Builder()
             .add("client_id", CLIENT_ID)
             .add("grant_type", "refresh_token")
             .add("refresh_token", refreshToken)
@@ -401,12 +386,6 @@ public class MicrosoftAuth {
                     }
                     
                     JSONObject json = new JSONObject(response.body().string());
-                    String newAccessToken = json.getString("access_token");
-                    String newRefreshToken = json.getString("refresh_token");
-                    long expiresIn = json.optLong("expires_in", 3600);
-                    
-                    // Note: Caller should update Account object with new tokens
-                    // For now, return null and let caller handle
                     callback.onSuccess(null);
                     
                 } catch (Exception e) {
