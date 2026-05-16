@@ -24,35 +24,80 @@
             android:textSize="20sp"
             android:textStyle="bold"/>
 
-        <Button
-            android:id="@+id/btnAddAccount"
-            android:layout_width="wrap_content"
+        <!-- 3-Line Menu Button -->
+        <ImageView
+            android:id="@+id/btnMenuOptions"
+            android:layout_width="40dp"
             android:layout_height="40dp"
-            android:text="+ Add"
-            android:textSize="12sp"
-            android:background="@drawable/button_primary_bg"
-            android:textColor="@color/black"/>
+            android:src="@android:drawable/ic_menu_more"
+            app:tint="@color/text"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"/>
     </LinearLayout>
 
-    <!-- Empty State -->
-    <TextView
-        android:id="@+id/emptyText"
+    <!-- 3D Character Preview -->
+    <com.fearlauncher.app.view.CharacterPreviewView
+        android:id="@+id/characterPreview"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="No accounts yet.\nTap + Add to create one!"
-        android:textColor="@color/text_secondary"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:visibility="gone"/>
+        android:layout_height="240dp"
+        android:background="@color/sidebar_bg"
+        android:layout_margin="16dp"/>
 
-    <!-- Accounts List -->
+    <!-- Model Toggle -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/btnSteve"
+            android:layout_width="120dp"
+            android:layout_height="40dp"
+            android:text="Steve (Classic)"
+            android:textSize="12sp"
+            android:background="@drawable/menu_item_bg"
+            android:textColor="@color/primary"/>
+
+        <Button
+            android:id="@+id/btnAlex"
+            android:layout_width="120dp"
+            android:layout_height="40dp"
+            android:text="Alex (Slim)"
+            android:textSize="12sp"
+            android:background="@android:color/transparent"
+            android:textColor="@color/text_secondary"
+            android:layout_marginStart="16dp"/>
+    </LinearLayout>
+
+    <!-- Account List -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Your Accounts"
+        android:textColor="@color/text"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="8dp"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/accountsRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp"
-        android:clipToPadding="false"/>
+        android:paddingHorizontal="16dp"/>
 
+    <!-- Add Account Button -->
+    <Button
+        android:id="@+id/btnAddAccount"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="+ Create New Account"
+        android:textColor="@color/black"
+        android:background="@drawable/button_primary_bg"
+        android:layout_margin="16dp"/>
 </LinearLayout>
