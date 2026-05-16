@@ -6,13 +6,14 @@
     android:orientation="vertical"
     android:background="@color/background">
 
-    <!-- TOP BAR (Logo + User) -->
+    <!-- TOP BAR -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="60dp"
         android:orientation="horizontal"
         android:background="@color/sidebar_bg"
-        android:paddingHorizontal="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:gravity="center_vertical">
 
         <TextView
@@ -47,7 +48,6 @@
                 android:textSize="9sp"/>
         </LinearLayout>
 
-        <!-- User Profile Mini -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -65,13 +65,13 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="● Online"
+                android:text="Online"
                 android:textColor="@color/success"
                 android:textSize="10sp"/>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- MAIN CONTENT (Scrollable) -->
+    <!-- MAIN SCROLLABLE CONTENT -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -206,11 +206,10 @@
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:background="@drawable/button_primary_bg"
-                    android:layout_marginTop="16dp"
-                    android:elevation="2dp"/>
+                    android:layout_marginTop="16dp"/>
             </LinearLayout>
 
-            <!-- Quick Actions Grid (2x2) -->
+            <!-- Quick Actions Grid -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -370,35 +369,160 @@
             </GridLayout>
 
             <!-- Recent Installations -->
-            <!-- Recent Installations Header -->
-<TextView
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="Recent Installations"
-    android:textColor="@color/text"
-    android:textSize="16sp"
-    android:textStyle="bold"
-    
-    <!-- ✅ FIXED: Use specific margins instead of 3-value shorthand -->
-    android:layout_marginTop="16dp"
-    android:layout_marginBottom="8dp"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="16dp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Recent Installations"
+                android:textColor="@color/text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"/>
 
-            <include layout="@layout/item_installation" android:layout_marginBottom="8dp"/>
-            <include layout="@layout/item_installation" android:layout_marginBottom="8dp"/>
-            <include layout="@layout/item_installation"/>
+            <!-- Installation Item 1 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="8dp"
+                android:layout_marginBottom="8dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/card_bg"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Korax Vanilla"
+                        android:textColor="@color/text"
+                        android:textSize="14sp"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1.20.4"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/button_primary_bg"
+                    android:padding="8dp"/>
+            </LinearLayout>
+
+            <!-- Installation Item 2 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="8dp"
+                android:layout_marginBottom="8dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/card_bg"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Fabric Modded"
+                        android:textColor="@color/text"
+                        android:textSize="14sp"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1.20.1"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/button_primary_bg"
+                    android:padding="8dp"/>
+            </LinearLayout>
+
+            <!-- Installation Item 3 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="8dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@color/card_bg"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Forge Server"
+                        android:textColor="@color/text"
+                        android:textSize="14sp"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1.19.4"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/button_primary_bg"
+                    android:padding="8dp"/>
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>
 
-    <!-- BOTTOM NAVIGATION (Portrait Mode) -->
+    <!-- BOTTOM NAVIGATION -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:orientation="horizontal"
         android:background="@color/sidebar_bg"
-        android:paddingHorizontal="8dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:gravity="center">
 
         <LinearLayout
