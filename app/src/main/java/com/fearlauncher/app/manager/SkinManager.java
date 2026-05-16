@@ -5,6 +5,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Log;
+
+// ✅ FIXED: Add this import for Account class
+import com.fearlauncher.app.model.Account;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
