@@ -54,7 +54,9 @@
             android:orientation="vertical"
             android:gravity="end">
 
+            <!-- ✅ Dynamic Username -->
             <TextView
+                android:id="@+id/textUsername"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="FearUser"
@@ -71,7 +73,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- MAIN CONTENT -->
+    <!-- MAIN SCROLLABLE CONTENT -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -83,36 +85,97 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- ✅ CHARACTER PREVIEW SECTION -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="16dp"
+                android:background="@drawable/card_bg"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/textCharacterName"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="FearUser"
+                        android:textColor="@color/text"
+                        android:textSize="18sp"
+                        android:textStyle="bold"/>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:orientation="horizontal"
+                        android:background="@color/sidebar_bg"
+                        android:padding="2dp">
+
+                        <Button
+                            android:id="@+id/btnModelSteve"
+                            android:layout_width="48dp"
+                            android:layout_height="match_parent"
+                            android:text="S"
+                            android:textSize="10sp"
+                            android:textColor="@color/primary"
+                            android:background="@drawable/menu_item_bg"/>
+
+                        <Button
+                            android:id="@+id/btnModelAlex"
+                            android:layout_width="48dp"
+                            android:layout_height="match_parent"
+                            android:text="A"
+                            android:textSize="10sp"
+                            android:textColor="@color/text_secondary"
+                            android:background="@android:color/transparent"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <com.fearlauncher.app.view.CharacterPreviewView
+                    android:id="@+id/characterPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:background="@color/background"
+                    android:layout_marginBottom="12dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Welcome back,"
-                    android:textColor="@color/text"
-                    android:textSize="16sp"/>
+                    android:text="↻ Drag to rotate"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="12dp"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="FearUser!"
-                    android:textColor="@color/primary"
-                    android:textSize="24sp"
-                    android:textStyle="bold"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Ready to explore your world?"
-                    android:textColor="@color/text_secondary"
+                <Button
+                    android:id="@+id/btnUploadSkin"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:text="🎨 Upload Skin (64x64 PNG)"
+                    android:textColor="@color/black"
                     android:textSize="13sp"
-                    android:layout_marginTop="4dp"/>
+                    android:background="@drawable/button_secondary_bg"
+                    android:drawableStart="@drawable/ic_upload"
+                    android:drawablePadding="8dp"/>
+
+                <TextView
+                    android:id="@+id/textSkinInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No custom skin"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:layout_marginTop="8dp"/>
             </LinearLayout>
 
+            <!-- Version Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -158,6 +221,7 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Main Banner -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="220dp"
@@ -194,7 +258,6 @@
                     android:maxLines="2"
                     android:ellipsize="end"/>
 
-                <!-- ✅ CRITICAL ID: btnPlayNow -->
                 <Button
                     android:id="@+id/btnPlayNow"
                     android:layout_width="160dp"
@@ -207,6 +270,7 @@
                     android:layout_marginTop="16dp"/>
             </LinearLayout>
 
+            <!-- Quick Actions -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -224,63 +288,16 @@
                 android:alignmentMode="alignMargins"
                 android:columnOrderPreserved="false">
 
-                <!-- Mods -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="100dp"
-                    android:layout_columnWeight="1"
-                    android:layout_margin="4dp"
-                    android:background="@drawable/card_bg"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
+                <LinearLayout android:layout_width="0dp" android:layout_height="100dp" android:layout_columnWeight="1" android:layout_margin="4dp" android:background="@drawable/card_bg" android:orientation="vertical" android:padding="12dp" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mods" android:textColor="@color/text" android:textStyle="bold"/>
                 </LinearLayout>
-
-                <!-- Packs -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="100dp"
-                    android:layout_columnWeight="1"
-                    android:layout_margin="4dp"
-                    android:background="@drawable/card_bg"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
+                <LinearLayout android:layout_width="0dp" android:layout_height="100dp" android:layout_columnWeight="1" android:layout_margin="4dp" android:background="@drawable/card_bg" android:orientation="vertical" android:padding="12dp" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Packs" android:textColor="@color/text" android:textStyle="bold"/>
                 </LinearLayout>
-
-                <!-- Skins -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="100dp"
-                    android:layout_columnWeight="1"
-                    android:layout_margin="4dp"
-                    android:background="@drawable/card_bg"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
+                <LinearLayout android:layout_width="0dp" android:layout_height="100dp" android:layout_columnWeight="1" android:layout_margin="4dp" android:background="@drawable/card_bg" android:orientation="vertical" android:padding="12dp" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Skins" android:textColor="@color/text" android:textStyle="bold"/>
                 </LinearLayout>
-
-                <!-- Settings -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="100dp"
-                    android:layout_columnWeight="1"
-                    android:layout_margin="4dp"
-                    android:background="@drawable/card_bg"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
+                <LinearLayout android:layout_width="0dp" android:layout_height="100dp" android:layout_columnWeight="1" android:layout_margin="4dp" android:background="@drawable/card_bg" android:orientation="vertical" android:padding="12dp" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Settings" android:textColor="@color/text" android:textStyle="bold"/>
                 </LinearLayout>
             </GridLayout>
@@ -288,7 +305,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ✅ BOTTOM NAVIGATION WITH ALL REQUIRED IDs -->
+    <!-- BOTTOM NAVIGATION -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="64dp"
@@ -364,7 +381,6 @@
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Settings" android:textColor="@color/text_secondary" android:textSize="10sp"/>
         </LinearLayout>
 
-        <!-- ✅ CRITICAL ID: menuAccount -->
         <LinearLayout
             android:id="@+id/menuAccount"
             android:layout_width="0dp"
