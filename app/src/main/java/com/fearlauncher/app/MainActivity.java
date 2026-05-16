@@ -16,17 +16,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-
-// ✅ Correct Imports matching your package structure
 import com.fearlauncher.app.auth.MicrosoftAuth;
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.model.Account;
 
 public class MainActivity extends AppCompatActivity {
 
+    // Menu Views
     private LinearLayout menuHome, menuPlay, menuInstall, menuMods, menuSettings, menuAccount;
+    
+    // Managers
     private AccountManager accountManager;
     private MicrosoftAuth microsoftAuth;
+    
+    // Dialog
     private Dialog accountDialog;
 
     @Override
@@ -41,15 +44,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViews() {
+        // Menu buttons
         menuHome = findViewById(R.id.menuHome);
         menuPlay = findViewById(R.id.menuPlay);
         menuInstall = findViewById(R.id.menuInstall);
         menuMods = findViewById(R.id.menuMods);
         menuSettings = findViewById(R.id.menuSettings);
-        
-        // Make sure activity_main.xml mein ye ID hai: android:id="@+id/menuAccount"
         menuAccount = findViewById(R.id.menuAccount);
 
+        // Initialize managers
         accountManager = AccountManager.getInstance(this);
         microsoftAuth = new MicrosoftAuth();
     }
@@ -61,24 +64,22 @@ public class MainActivity extends AppCompatActivity {
             handleMenuAction(v.getId());
         };
 
+        // Menu click handlers
         if (menuHome != null) menuHome.setOnClickListener(menuClick);
         if (menuPlay != null) menuPlay.setOnClickListener(menuClick);
         if (menuInstall != null) menuInstall.setOnClickListener(menuClick);
         if (menuMods != null) menuMods.setOnClickListener(menuClick);
         if (menuSettings != null) menuSettings.setOnClickListener(menuClick);
-        if (menuAccount != null) menuAccount.setOnClickListener(v -> showAccountDialog());
+        
+        // Account menu opens dashboard
+        if (menuAccount != null) {
+            menuAccount.setOnClickListener(v -> openAccountDashboard());
+        }
 
+        // Play Now button
         View playNowBtn = findViewById(R.id.btnPlayNow);
         if (playNowBtn != null) {
-            playNowBtn.setOnClickListener(v -> {
-                Account selected = accountManager.getSelectedAccount();
-                if (selected == null) {
-                    showToast("Please create or select an account first!");
-                    showAccountDialog();
-                } else {
-                    showToast("Launching Minecraft with: " + selected.getUsername());
-                }
-            });
+            playNowBtn.setOnClickListener(v -> launchMinecraft());
         }
     }
 
@@ -117,17 +118,70 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleMenuAction(int viewId) {
         String name;
-        if (viewId == R.id.menuHome) name = "Home";
-        else if (viewId == R.id.menuPlay) name = "Play";
-        else if (viewId == R.id.menuInstall) name = "Installations";
-        else if (viewId == R.id.menuMods) name = "Mods";
-        else if (viewId == R.id.menuSettings) name = "Settings";
+        if (viewId == R.id.menuHome) name = getString(R.string.menu_home);
+        else if (viewId == R.id.menuPlay) name = getString(R.string.menu_play);
+        else if (viewId == R.id.menuInstall) name = getString(R.string.menu_install);
+        else if (viewId == R.id.menuMods) name = getString(R.string.menu_mods);
+        else if (viewId == R.id.menuSettings) name = getString(R.string.menu_settings);
         else name = "";
         
         if (!name.isEmpty()) showToast(name + " clicked");
     }
 
-    private void showAccountDialog() {
+    // ✅ Open Account Dashboard
+    private void openAccountDashboard() {
+        Intent intent = new Intent(this, AccountDashboardActivity.class);
+        startActivity(intent);
+    }
+
+    // ✅ Launch Minecraft with selected account
+    private void launchMinecraft() {
+        Account selected = accountManager.getSelectedAccount();
+        
+        if (selected == null) {
+            showToast(getString(R.string.select_account_first));
+            openAccountDashboard();
+            return;
+        }
+
+        // Update last used timestamp
+        selected.setLastUsed(System.currentTimeMillis());
+        accountManager.updateAccount(selected);
+
+        // Show launch message
+        String message = selected.isMicrosoft() 
+            ? getString(R.string.play_with_account, selected.getUsername() + " ✓")
+            : getString(R.string.play_with_account, selected.getUsername());
+        showToast(message);
+
+        // TODO: Implement actual Minecraft launch logic here
+        // Example: Start Minecraft Java process with account credentials
+        // launchMinecraftProcess(selected);
+        
+        showToast(getString(R.string.launching));
+    }
+
+    // ✅ Update UI with selected account info
+    private void updateUIForSelectedAccount() {
+        Account selected = accountManager.getSelectedAccount();
+        
+        // Optional: Update welcome text with account name
+        TextView welcomeUser = findViewById(R.id.textUsername); // Adjust ID as needed
+        if (welcomeUser != null && selected != null) {
+            welcomeUser.setText(selected.getDisplayName());
+        }
+        
+        // Optional: Update status indicator
+        TextView statusText = findViewById(R.id.statusText); // Adjust ID as needed
+        if (statusText != null) {
+            statusText.setText(selected != null ? 
+                (selected.isMicrosoft() ? getString(R.string.online) : getString(R.string.offline)) 
+                : getString(R.string.offline));
+        }
+    }
+
+    // ✅ Show slide-up quick account dialog (optional alternative to dashboard)
+    private void showQuickAccountDialog() {
         if (accountDialog != null && accountDialog.isShowing()) return;
 
         accountDialog = new Dialog(this);
@@ -154,6 +208,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout formLocal = dialog.findViewById(R.id.formLocal);
         LinearLayout formMicrosoft = dialog.findViewById(R.id.formMicrosoft);
 
+        // Tab switching
         tabLocal.setOnClickListener(v -> {
             tabLocal.setTextColor(getColor(R.color.primary));
             tabLocal.setBackgroundResource(R.drawable.menu_item_bg);
@@ -172,39 +227,47 @@ public class MainActivity extends AppCompatActivity {
             formLocal.setVisibility(View.GONE);
         });
 
+        // Create Local Account
         EditText inputUsername = dialog.findViewById(R.id.inputUsername);
         dialog.findViewById(R.id.btnCreateLocal).setOnClickListener(v -> {
             String username = inputUsername.getText().toString().trim();
+            
             if (username.isEmpty()) {
-                showError(dialog, "Please enter a username");
+                showError(dialog, getString(R.string.username_required));
                 return;
             }
             if (username.length() < 3) {
-                showError(dialog, "Username must be at least 3 characters");
+                showError(dialog, getString(R.string.username_min_length));
                 return;
             }
 
             Account newAccount = new Account(username);
+            
             if (accountManager.addAccount(newAccount)) {
                 accountManager.selectAccount(newAccount.getId());
-                showToast("Account created: " + username);
+                showToast(getString(R.string.account_created, username));
                 dialog.dismiss();
                 updateUIForSelectedAccount();
             } else {
-                showError(dialog, "Username already taken");
+                showError(dialog, getString(R.string.account_exists));
             }
         });
 
+        // Microsoft Sign In (placeholder)
         dialog.findViewById(R.id.btnSignInMicrosoft).setOnClickListener(v -> {
             dialog.findViewById(R.id.progressLoading).setVisibility(View.VISIBLE);
             dialog.findViewById(R.id.btnSignInMicrosoft).setEnabled(false);
+            
+            // Start Microsoft OAuth flow
             microsoftAuth.startLogin(this);
         });
     }
 
+    // ✅ Handle Microsoft auth redirect
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        
         Uri data = intent.getData();
         if (data != null && "auth".equals(data.getHost()) && "/microsoft".equals(data.getPath())) {
             microsoftAuth.handleRedirect(data, new MicrosoftAuth.AuthCallback() {
@@ -213,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         if (account != null && accountManager.addAccount(account)) {
                             accountManager.selectAccount(account.getId());
-                            showToast("Microsoft account linked!");
+                            showToast(getString(R.string.microsoft_success));
                             updateUIForSelectedAccount();
                         }
                         if (accountDialog != null) accountDialog.dismiss();
@@ -224,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onError(String error) {
                     runOnUiThread(() -> {
                         if (accountDialog != null) {
-                            showError(accountDialog, "Login failed: " + error);
+                            showError(accountDialog, getString(R.string.microsoft_failed, error));
                             accountDialog.findViewById(R.id.progressLoading).setVisibility(View.GONE);
                             accountDialog.findViewById(R.id.btnSignInMicrosoft).setEnabled(true);
                         }
@@ -234,6 +297,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ✅ Show error in dialog
     private void showError(Dialog dialog, String message) {
         TextView textError = dialog.findViewById(R.id.textError);
         if (textError != null) {
@@ -243,12 +307,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ✅ Show toast
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
-    private void updateUIForSelectedAccount() {
-        Account selected = accountManager.getSelectedAccount();
-        // Optional: Update UI with selected account name
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh UI when returning from AccountDashboard
+        updateUIForSelectedAccount();
     }
 }
