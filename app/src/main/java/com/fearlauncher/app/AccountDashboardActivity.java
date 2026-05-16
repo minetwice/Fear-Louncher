@@ -5,8 +5,12 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.*;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -15,6 +19,7 @@ import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.manager.SkinManager;
 import com.fearlauncher.app.model.Account;
 import com.fearlauncher.app.view.CharacterPreviewView;
+import java.util.ArrayList;
 import java.util.List;
 
 public class AccountDashboardActivity extends AppCompatActivity {
@@ -28,8 +33,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private Button btnAddAccount, btnSteve, btnAlex;
     private ImageView btnMenuOptions;
 
-    private static final int REQ_SKIN = 101;
-    private static final int REQ_CAPE = 102;
+    // Activity Result Launchers
+    private final ActivityResultLauncher<String> pickSkinLauncher = 
+        registerForActivityResult(new ActivityResultContracts.GetContent(), this::handleSkinResult);
+    private final ActivityResultLauncher<String> pickCapeLauncher = 
+        registerForActivityResult(new ActivityResultContracts.GetContent(), this::handleCapeResult);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,37 +65,46 @@ public class AccountDashboardActivity extends AppCompatActivity {
         btnAddAccount.setOnClickListener(v -> showAddAccountDialog());
         btnSteve.setOnClickListener(v -> switchModel("steve"));
         btnAlex.setOnClickListener(v -> switchModel("alex"));
-        
-        // 3-Line Menu -> Open Skin/Cape Panel
         btnMenuOptions.setOnClickListener(v -> showSkinCapeMenu());
     }
 
     private void setupRecyclerView() {
         accountsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new AccountAdapter(account -> {
-            accountManager.selectAccount(account.getId());
-            updatePreview();
-            finish(); // Return to main
-        }, account -> {
-            new AlertDialog.Builder(this)
-                .setTitle("Delete Account")
-                .setMessage("Delete " + account.getUsername() + "?")
-                .setPositiveButton("Delete", (d, w) -> {
-                    accountManager.deleteAccount(account.getId());
-                    loadAccounts();
-                    updatePreview();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-        });
+        adapter = new AccountAdapter(
+            account -> {
+                accountManager.selectAccount(account.getId());
+                updatePreview();
+                finish();
+            },
+            account -> {
+                new AlertDialog.Builder(this)
+                    .setTitle("Delete Account")
+                    .setMessage("Are you sure you want to delete \"" + account.getUsername() + "\"?")
+                    .setPositiveButton("Delete", (d, w) -> {
+                        accountManager.deleteAccount(account.getId());
+                        skinManager.deleteSkin(account.getId(), account.getModelType());
+                        skinManager.deleteCape(account.getId());
+                        loadAccounts();
+                        updatePreview();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            }
+        );
         accountsRecyclerView.setAdapter(adapter);
     }
 
     private void loadAccounts() {
         List<Account> accs = accountManager.getAllAccounts();
         adapter.setAccounts(accs);
-        accountsRecyclerView.setVisibility(accs.isEmpty() ? View.GONE : View.VISIBLE);
-        if (emptyText != null) emptyText.setVisibility(accs.isEmpty() ? View.VISIBLE : View.GONE);
+        
+        if (accs.isEmpty()) {
+            accountsRecyclerView.setVisibility(View.GONE);
+            if (emptyText != null) emptyText.setVisibility(View.VISIBLE);
+        } else {
+            accountsRecyclerView.setVisibility(View.VISIBLE);
+            if (emptyText != null) emptyText.setVisibility(View.GONE);
+        }
     }
 
     private void updatePreview() {
@@ -99,10 +116,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
             characterPreview.setSkin(skin);
         } else {
             int defRes = skinManager.getDefaultSkinResId(sel.getModelType());
-            characterPreview.setSkin(BitmapFactory.decodeResource(getResources(), defRes));
+            Bitmap defSkin = BitmapFactory.decodeResource(getResources(), defRes);
+            if (defSkin != null) characterPreview.setSkin(defSkin);
         }
         
-        // Update model buttons
+        // Update toggle buttons
         boolean isAlex = sel.getModelType() == Account.ModelType.ALEX;
         btnSteve.setTextColor(isAlex ? getColor(R.color.text_secondary) : getColor(R.color.primary));
         btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
@@ -123,64 +141,105 @@ public class AccountDashboardActivity extends AppCompatActivity {
         Toast.makeText(this, "Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
     }
 
-    // ✅ 3-Line Menu: Skin & Cape Upload
     private void showSkinCapeMenu() {
-        String[] options = {"Upload Skin (64x64 PNG)", "Upload Cape (64x32 PNG)", "Reset to Default"};
+        String[] options = {"🎨 Upload Skin (64x64 PNG)", "🧥 Upload Cape (64x32 PNG)", "🔄 Reset to Default"};
         new AlertDialog.Builder(this)
             .setTitle("Customize Character")
             .setItems(options, (dialog, which) -> {
-                if (which == 0) pickImage(REQ_SKIN);
-                else if (which == 1) pickImage(REQ_CAPE);
+                if (which == 0) pickSkinLauncher.launch("image/png");
+                else if (which == 1) pickCapeLauncher.launch("image/png");
                 else resetToDefault();
             })
             .show();
     }
 
-    private void pickImage(int requestCode) {
-        Intent i = new Intent(Intent.ACTION_PICK);
-        i.setType("image/png");
-        startActivityForResult(i, requestCode);
+    private void handleSkinResult(Uri uri) {
+        if (uri == null) return;
+        Account sel = accountManager.getSelectedAccount();
+        if (sel == null) return;
+
+        boolean ok = skinManager.saveSkin(uri, sel.getId(), sel.getModelType());
+        if (ok) {
+            updatePreview();
+            Toast.makeText(this, "✅ Skin applied successfully!", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "❌ Invalid skin. Must be exactly 64x64 PNG", Toast.LENGTH_LONG).show();
+        }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK && data != null) {
-            Account sel = accountManager.getSelectedAccount();
-            if (sel == null) return;
+    private void handleCapeResult(Uri uri) {
+        if (uri == null) return;
+        Account sel = accountManager.getSelectedAccount();
+        if (sel == null) return;
 
-            if (requestCode == REQ_SKIN) {
-                boolean ok = skinManager.saveSkin(data.getData(), sel.getId(), sel.getModelType());
-                if (ok) {
-                    updatePreview();
-                    Toast.makeText(this, "Skin applied!", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(this, "Invalid skin. Use 64x64 PNG", Toast.LENGTH_SHORT).show();
-                }
-            } else if (requestCode == REQ_CAPE) {
-                boolean ok = skinManager.saveCape(data.getData(), sel.getId());
-                if (ok) Toast.makeText(this, "Cape applied!", Toast.LENGTH_SHORT).show();
-                else Toast.makeText(this, "Invalid cape. Use 64x32 PNG", Toast.LENGTH_SHORT).show();
-            }
+        boolean ok = skinManager.saveCape(uri, sel.getId());
+        if (ok) {
+            Toast.makeText(this, "✅ Cape applied successfully!", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "❌ Invalid cape. Must be exactly 64x32 PNG", Toast.LENGTH_LONG).show();
         }
     }
 
     private void resetToDefault() {
         Account sel = accountManager.getSelectedAccount();
         if (sel == null) return;
+        
         skinManager.deleteSkin(sel.getId(), sel.getModelType());
         skinManager.deleteCape(sel.getId());
         updatePreview();
-        Toast.makeText(this, "Reset to default", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "🔄 Reset to default appearance", Toast.LENGTH_SHORT).show();
     }
 
     private void showAddAccountDialog() {
-        // Same as before... (Keep your existing dialog code)
-        Toast.makeText(this, "Add Account Dialog", Toast.LENGTH_SHORT).show();
+        // Placeholder: You can integrate your existing dialog creation logic here
+        Toast.makeText(this, "Add Account Flow (Integrate your dialog here)", Toast.LENGTH_SHORT).show();
     }
 
-    // Adapter class (keep your existing AccountAdapter)
+    // ================= ADAPTER =================
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.VH> {
-        // ... (your existing adapter code)
+        public interface ClickListener {
+            void onSelect(Account account);
+            void onDelete(Account account);
+        }
+        private final ClickListener listener;
+        private List<Account> accounts = new ArrayList<>();
+
+        AccountAdapter(ClickListener listener) { this.listener = listener; }
+
+        void setAccounts(List<Account> accounts) {
+            this.accounts = accounts;
+            notifyDataSetChanged();
+        }
+
+        @Override public VH onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_account_list, parent, false);
+            return new VH(v);
+        }
+
+        @Override public void onBindViewHolder(VH holder, int position) {
+            Account acc = accounts.get(position);
+            holder.textName.setText(acc.getDisplayName());
+            holder.textType.setText(acc.getAccountTypeLabel());
+            holder.textEmail.setText(acc.isMicrosoft() ? acc.getEmail() : "Offline Mode");
+            holder.iconSelected.setVisibility(acc.isSelected() ? View.VISIBLE : View.GONE);
+            
+            holder.itemView.setOnClickListener(v -> listener.onSelect(acc));
+            holder.iconDelete.setOnClickListener(v -> listener.onDelete(acc));
+        }
+
+        @Override public int getItemCount() { return accounts.size(); }
+
+        static class VH extends RecyclerView.ViewHolder {
+            TextView textName, textType, textEmail;
+            ImageView iconSelected, iconDelete;
+            VH(View v) {
+                super(v);
+                textName = v.findViewById(R.id.textUsername);
+                textType = v.findViewById(R.id.textType);
+                textEmail = v.findViewById(R.id.textEmail);
+                iconSelected = v.findViewById(R.id.iconSelected);
+                iconDelete = v.findViewById(R.id.iconDelete);
+            }
+        }
     }
 }
