@@ -5,10 +5,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Log;
-
-// ✅ FIXED: Add this import for Account class
+import com.fearlauncher.app.R;
 import com.fearlauncher.app.model.Account;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -17,9 +15,8 @@ import java.io.IOException;
 public class SkinManager {
     
     private static final String TAG = "SkinManager";
-    private static final String SKINS_DIR = "minecraft_skins";
-    private static final int MAX_SKIN_SIZE = 64; // 64x64 pixels
-    private static final int MAX_FILE_SIZE = 256 * 1024; // 256 KB
+    private static final String DATA_DIR = "fearlauncher_data";
+    private static final int MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
     
     private final Context context;
     
@@ -27,132 +24,134 @@ public class SkinManager {
         this.context = context.getApplicationContext();
     }
     
-    // ✅ Validate and save uploaded skin
+    // ✅ Save Skin (64x64)
     public boolean saveSkin(Uri imageUri, String accountId, Account.ModelType modelType) {
-        try {
-            // 1. Validate file size
-            if (!isFileSizeValid(imageUri)) {
-                Log.e(TAG, "Skin file too large");
-                return false;
-            }
-            
-            // 2. Decode and validate dimensions
-            Bitmap skin = decodeAndValidateSkin(imageUri);
-            if (skin == null) {
-                Log.e(TAG, "Invalid skin dimensions or format");
-                return false;
-            }
-            
-            // 3. Create skins directory
-            File skinsDir = new File(context.getFilesDir(), SKINS_DIR);
-            if (!skinsDir.exists()) skinsDir.mkdirs();
-            
-            // 4. Save skin with account-specific name
-            String filename = accountId + "_" + modelType.name().toLowerCase() + ".png";
-            File skinFile = new File(skinsDir, filename);
-            
-            try (FileOutputStream fos = new FileOutputStream(skinFile)) {
-                skin.compress(Bitmap.CompressFormat.PNG, 100, fos);
-            }
-            
-            Log.i(TAG, "Skin saved: " + skinFile.getAbsolutePath());
-            return true;
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to save skin: " + e.getMessage());
-            return false;
-        }
+        Bitmap bmp = validateAndDecode(imageUri, 64, 64);
+        if (bmp == null) return false;
+        
+        String filename = accountId + "_skin_" + modelType.name().toLowerCase() + ".png";
+        return saveBitmapInternal(bmp, filename);
     }
     
-    // ✅ Load skin bitmap for preview
+    // ✅ Save Cape (64x32)
+    public boolean saveCape(Uri imageUri, String accountId) {
+        Bitmap bmp = validateAndDecode(imageUri, 64, 32);
+        if (bmp == null) return false;
+        
+        String filename = accountId + "_cape.png";
+        return saveBitmapInternal(bmp, filename);
+    }
+    
+    // ✅ Load Skin
     public Bitmap loadSkin(String accountId, Account.ModelType modelType) {
-        try {
-            File skinsDir = new File(context.getFilesDir(), SKINS_DIR);
-            String filename = accountId + "_" + modelType.name().toLowerCase() + ".png";
-            File skinFile = new File(skinsDir, filename);
-            
-            if (skinFile.exists()) {
-                return BitmapFactory.decodeFile(skinFile.getAbsolutePath());
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to load skin: " + e.getMessage());
-        }
-        return null;
+        String filename = accountId + "_skin_" + modelType.name().toLowerCase() + ".png";
+        return loadBitmapInternal(filename);
     }
     
-    // ✅ Delete skin
+    // ✅ Load Cape
+    public Bitmap loadCape(String accountId) {
+        String filename = accountId + "_cape.png";
+        return loadBitmapInternal(filename);
+    }
+    
+    // ✅ Delete Skin
     public boolean deleteSkin(String accountId, Account.ModelType modelType) {
-        try {
-            File skinsDir = new File(context.getFilesDir(), SKINS_DIR);
-            String filename = accountId + "_" + modelType.name().toLowerCase() + ".png";
-            File skinFile = new File(skinsDir, filename);
-            
-            if (skinFile.exists()) {
-                return skinFile.delete();
-            }
-            return true; // Already doesn't exist
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to delete skin: " + e.getMessage());
-            return false;
-        }
+        String filename = accountId + "_skin_" + modelType.name().toLowerCase() + ".png";
+        return deleteInternal(filename);
     }
     
-    // ✅ Get default skin resource ID based on model type
+    // ✅ Delete Cape
+    public boolean deleteCape(String accountId) {
+        return deleteInternal(accountId + "_cape.png");
+    }
+    
+    // ✅ Get Default Skin Resource
     public int getDefaultSkinResId(Account.ModelType modelType) {
         return modelType == Account.ModelType.ALEX 
-            ? com.fearlauncher.app.R.drawable.skin_alex_default 
-            : com.fearlauncher.app.R.drawable.skin_steve_default;
+            ? R.drawable.skin_alex_default 
+            : R.drawable.skin_steve_default;
     }
     
-    // 🔍 Private helpers
-    private boolean isFileSizeValid(Uri uri) {
-        try {
-            InputStream is = context.getContentResolver().openInputStream(uri);
-            if (is == null) return false;
-            
-            long size = is.available();
-            is.close();
-            return size <= MAX_FILE_SIZE;
-        } catch (IOException e) {
-            return false;
-        }
-    }
+    // ================= PRIVATE HELPERS =================
     
-    private Bitmap decodeAndValidateSkin(Uri uri) {
+    private Bitmap validateAndDecode(Uri uri, int reqWidth, int reqHeight) {
         try {
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            
+            // 1. Check file size
             InputStream is = context.getContentResolver().openInputStream(uri);
             if (is == null) return null;
-            
-            BitmapFactory.decodeStream(is, null, options);
+            long size = is.available();
             is.close();
-            
-            // Validate dimensions: must be 64x64 or 64x32 (legacy)
-            if (options.outWidth != MAX_SKIN_SIZE || 
-                (options.outHeight != MAX_SKIN_SIZE && options.outHeight != 32)) {
+            if (size > MAX_FILE_SIZE) {
+                Log.w(TAG, "File too large: " + size);
                 return null;
             }
             
-            // Decode actual bitmap
-            options.inJustDecodeBounds = false;
-            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-            
+            // 2. Check dimensions without loading full bitmap
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
             is = context.getContentResolver().openInputStream(uri);
-            Bitmap bitmap = BitmapFactory.decodeStream(is, null, options);
+            BitmapFactory.decodeStream(is, null, opts);
             if (is != null) is.close();
             
-            return bitmap;
+            if (opts.outWidth != reqWidth || opts.outHeight != reqHeight) {
+                Log.w(TAG, "Invalid dimensions: " + opts.outWidth + "x" + opts.outHeight);
+                return null;
+            }
+            
+            // 3. Decode actual bitmap
+            opts.inJustDecodeBounds = false;
+            opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            is = context.getContentResolver().openInputStream(uri);
+            Bitmap bmp = BitmapFactory.decodeStream(is, null, opts);
+            if (is != null) is.close();
+            
+            return bmp;
         } catch (Exception e) {
             Log.e(TAG, "Decode error: " + e.getMessage());
             return null;
         }
     }
     
-    // ✅ Convert skin to base64 for storage (optional)
-    public String skinToBase64(Bitmap skin) {
-        // Implementation optional - use for cloud sync
+    private boolean saveBitmapInternal(Bitmap bmp, String filename) {
+        try {
+            File dir = new File(context.getFilesDir(), DATA_DIR);
+            if (!dir.exists()) dir.mkdirs();
+            
+            File file = new File(dir, filename);
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            }
+            bmp.recycle(); // Free memory
+            Log.i(TAG, "Saved: " + file.getAbsolutePath());
+            return true;
+        } catch (IOException e) {
+            Log.e(TAG, "Save error: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    private Bitmap loadBitmapInternal(String filename) {
+        try {
+            File dir = new File(context.getFilesDir(), DATA_DIR);
+            File file = new File(dir, filename);
+            if (file.exists()) {
+                return BitmapFactory.decodeFile(file.getAbsolutePath());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Load error: " + e.getMessage());
+        }
         return null;
+    }
+    
+    private boolean deleteInternal(String filename) {
+        try {
+            File dir = new File(context.getFilesDir(), DATA_DIR);
+            File file = new File(dir, filename);
+            if (file.exists()) return file.delete();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Delete error: " + e.getMessage());
+            return false;
+        }
     }
 }
