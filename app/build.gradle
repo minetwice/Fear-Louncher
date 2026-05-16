@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.fearlouncher'
+    namespace 'com.fearlouncher.app'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.fearlouncher"
+        applicationId "com.fearlouncher.app"
         minSdk 24
         targetSdk 34
         versionCode 1
