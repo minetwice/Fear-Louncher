@@ -10,6 +10,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.model.Account;
+
+// ✅ FIXED: Add missing imports
+import java.util.ArrayList;
 import java.util.List;
 
 public class AccountDashboardActivity extends AppCompatActivity {
@@ -46,7 +49,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
             public void onSelect(Account account) {
                 accountManager.selectAccount(account.getId());
                 showToast("Selected: " + account.getUsername());
-                finish(); // Return to MainActivity
+                finish();
             }
 
             @Override
@@ -74,7 +77,6 @@ public class AccountDashboardActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Create Account");
 
-        // Custom dialog layout
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_add_account, null);
         builder.setView(dialogView);
 
@@ -88,7 +90,6 @@ public class AccountDashboardActivity extends AppCompatActivity {
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Local Account Creation
         btnCreate.setOnClickListener(v -> {
             String username = inputUsername.getText().toString().trim();
             String password = inputPassword.getText().toString().trim();
@@ -106,12 +107,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
             Account newAccount = new Account(username);
             
             if ("Premium".equals(accountType) && !inputEmail.getText().toString().isEmpty()) {
-                // For premium, we'd normally do Microsoft OAuth here
-                // For now, just mark it as Microsoft type
                 newAccount = new Account(username, inputEmail.getText().toString(), "", "", "");
             }
             
-            // Hash password for local accounts (basic security)
             if (!password.isEmpty() && newAccount.isLocal()) {
                 newAccount.setPasswordHash(AccountManager.hashPassword(password));
             }
@@ -126,10 +124,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
         });
 
-        // Microsoft Login Button (Placeholder)
         btnMicrosoft.setOnClickListener(v -> {
             showToast("Microsoft login coming soon!");
-            // TODO: Implement real Microsoft OAuth flow here
             dialog.dismiss();
         });
     }
@@ -155,10 +151,10 @@ public class AccountDashboardActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        loadAccounts(); // Refresh list when returning from other screens
+        loadAccounts();
     }
 
-    // ✅ Adapter for RecyclerView
+    // ✅ Adapter class
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.ViewHolder> {
         
         public interface AccountClickListener {
@@ -167,7 +163,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
 
         private final AccountClickListener listener;
-        private List<Account> accounts = new ArrayList<>();
+        private List<Account> accounts = new ArrayList<>(); // ✅ Now ArrayList is imported
 
         public AccountAdapter(AccountClickListener listener) {
             this.listener = listener;
@@ -217,12 +213,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
                 textEmail.setText(account.isMicrosoft() ? account.getEmail() : "Offline");
                 iconSelected.setVisibility(account.isSelected() ? View.VISIBLE : View.GONE);
                 
-                // Click to select
                 root.setOnClickListener(v -> listener.onSelect(account));
-                
-                // Long click or delete button to remove
                 iconDelete.setOnClickListener(v -> listener.onDelete(account));
             }
         }
     }
-                                        }
+}
