@@ -1,4 +1,4 @@
-package com.fearlouncher.app;
+package com.fearlauncher.app;
 
 import android.app.Dialog;
 import android.content.Intent;
@@ -16,9 +16,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import com.fearlouncher.auth.MicrosoftAuth;
-import com.fearlouncher.manager.AccountManager;
-import com.fearlouncher.model.Account;
+
+// ✅ FIXED: Correct package imports matching your folder structure
+import com.fearlauncher.app.auth.MicrosoftAuth;
+import com.fearlauncher.app.manager.AccountManager;
+import com.fearlauncher.app.model.Account;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -44,6 +46,8 @@ public class MainActivity extends AppCompatActivity {
         menuInstall = findViewById(R.id.menuInstall);
         menuMods = findViewById(R.id.menuMods);
         menuSettings = findViewById(R.id.menuSettings);
+        
+        // Note: Ensure your layout has android:id="@+id/menuAccount"
         menuAccount = findViewById(R.id.menuAccount);
 
         accountManager = AccountManager.getInstance(this);
@@ -73,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
                     showAccountDialog();
                 } else {
                     showToast("Launching Minecraft with: " + selected.getUsername());
-                    // TODO: Implement actual game launch logic here
                 }
             });
         }
@@ -113,14 +116,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleMenuAction(int viewId) {
-        String name = switch (viewId) {
-            case R.id.menuHome -> "Home";
-            case R.id.menuPlay -> "Play";
-            case R.id.menuInstall -> "Installations";
-            case R.id.menuMods -> "Mods";
-            case R.id.menuSettings -> "Settings";
-            default -> "";
-        };
+        String name;
+        if (viewId == R.id.menuHome) name = "Home";
+        else if (viewId == R.id.menuPlay) name = "Play";
+        else if (viewId == R.id.menuInstall) name = "Installations";
+        else if (viewId == R.id.menuMods) name = "Mods";
+        else if (viewId == R.id.menuSettings) name = "Settings";
+        else name = "";
+        
         if (!name.isEmpty()) showToast(name + " clicked");
     }
 
@@ -246,8 +249,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateUIForSelectedAccount() {
         Account selected = accountManager.getSelectedAccount();
-        // Optional: Update top bar username text if you add an ID for it
-        // TextView userText = findViewById(R.id.textUsername);
-        // if (userText != null) userText.setText(selected != null ? selected.getDisplayName() : "FearUser");
+        // Optional: Update UI with selected account name
     }
 }
