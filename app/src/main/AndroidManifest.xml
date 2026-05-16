@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:allowBackup="true"
@@ -14,8 +15,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FearLouncher"
         android:hardwareAccelerated="true"
-        android:requestLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true">
 
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,7 +27,6 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Main Launcher Intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -37,7 +39,32 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="fearlauncher" android:host="auth" android:path="/microsoft"/>
             </intent-filter>
-
         </activity>
+
+        <!-- Account Dashboard Activity -->
+        <activity
+            android:name=".AccountDashboardActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FearLouncher"
+            android:parentActivityName=".MainActivity"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".MainActivity"/>
+        </activity>
+
+        <!-- Optional: Microsoft Auth Callback Activity (if needed) -->
+        <activity
+            android:name=".auth.MicrosoftAuthCallbackActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="fearlauncher" android:host="auth" android:path="/microsoft"/>
+            </intent-filter>
+        </activity>
+
     </application>
 </manifest>
