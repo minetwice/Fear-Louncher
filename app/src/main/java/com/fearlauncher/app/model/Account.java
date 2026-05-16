@@ -5,35 +5,34 @@ import java.util.UUID;
 
 public class Account implements Serializable {
     
-    public enum AccountType {
-        LOCAL,      // Offline account
-        MICROSOFT   // Premium Microsoft account
-    }
+    public enum AccountType { LOCAL, MICROSOFT }
+    public enum ModelType { STEVE, ALEX } // Classic vs Slim arms
     
     private String id;
     private String username;
     private String email;
-    private String passwordHash;  // For local accounts (NOT plain text!)
-    private String accessToken;   // For Microsoft accounts
+    private String passwordHash;
+    private String accessToken;
     private String refreshToken;
-    private String uuid;          // Minecraft UUID (for premium)
+    private String uuid;
     private AccountType type;
+    private ModelType modelType; // ✅ NEW: Steve or Alex
+    private String skinPath;     // ✅ NEW: Local path to skin PNG
+    private String skinUrl;      // ✅ NEW: Remote skin URL (for premium)
     private long createdAt;
     private long lastUsed;
     private boolean isSelected;
-    private String skinUrl;       // Optional: player skin URL
     
-    // Constructor for Local Account
     public Account(String username) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
         this.type = AccountType.LOCAL;
+        this.modelType = ModelType.STEVE; // Default
         this.createdAt = System.currentTimeMillis();
         this.lastUsed = 0;
         this.isSelected = false;
     }
     
-    // Constructor for Microsoft Account
     public Account(String username, String email, String accessToken, String refreshToken, String uuid) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
@@ -42,6 +41,7 @@ public class Account implements Serializable {
         this.refreshToken = refreshToken;
         this.uuid = uuid;
         this.type = AccountType.MICROSOFT;
+        this.modelType = ModelType.STEVE;
         this.createdAt = System.currentTimeMillis();
         this.lastUsed = 0;
         this.isSelected = false;
@@ -59,15 +59,25 @@ public class Account implements Serializable {
     public String getRefreshToken() { return refreshToken; }
     public String getUuid() { return uuid; }
     public AccountType getType() { return type; }
+    
+    // ✅ NEW: Model Type
+    public ModelType getModelType() { return modelType; }
+    public void setModelType(ModelType type) { this.modelType = type; }
+    public boolean isSlimModel() { return modelType == ModelType.ALEX; }
+    
+    // ✅ NEW: Skin Management
+    public String getSkinPath() { return skinPath; }
+    public void setSkinPath(String path) { this.skinPath = path; }
+    public String getSkinUrl() { return skinUrl; }
+    public void setSkinUrl(String url) { this.skinUrl = url; }
+    public boolean hasCustomSkin() { return skinPath != null || skinUrl != null; }
+    
     public long getCreatedAt() { return createdAt; }
     public long getLastUsed() { return lastUsed; }
     public void setLastUsed(long time) { this.lastUsed = time; }
     public boolean isSelected() { return isSelected; }
     public void setSelected(boolean selected) { isSelected = selected; }
-    public String getSkinUrl() { return skinUrl; }
-    public void setSkinUrl(String url) { this.skinUrl = url; }
     
-    // Helper methods
     public boolean isMicrosoft() { return type == AccountType.MICROSOFT; }
     public boolean isLocal() { return type == AccountType.LOCAL; }
     
@@ -77,5 +87,9 @@ public class Account implements Serializable {
     
     public String getAccountTypeLabel() {
         return isMicrosoft() ? "Premium Account" : "Local Account";
+    }
+    
+    public String getModelLabel() {
+        return modelType == ModelType.ALEX ? "Alex (Slim)" : "Steve (Classic)";
     }
 }
