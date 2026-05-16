@@ -1,12 +1,11 @@
-package com.fearlouncher.model;
+package com.fearlauncher.app.model;
 
 import java.io.Serializable;
 import java.util.UUID;
 
 public class Account implements Serializable {
-    
     public enum AccountType { LOCAL, MICROSOFT }
-    
+
     private String id;
     private String username;
     private String email;
@@ -15,7 +14,7 @@ public class Account implements Serializable {
     private AccountType type;
     private long createdAt;
     private boolean isSelected;
-    
+
     public Account(String username) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
@@ -23,7 +22,7 @@ public class Account implements Serializable {
         this.createdAt = System.currentTimeMillis();
         this.isSelected = false;
     }
-    
+
     public Account(String username, String email, String accessToken, String refreshToken) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
@@ -34,7 +33,7 @@ public class Account implements Serializable {
         this.createdAt = System.currentTimeMillis();
         this.isSelected = false;
     }
-    
+
     public String getId() { return id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
