@@ -3,8 +3,8 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
@@ -51,19 +51,6 @@
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value=".MainActivity"/>
-        </activity>
-
-        <!-- Optional: Microsoft Auth Callback Activity (if needed) -->
-        <activity
-            android:name=".auth.MicrosoftAuthCallbackActivity"
-            android:exported="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="fearlauncher" android:host="auth" android:path="/microsoft"/>
-            </intent-filter>
         </activity>
 
     </application>
