@@ -1,257 +1,567 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:background="@drawable/bg_main">
+    android:background="@color/background">
 
     <!-- SIDEBAR -->
     <LinearLayout
-        android:layout_width="90dp"
+        android:layout_width="220dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="12dp"
-        android:background="@drawable/sidebar_bg">
+        android:background="@color/sidebar_bg"
+        android:padding="16dp">
 
-        <!-- LOGO -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="FL"
-            android:textColor="@color/primary"
-            android:textStyle="bold"
-            android:textSize="30sp"/>
-
-        <!-- MENU -->
+        <!-- Logo -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp">
 
-            <!-- HOME -->
-            <Button
-                android:id="@+id/homeButton"
-                android:layout_width="match_parent"
-                android:layout_height="55dp"
-                android:text="Home"
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:text="K"
+                android:textColor="@color/primary"
+                android:textSize="28sp"
                 android:textStyle="bold"
-                android:textColor="@color/black"
-                android:background="@drawable/play_button_bg"/>
+                android:gravity="center"/>
 
-            <!-- PLAY -->
-            <Button
-                android:id="@+id/playMenuButton"
-                android:layout_width="match_parent"
-                android:layout_height="55dp"
-                android:layout_marginTop="12dp"
-                android:text="Play"
-                android:textColor="@color/text"
-                android:background="@drawable/card_bg"/>
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
 
-            <!-- INSTALL -->
-            <Button
-                android:id="@+id/installButton"
-                android:layout_width="match_parent"
-                android:layout_height="55dp"
-                android:layout_marginTop="12dp"
-                android:text="Install"
-                android:textColor="@color/text"
-                android:background="@drawable/card_bg"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="KORAX"
+                    android:textColor="@color/text"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
 
-            <!-- MODS -->
-            <Button
-                android:id="@+id/modsButton"
-                android:layout_width="match_parent"
-                android:layout_height="55dp"
-                android:layout_marginTop="12dp"
-                android:text="Mods"
-                android:textColor="@color/text"
-                android:background="@drawable/card_bg"/>
-
-            <!-- SETTINGS -->
-            <Button
-                android:id="@+id/settingsButton"
-                android:layout_width="match_parent"
-                android:layout_height="55dp"
-                android:layout_marginTop="12dp"
-                android:text="Settings"
-                android:textColor="@color/text"
-                android:background="@drawable/card_bg"/>
-
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LAUNCHER"
+                    android:textColor="@color/primary"
+                    android:textSize="10sp"/>
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
 
-    <!-- MAIN CONTENT -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
+        <!-- Menu Items -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:layout_marginTop="24dp">
 
-            <!-- WELCOME -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Welcome Back"
-                android:textColor="@color/text"
-                android:textSize="18sp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="FearUser!"
-                android:textColor="@color/primary"
-                android:textStyle="bold"
-                android:textSize="34sp"/>
-
-            <!-- VERSION CARD -->
             <LinearLayout
+                android:id="@+id/menuHome"
                 android:layout_width="match_parent"
-                android:layout_height="90dp"
-                android:layout_marginTop="24dp"
-                android:background="@drawable/version_card_bg"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="18dp">
+                android:paddingHorizontal="16dp"
+                android:background="@drawable/menu_item_bg"
+                android:clickable="true"
+                android:focusable="true">
 
-                <LinearLayout
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_home"
+                    app:tint="@color/primary"/>
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Latest Version"
-                        android:textColor="@color/subtext"
-                        android:textSize="14sp"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1.21.5"
-                        android:textColor="@color/primary"
-                        android:textStyle="bold"
-                        android:textSize="26sp"/>
-
-                </LinearLayout>
+                    android:text="@string/home"
+                    android:textColor="@color/primary"
+                    android:textSize="14sp"
+                    android:layout_marginStart="16dp"/>
             </LinearLayout>
 
-            <!-- MAIN CARD -->
             <LinearLayout
+                android:id="@+id/menuPlay"
                 android:layout_width="match_parent"
-                android:layout_height="260dp"
-                android:layout_marginTop="24dp"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginTop="4dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_play"
+                    app:tint="@color/text_secondary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/play"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:layout_marginStart="16dp"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/menuInstall"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginTop="4dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_install"
+                    app:tint="@color/text_secondary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/installations"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:layout_marginStart="16dp"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/menuMods"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginTop="4dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_mods"
+                    app:tint="@color/text_secondary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/mods"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:layout_marginStart="16dp"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/menuSettings"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginTop="4dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_settings"
+                    app:tint="@color/text_secondary"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:layout_marginStart="16dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
+        <!-- User Profile -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp"
+            android:background="@drawable/card_bg">
+
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@color/card_bg"
+                android:padding="4dp"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:orientation="vertical"
-                android:padding="20dp"
-                android:background="@drawable/card_bg">
+                android:layout_marginStart="12dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="MINECRAFT"
+                    android:text="KoraxUser"
                     android:textColor="@color/text"
-                    android:textStyle="bold"
-                    android:textSize="38sp"/>
+                    android:textSize="14sp"
+                    android:textStyle="bold"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="YOUR WORLD YOUR ADVENTURE"
-                    android:textColor="@color/primary"
-                    android:textStyle="bold"
+                    android:text="Online"
+                    android:textColor="@color/success"
+                    android:textSize="12sp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Version -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Korax Launcher v1.0.0"
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:layout_marginTop="12dp"/>
+    </LinearLayout>
+
+    <!-- MAIN CONTENT -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- Top Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="24dp"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/welcome_back"
+                    android:textColor="@color/text"
                     android:textSize="18sp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Play Minecraft Java Edition on Android with smooth performance and advanced launcher support."
-                    android:textColor="@color/subtext"
-                    android:textSize="14sp"/>
+                    android:text="@string/username"
+                    android:textColor="@color/primary"
+                    android:textSize="28sp"
+                    android:textStyle="bold"/>
 
-                <!-- PLAY BUTTON -->
-                <Button
-                    android:id="@+id/playButton"
-                    android:layout_width="190dp"
-                    android:layout_height="60dp"
-                    android:layout_marginTop="30dp"
-                    android:text="PLAY NOW"
-                    android:textStyle="bold"
-                    android:textColor="@color/black"
-                    android:background="@drawable/play_button_bg"/>
-
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ready_text"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:layout_marginTop="4dp"/>
             </LinearLayout>
 
-            <!-- QUICK ACTIONS -->
+            <!-- Version Card -->
+            <LinearLayout
+                android:layout_width="200dp"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/card_bg"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@color/card_bg"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/latest_version"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/version_number"
+                        android:textColor="@color/primary"
+                        android:textSize="20sp"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/release"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Scrollable Content -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingHorizontal="24dp">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:orientation="horizontal">
+                android:orientation="vertical">
 
-                <!-- MODS CARD -->
+                <!-- Main Banner -->
                 <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="140dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="280dp"
+                    android:background="@drawable/card_bg"
                     android:orientation="vertical"
-                    android:padding="18dp"
-                    android:background="@drawable/card_bg">
+                    android:padding="32dp"
+                    android:gravity="center_vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Mods"
+                        android:text="MINECRAFT"
                         android:textColor="@color/text"
-                        android:textStyle="bold"
-                        android:textSize="20sp"/>
+                        android:textSize="42sp"
+                        android:textStyle="bold"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Manage Fabric &amp; Forge mods"
-                        android:textColor="@color/subtext"/>
+                        android:text="@string/tagline"
+                        android:textColor="@color/primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/description"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp"
+                        android:layout_marginTop="12dp"
+                        android:maxWidth="400dp"/>
+
+                    <Button
+                        android:id="@+id/btnPlayNow"
+                        android:layout_width="180dp"
+                        android:layout_height="50dp"
+                        android:text="@string/play_now"
+                        android:textColor="@color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/button_primary_bg"
+                        android:layout_marginTop="24dp"
+                        android:elevation="4dp"/>
                 </LinearLayout>
 
-                <!-- SETTINGS CARD -->
+                <!-- Three Column Layout -->
                 <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="140dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:orientation="vertical"
-                    android:padding="18dp"
-                    android:background="@drawable/card_bg">
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="24dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <!-- Recent Installations -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="Settings"
-                        android:textColor="@color/text"
-                        android:textStyle="bold"
-                        android:textSize="20sp"/>
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@drawable/card_bg"
+                        android:padding="20dp"
+                        android:layout_marginEnd="12dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/recent_installations"
+                                android:textColor="@color/text"
+                                android:textSize="16sp"
+                                android:textStyle="bold"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/view_all"
+                                android:textColor="@color/primary"
+                                android:textSize="12sp"/>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginTop="16dp">
+
+                            <include layout="@layout/item_installation"/>
+                            <include layout="@layout/item_installation"/>
+                            <include layout="@layout/item_installation"/>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- News & Updates -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Controls, Java &amp; Renderer"
-                        android:textColor="@color/subtext"/>
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@drawable/card_bg"
+                        android:padding="20dp"
+                        android:layout_marginHorizontal="6dp">
 
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/news_updates"
+                                android:textColor="@color/text"
+                                android:textSize="16sp"
+                                android:textStyle="bold"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/view_all"
+                                android:textColor="@color/primary"
+                                android:textSize="12sp"/>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginTop="16dp">
+
+                            <include layout="@layout/item_news"/>
+                            <include layout="@layout/item_news"/>
+                            <include layout="@layout/item_news"/>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Quick Actions -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@drawable/card_bg"
+                        android:padding="20dp"
+                        android:layout_marginStart="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/quick_actions"
+                            android:textColor="@color/text"
+                            android:textSize="16sp"
+                            android:textStyle="bold"/>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginTop="16dp">
+
+                            <include layout="@layout/item_quick_action"/>
+                            <include layout="@layout/item_quick_action"/>
+                            <include layout="@layout/item_quick_action"/>
+                            <include layout="@layout/item_quick_action"/>
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
-
             </LinearLayout>
+        </ScrollView>
 
+        <!-- Bottom Status Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:background="@color/sidebar_bg"
+            android:orientation="horizontal"
+            android:paddingHorizontal="24dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/card_bg"
+                android:padding="6dp"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/no_tasks"
+                    android:textColor="@color/text"
+                    android:textSize="14sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/up_to_date"
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp"/>
+            </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </LinearLayout>
 </LinearLayout>
