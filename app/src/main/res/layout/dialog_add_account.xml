@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/card_bg">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Create New Account"
+        android:textColor="@color/text"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp"/>
+
+    <!-- Account Type -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Account Type"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp"/>
+
+    <Spinner
+        android:id="@+id/accountTypeSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@drawable/card_bg"
+        android:paddingHorizontal="12dp"
+        android:entries="@array/account_types"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Username -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Username"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp"/>
+
+    <EditText
+        android:id="@+id/inputUsername"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:hint="Enter username"
+        android:textColor="@color/text"
+        android:textColorHint="@color/text_muted"
+        android:background="@drawable/card_bg"
+        android:paddingHorizontal="16dp"
+        android:inputType="textPersonName"
+        android:maxLines="1"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Email (for Premium) -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Email (Premium only)"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp"/>
+
+    <EditText
+        android:id="@+id/inputEmail"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:hint="your@email.com"
+        android:textColor="@color/text"
+        android:textColorHint="@color/text_muted"
+        android:background="@drawable/card_bg"
+        android:paddingHorizontal="16dp"
+        android:inputType="textEmailAddress"
+        android:maxLines="1"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Password -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Password (Local only)"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp"/>
+
+    <EditText
+        android:id="@+id/inputPassword"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:hint="••••••••"
+        android:textColor="@color/text"
+        android:textColorHint="@color/text_muted"
+        android:background="@drawable/card_bg"
+        android:paddingHorizontal="16dp"
+        android:inputType="textPassword"
+        android:maxLines="1"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btnMicrosoft"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Sign in with Microsoft"
+            android:textSize="13sp"
+            android:background="@drawable/button_secondary_bg"
+            android:textColor="@color/text"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/btnCreate"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Create Local"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/button_primary_bg"
+            android:textColor="@color/black"/>
+    </LinearLayout>
+
+</LinearLayout>
