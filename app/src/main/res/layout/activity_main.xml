@@ -2,39 +2,240 @@
 
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
 
     android:layout_width="match_parent"
     android:layout_height="match_parent"
 
-    android:orientation="vertical"
-
-    android:gravity="center"
+    android:orientation="horizontal"
 
     android:background="@drawable/bg_main">
 
-    <TextView
-        android:id="@+id/titleText"
+    <!-- SIDEBAR -->
 
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <LinearLayout
+        android:layout_width="90dp"
+        android:layout_height="match_parent"
 
-        android:text="FearLauncher"
+        android:orientation="vertical"
 
-        android:textColor="@color/text_primary"
+        android:padding="12dp"
 
-        android:textSize="32sp"
+        android:background="@drawable/sidebar_bg">
 
-        android:textStyle="bold"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
 
-    <Button
-        android:id="@+id/launchButton"
+            android:text="FL"
 
-        android:layout_width="220dp"
-        android:layout_height="55dp"
+            android:textColor="@color/accent"
 
-        android:layout_marginTop="30dp"
+            android:textStyle="bold"
 
-        android:text="@string/launch"/>
+            android:textSize="30sp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
+            android:layout_marginTop="30dp"
+
+            android:orientation="vertical">
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+
+                android:text="Home"
+
+                android:textColor="#000000"
+
+                android:background="@drawable/play_button_bg"/>
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+
+                android:text="Play"
+
+                android:textColor="@color/text"
+
+                android:layout_marginTop="12dp"
+
+                android:background="@drawable/card_bg"/>
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+
+                android:text="Mods"
+
+                android:textColor="@color/text"
+
+                android:layout_marginTop="12dp"
+
+                android:background="@drawable/card_bg"/>
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+
+                android:text="Settings"
+
+                android:textColor="@color/text"
+
+                android:layout_marginTop="12dp"
+
+                android:background="@drawable/card_bg"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- MAIN CONTENT -->
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
+            android:orientation="vertical"
+
+            android:padding="20dp">
+
+            <!-- TOP TEXT -->
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+
+                android:text="Welcome Back"
+
+                android:textColor="@color/text"
+
+                android:textSize="18sp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+
+                android:text="FearUser!"
+
+                android:textColor="@color/accent"
+
+                android:textStyle="bold"
+
+                android:textSize="34sp"/>
+
+            <!-- VERSION CARD -->
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="90dp"
+
+                android:layout_marginTop="24dp"
+
+                android:background="@drawable/version_card_bg"
+
+                android:gravity="center_vertical"
+
+                android:padding="18dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+
+                        android:text="Latest Version"
+
+                        android:textColor="@color/subtext"
+
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+
+                        android:text="1.21.5"
+
+                        android:textColor="@color/accent"
+
+                        android:textStyle="bold"
+
+                        android:textSize="26sp"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- MAIN CARD -->
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="260dp"
+
+                android:layout_marginTop="24dp"
+
+                android:orientation="vertical"
+
+                android:padding="20dp"
+
+                android:background="@drawable/card_bg">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+
+                    android:text="MINECRAFT"
+
+                    android:textColor="@color/text"
+
+                    android:textStyle="bold"
+
+                    android:textSize="38sp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+
+                    android:layout_marginTop="12dp"
+
+                    android:text="YOUR WORLD YOUR ADVENTURE"
+
+                    android:textColor="@color/accent"
+
+                    android:textStyle="bold"
+
+                    android:textSize="18sp"/>
+
+                <Button
+                    android:id="@+id/playButton"
+
+                    android:layout_width="190dp"
+                    android:layout_height="60dp"
+
+                    android:layout_marginTop="30dp"
+
+                    android:text="PLAY NOW"
+
+                    android:textStyle="bold"
+
+                    android:textColor="#000000"
+
+                    android:background="@drawable/play_button_bg"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
 
 </LinearLayout>
