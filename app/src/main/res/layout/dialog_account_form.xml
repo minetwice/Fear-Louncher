@@ -7,6 +7,7 @@
     android:background="@drawable/card_bg"
     android:padding="20dp">
 
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -35,6 +36,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"/>
     </LinearLayout>
 
+    <!-- Tabs -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
@@ -67,6 +69,7 @@
             android:layout_marginStart="4dp"/>
     </LinearLayout>
 
+    <!-- Local Form -->
     <LinearLayout
         android:id="@+id/formLocal"
         android:layout_width="match_parent"
@@ -114,6 +117,7 @@
             android:background="@drawable/button_primary_bg"/>
     </LinearLayout>
 
+    <!-- Microsoft Form -->
     <LinearLayout
         android:id="@+id/formMicrosoft"
         android:layout_width="match_parent"
@@ -138,10 +142,11 @@
             android:textSize="12sp"
             android:layout_marginBottom="4dp"/>
 
+        <!-- ✅ FIXED: & changed to &amp; -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="• Sync skins, worlds & achievements"
+            android:text="• Sync skins, worlds &amp; achievements"
             android:textColor="@color/text_secondary"
             android:textSize="12sp"
             android:layout_marginBottom="20dp"/>
@@ -166,6 +171,7 @@
             android:layout_marginTop="12dp"/>
     </LinearLayout>
 
+    <!-- Loading & Error -->
     <ProgressBar
         android:id="@+id/progressLoading"
         android:layout_width="32dp"
