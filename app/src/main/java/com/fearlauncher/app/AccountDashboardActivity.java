@@ -7,7 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup; // ✅ FIXED: Added missing import
+import android.view.ViewGroup;
 import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -15,7 +15,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.manager.SkinManager;
 import com.fearlauncher.app.model.Account;
@@ -47,8 +46,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
         accountManager = AccountManager.getInstance(this);
         skinManager = new SkinManager(this);
         
-        initViews();        setupAdapter();
-        loadAccounts();
+        initViews();
+        setupAdapter();        loadAccounts();
         safeUpdatePreview();
     }
 
@@ -96,8 +95,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
     private void safeUpdatePreview() {
         try {
-            Account selected = accountManager.getSelectedAccount();            if (selected == null || characterPreview == null) return;
-
+            Account selected = accountManager.getSelectedAccount();
+            if (selected == null || characterPreview == null) return;
             Bitmap skin = skinManager.loadSkin(selected.getId(), selected.getModelType());
             if (skin == null) {
                 int defaultRes = skinManager.getDefaultSkinResId(selected.getModelType());
@@ -110,18 +109,31 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
     }
 
+    // ✅ FIXED METHOD: Ab ye ModelType enum pass karega, JSON string nahi
     private void switchModel(String type) {
         Account selected = accountManager.getSelectedAccount();
-        if (selected == null) return;
+        if (selected == null) {
+            Toast.makeText(this, "Select account first", Toast.LENGTH_SHORT).show();
+            return;
+        }
         try {
+            // String ko ModelType enum mein convert karo
             Account.ModelType newType = "alex".equals(type) ? Account.ModelType.ALEX : Account.ModelType.STEVE;
+            
+            // Account update karo
             selected.setModelType(newType);
             accountManager.updateAccount(selected);
-            if (characterPreview != null) characterPreview.switchModel("models/" + type + ".json");
+            
+            // ✅ FIXED: CharacterPreviewView ko ENUM pass karo
+            if (characterPreview != null) {
+                characterPreview.switchModel(newType);
+            }
+            
             safeUpdatePreview();
-            Toast.makeText(this, "Switched: " + type, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             e.printStackTrace();
+            Toast.makeText(this, "Failed to switch model", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -133,8 +145,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
         if (btnAlex != null) {
             btnAlex.setBackgroundResource(isAlex ? R.drawable.menu_item_bg : android.R.color.transparent);
-        }
-    }
+        }    }
 
     private void showCustomizeMenu() {
         new AlertDialog.Builder(this)
@@ -145,12 +156,20 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }).show();
     }
 
-    private void handleSkinUpload(Uri uri) {        if (uri == null) return;
+    private void handleSkinUpload(Uri uri) {
+        if (uri == null) return;
         Account selected = accountManager.getSelectedAccount();
-        if (selected == null) return;
+        if (selected == null) {
+            Toast.makeText(this, "Select account first", Toast.LENGTH_SHORT).show();
+            return;
+        }
         boolean ok = skinManager.saveSkin(uri, selected.getId(), selected.getModelType());
-        if (ok) { safeUpdatePreview(); Toast.makeText(this, "Skin applied", Toast.LENGTH_SHORT).show(); }
-        else Toast.makeText(this, "Invalid skin", Toast.LENGTH_LONG).show();
+        if (ok) { 
+            safeUpdatePreview(); 
+            Toast.makeText(this, "Skin applied", Toast.LENGTH_SHORT).show(); 
+        } else {
+            Toast.makeText(this, "Invalid skin", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void resetDefault() {
@@ -173,7 +192,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = input.getText().toString().trim();
-            if (name.length() < 3) { Toast.makeText(this, "3+ chars", Toast.LENGTH_SHORT).show(); return; }
+            if (name.length() < 3) { 
+                Toast.makeText(this, "3+ chars", Toast.LENGTH_SHORT).show(); 
+                return;             }
             Account acc = new Account(name);
             if (accountManager.addAccount(acc)) {
                 accountManager.selectAccount(acc.getId());
@@ -194,7 +215,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
         private List<Account> data = new ArrayList<>();
         
         AccountAdapter(ClickListener l) { listener = l; }
-        void setAccounts(List<Account> a) { data = a; notifyDataSetChanged(); }        
+        void setAccounts(List<Account> a) { data = a; notifyDataSetChanged(); }
+        
         @Override public VH onCreateViewHolder(ViewGroup p, int t) {
             return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false));
         }
@@ -220,4 +242,4 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
         }
     }
-    }
+        }
