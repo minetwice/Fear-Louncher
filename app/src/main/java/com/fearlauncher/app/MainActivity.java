@@ -11,13 +11,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.model.Account;
+import java.io.File;
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
 
     // Bottom Navigation Views
     private LinearLayout menuHome, menuPlay, menuInstall, menuMods, menuSettings, menuAccount;
     
-    // UI Views
+    // UI Elements
     private TextView textUsername;
     private Button btnPlayNow;
     
@@ -29,84 +31,75 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize manager
         accountManager = AccountManager.getInstance(this);
         
-        // Setup UI
         initViews();
-        setupClickListeners();
-        selectMenuItem(menuHome); // Default selection
-        updateUsernameDisplay();
+        setupNavigation();
+        selectMenuItem(menuHome);
+        updateUI();
     }
 
     private void initViews() {
-        // Bottom Navigation
         menuHome = findViewById(R.id.menuHome);
         menuPlay = findViewById(R.id.menuPlay);
         menuInstall = findViewById(R.id.menuInstall);
         menuMods = findViewById(R.id.menuMods);
         menuSettings = findViewById(R.id.menuSettings);
         menuAccount = findViewById(R.id.menuAccount);
-                // Top Bar & Main Content
+        
         textUsername = findViewById(R.id.textUsername);
         btnPlayNow = findViewById(R.id.btnPlayNow);
     }
 
-    private void setupClickListeners() {
-        // Common click handler for navigation items
+    private void setupNavigation() {
         View.OnClickListener navClick = v -> {
-            resetAllMenus();
+            resetMenus();
             selectMenuItem((LinearLayout) v);
-            handleNavigation(v.getId());
+            handleNavClick(v.getId());
         };
 
-        // Assign click listeners
         if (menuHome != null) menuHome.setOnClickListener(navClick);
         if (menuPlay != null) menuPlay.setOnClickListener(navClick);
+        
         if (menuInstall != null) menuInstall.setOnClickListener(v -> {
-            resetAllMenus();
+            resetMenus();
             selectMenuItem(menuInstall);
             startActivity(new Intent(this, VersionsActivity.class));
         });
+        
         if (menuMods != null) menuMods.setOnClickListener(navClick);
         if (menuSettings != null) menuSettings.setOnClickListener(navClick);
+        
         if (menuAccount != null) menuAccount.setOnClickListener(v -> {
-            resetAllMenus();
+            resetMenus();
             selectMenuItem(menuAccount);
-            // Open account dashboard or dialog
-            showAccountOptions();
+            startActivity(new Intent(this, AccountDashboardActivity.class));
         });
 
-        // Play Now Button
         if (btnPlayNow != null) {
-            btnPlayNow.setOnClickListener(v -> launchMinecraft());
+            btnPlayNow.setOnClickListener(v -> attemptLaunchGame());
         }
     }
 
-    private void handleNavigation(int viewId) {
-        String action = "";
-        if (viewId == R.id.menuHome) action = "Home";
-        else if (viewId == R.id.menuPlay) action = "Play";
-        else if (viewId == R.id.menuMods) action = "Mods";
-        else if (viewId == R.id.menuSettings) action = "Settings";
-        
-        if (!action.isEmpty()) {
-            Toast.makeText(this, action + " section", Toast.LENGTH_SHORT).show();
-            // TODO: Implement fragment navigation or screen transitions here
+    private void handleNavClick(int viewId) {
+        String msg = "";
+        if (viewId == R.id.menuHome) msg = "Home";
+        else if (viewId == R.id.menuPlay) msg = "Play";
+        else if (viewId == R.id.menuMods) msg = "Mods (Coming Soon)";
+        else if (viewId == R.id.menuSettings) msg = "Settings (Coming Soon)";
+        if (!msg.isEmpty()) {
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void selectMenuItem(LinearLayout selected) {        if (selected == null) return;
-        
-        // Apply selected state with glass shine + red border
+    private void selectMenuItem(LinearLayout selected) {
+        if (selected == null) return;
         selected.setBackgroundResource(R.drawable.menu_item_glass);
         selected.setSelected(true);
-        
-        // Update text/icon colors
         updateMenuColors(selected, true);
     }
 
-    private void resetAllMenus() {
+    private void resetMenus() {
         LinearLayout[] menus = {menuHome, menuPlay, menuInstall, menuMods, menuSettings, menuAccount};
         for (LinearLayout menu : menus) {
             if (menu != null) {
@@ -118,81 +111,60 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMenuColors(LinearLayout menu, boolean isSelected) {
-        int textColor = isSelected ? 
-            ContextCompat.getColor(this, R.color.primary) : 
-            ContextCompat.getColor(this, R.color.text_secondary);
-        
+        int color = isSelected ? R.color.primary : R.color.text_secondary;
         for (int i = 0; i < menu.getChildCount(); i++) {
             View child = menu.getChildAt(i);
             if (child instanceof TextView) {
-                ((TextView) child).setTextColor(textColor);
+                ((TextView) child).setTextColor(ContextCompat.getColor(this, color));
             }
-            // If you have ImageView icons, uncomment below:
-            // else if (child instanceof ImageView) {
-            //     ((ImageView) child).setColorFilter(textColor);
-            // }
         }
     }
 
-    private void updateUsernameDisplay() {
+    private void updateUI() {
         Account selected = accountManager.getSelectedAccount();
-        String displayName = (selected != null) ? selected.getDisplayName() : "Guest";
-        
         if (textUsername != null) {
-            textUsername.setText(displayName);
+            textUsername.setText(selected != null ? selected.getDisplayName() : "Guest");
         }
     }
 
-    private void launchMinecraft() {
+    private void attemptLaunchGame() {
         Account selected = accountManager.getSelectedAccount();
-                if (selected == null) {
+        if (selected == null) {
             Toast.makeText(this, "⚠️ Please select an account first", Toast.LENGTH_LONG).show();
-            showAccountOptions();
+            startActivity(new Intent(this, AccountDashboardActivity.class));
             return;
         }
-        
-        // Check if Minecraft version is installed
-        // TODO: Integrate with VersionManager to check installed versions
-        boolean isInstalled = true; // Placeholder - replace with actual check
-        
-        if (!isInstalled) {
-            Toast.makeText(this, "📦 Minecraft not installed. Go to Install section.", Toast.LENGTH_LONG).show();
+
+        // Check if any version is actually downloaded
+        if (!isAnyVersionInstalled()) {
+            Toast.makeText(this, "📦 No versions installed. Go to Install section to download.", Toast.LENGTH_LONG).show();
             startActivity(new Intent(this, VersionsActivity.class));
             return;
         }
+
+        // ✅ Safe Launch Trigger (Replace with real JVM/LWJGL launch later)
+        Toast.makeText(this, "🚀 Launching Minecraft with: " + selected.getUsername(), Toast.LENGTH_LONG).show();
         
-        // Update last used timestamp
-        selected.setLastUsed(System.currentTimeMillis());
-        accountManager.updateAccount(selected);
-        
-        // Launch Minecraft (placeholder - implement actual launch logic)
-        Toast.makeText(this, "🎮 Launching Minecraft with: " + selected.getUsername(), Toast.LENGTH_LONG).show();
-        
-        // TODO: Actual launch code here:
-        // 1. Get installed version path from VersionManager
-        // 2. Get Java runtime path
-        // 3. Build and execute Minecraft command
-        // 4. Handle process output/errors
+        // TODO: Integrate real launcher core (PojavLauncher/OpenJ9/LWJGL-Android)
     }
 
-    private void showAccountOptions() {
-        // Simple account selection - replace with your AccountDashboardActivity
-        Account selected = accountManager.getSelectedAccount();
+    private boolean isAnyVersionInstalled() {
+        File versionsDir = new File(getFilesDir(), "minecraft/versions");
+        if (!versionsDir.exists()) return false;
         
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("👤 Account")
-            .setMessage("Selected: " + (selected != null ? selected.getUsername() : "None") + 
-                       "\n\nTap OK to manage accounts")
-            .setPositiveButton("Manage", (d, w) -> {
-                startActivity(new Intent(this, AccountDashboardActivity.class));
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
+        File[] versionFolders = versionsDir.listFiles(File::isDirectory);
+        if (versionFolders == null) return false;
+        
+        for (File folder : versionFolders) {
+            File marker = new File(folder, ".installed");
+            if (marker.exists()) return true;
+        }
+        return false;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh username display in case account changed
-        updateUsernameDisplay();    }
+        updateUI();
+    }
 }
