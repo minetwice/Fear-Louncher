@@ -19,14 +19,19 @@ public class CharacterPreviewView extends View {
     private final Rect srcRect = new Rect();
     private final RectF dstRect = new RectF();
     
-    private ArrayList<RenderCube> renderCubes = new ArrayList<>();
+    private ArrayList<CubeData> cubes = new ArrayList<>();
     private boolean isModelLoaded = false;
 
-    static class RenderCube {
+    static class CubeData {
         float x, y, z, w, h, d;
         int u, v;
         float inflate;
         int depthSort;
+        CubeData(float x, float y, float z, float w, float h, float d, int u, int v, float inflate) {
+            this.x=x; this.y=y; this.z=z; this.w=w; this.h=h; this.d=d;
+            this.u=u; this.v=v; this.inflate=inflate;
+            this.depthSort = (int)(z * 100);
+        }
     }
 
     public CharacterPreviewView(Context context) { super(context); init(); }
@@ -37,34 +42,32 @@ public class CharacterPreviewView extends View {
         loadModel("models/steve.json");
     }
 
-    // ✅ FIXED: Sirf 1 parameter accept karega (Bitmap)
     public void setSkin(Bitmap skin) {
         this.skinTexture = skin;
         invalidate();
     }
 
-    public void switchModel(String fileName) {
-        loadModel(fileName);
+    public void switchModel(String fileName) {        loadModel(fileName);
         invalidate();
     }
+
     private void loadModel(String fileName) {
-        renderCubes.clear();
+        cubes.clear();
         try {
             InputStream is = getContext().getAssets().open(fileName);
             byte[] buffer = new byte[is.available()];
             is.read(buffer);
             is.close();
             String json = new String(buffer, "UTF-8");
-            parseMinecraftJSON(json);
+            parseAndBuildCubes(json);
             isModelLoaded = true;
         } catch (Exception e) {
             e.printStackTrace();
+            isModelLoaded = false;
         }
     }
 
-    // ✅ FIXED: Sirf EK baar define kiya hai (duplicate hata diya)
-    private void parseMinecraftJSON(String json) throws Exception {
-        renderCubes.clear();
+    private void parseAndBuildCubes(String json) throws Exception {
         JSONObject root = new JSONObject(json);
         JSONArray geometries = root.getJSONArray("minecraft:geometry");
         if (geometries.length() == 0) return;
@@ -72,47 +75,49 @@ public class CharacterPreviewView extends View {
         JSONObject geo = geometries.getJSONObject(0);
         JSONArray bones = geo.getJSONArray("bones");
 
-        Map<String, float[]> absPos = new HashMap<>();
-        absPos.put("root", new float[]{0,0,0});
+        // Map to store absolute pivot positions
+        Map<String, float[]> absPivot = new HashMap<>();
+        absPivot.put("root", new float[]{0,0,0});
 
+        // First pass: calculate absolute pivots
         for (int i = 0; i < bones.length(); i++) {
             JSONObject b = bones.getJSONObject(i);
             String name = b.getString("name");
             String parent = b.optString("parent", "root");
             JSONObject pivot = b.optJSONObject("pivot");
-            float[] pPos = absPos.getOrDefault(parent, new float[]{0,0,0});
-            absPos.put(name, new float[]{
-                pPos[0] + (float) pivot.optDouble("x", 0),
-                pPos[1] + (float) pivot.optDouble("y", 0),
-                pPos[2] + (float) pivot.optDouble("z", 0)
-            });
+            float px = (float) pivot.optDouble("x", 0);
+            float py = (float) pivot.optDouble("y", 0);
+            float pz = (float) pivot.optDouble("z", 0);
+            
+            float[] pPos = absPivot.getOrDefault(parent, new float[]{0,0,0});
+            absPivot.put(name, new float[]{pPos[0]+px, pPos[1]+py, pPos[2]+pz});
         }
 
+        // Second pass: extract cubes with absolute positions
         for (int i = 0; i < bones.length(); i++) {
             JSONObject b = bones.getJSONObject(i);
-            String name = b.getString("name");
-            float[] pos = absPos.getOrDefault(name, new float[]{0,0,0});
-            JSONArray cubes = b.optJSONArray("cubes");
-            if (cubes == null) continue;
+            String name = b.getString("name");            float[] pos = absPivot.getOrDefault(name, new float[]{0,0,0});
+            JSONArray boneCubes = b.optJSONArray("cubes");
+            if (boneCubes == null) continue;
 
-            for (int j = 0; j < cubes.length(); j++) {
-                JSONObject c = cubes.getJSONObject(j);                JSONObject orig = c.getJSONObject("origin");
+            for (int j = 0; j < boneCubes.length(); j++) {
+                JSONObject c = boneCubes.getJSONObject(j);
+                JSONObject orig = c.getJSONObject("origin");
                 JSONObject size = c.getJSONObject("size");
                 JSONObject uv = c.getJSONObject("uv");
                 float inf = (float) c.optDouble("inflate", 0);
 
-                RenderCube rc = new RenderCube();
-                rc.x = (float) orig.optDouble("x") + pos[0];
-                rc.y = (float) orig.optDouble("y") + pos[1];
-                rc.z = (float) orig.optDouble("z") + pos[2];
-                rc.w = (float) size.optDouble("x");
-                rc.h = (float) size.optDouble("y");
-                rc.d = (float) size.optDouble("z");
-                rc.u = uv.optInt("u");
-                rc.v = uv.optInt("v");
-                rc.inflate = inf;
-                rc.depthSort = (int)(rc.z * 100);
-                renderCubes.add(rc);
+                cubes.add(new CubeData(
+                    (float)orig.optDouble("x") + pos[0],
+                    (float)orig.optDouble("y") + pos[1],
+                    (float)orig.optDouble("z") + pos[2],
+                    (float)size.optDouble("x"),
+                    (float)size.optDouble("y"),
+                    (float)size.optDouble("z"),
+                    uv.optInt("u"),
+                    uv.optInt("v"),
+                    inf
+                ));
             }
         }
     }
@@ -120,24 +125,28 @@ public class CharacterPreviewView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (!isModelLoaded || skinTexture == null || renderCubes.isEmpty()) return;
+        if (!isModelLoaded || cubes.isEmpty()) {
+            // Fallback debug grid if model fails
+            drawDebugGrid(canvas);
+            return;
+        }
 
         float cx = getWidth() / 2f;
         float cy = getHeight() / 2f;
-        float scale = Math.min(getWidth(), getHeight()) / 90f;
+        float scale = Math.min(getWidth(), getHeight()) / 80f;
 
         canvas.translate(cx, cy);
         canvas.scale(scale, scale);
         canvas.rotate(rotationY, 0, 0);
 
-        renderCubes.sort((a, b) -> Integer.compare(a.depthSort, b.depthSort));
+        // Sort back-to-front
+        cubes.sort(Comparator.comparingInt(c -> c.depthSort));
 
-        for (RenderCube cube : renderCubes) {
-            drawCube3D(canvas, cube);
+        for (CubeData c : cubes) {
+            drawCube(canvas, c);
         }
     }
-
-    private void drawCube3D(Canvas canvas, RenderCube c) {
+    private void drawCube(Canvas canvas, CubeData c) {
         float ox = c.x - c.inflate;
         float oy = c.y - c.inflate;
         float oz = c.z - c.inflate;
@@ -145,11 +154,14 @@ public class CharacterPreviewView extends View {
         float h = c.h + c.inflate * 2;
         float d = c.d + c.inflate * 2;
 
-        float px = ox - oz * 0.5f;        float py = -oy - oz * 0.3f;
+        // Isometric projection: X right, Y up (flipped for canvas), Z depth
+        float px = ox - oz * 0.5f;
+        float py = -oy - oz * 0.3f;
 
-        drawFace(canvas, px, py, w, h, c.u, c.v, (int)w, (int)h);
-        drawFace(canvas, px, py - h, w, d, c.u, c.v + (int)h, (int)w, (int)d);
-        drawFace(canvas, px + w, py, d, h, c.u + (int)w, c.v, (int)d, (int)h);
+        // Draw 3 visible faces
+        drawFace(canvas, px, py, w, h, c.u, c.v, (int)w, (int)h);       // Front
+        drawFace(canvas, px, py - h, w, d, c.u, c.v + (int)h, (int)w, (int)d); // Top
+        drawFace(canvas, px + w, py, d, h, c.u + (int)w, c.v, (int)d, (int)h); // Right
     }
 
     private void drawFace(Canvas canvas, float x, float y, float w, float h, int u, int v, int tw, int th) {
@@ -164,6 +176,15 @@ public class CharacterPreviewView extends View {
         canvas.drawBitmap(skinTexture, srcRect, dstRect, paint);
     }
 
+    private void drawDebugGrid(Canvas canvas) {
+        paint.setColor(Color.RED);
+        paint.setStrokeWidth(2f);
+        canvas.drawLine(-50, 0, 50, 0, paint);
+        canvas.drawLine(0, -50, 0, 50, paint);
+        paint.setColor(Color.WHITE);
+        canvas.drawText("Model Loading...", -40, -10, paint);
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
@@ -173,8 +194,7 @@ public class CharacterPreviewView extends View {
             case MotionEvent.ACTION_MOVE:
                 rotationY += (event.getX() - lastTouchX) * 0.5f;
                 lastTouchX = event.getX();
-                invalidate();
-                return true;
+                invalidate();                return true;
         }
         return super.onTouchEvent(event);
     }
