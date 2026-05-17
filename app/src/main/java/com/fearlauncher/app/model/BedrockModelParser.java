@@ -6,25 +6,31 @@ import java.util.*;
 
 public class BedrockModelParser {
 
+    // ===== UV Mapping =====
     public static class FaceUV {
         public int u, v, w, h;
-        public FaceUV(int u, int v, int w, int h) { this.u=u; this.v=v; this.w=w; this.h=h; }
+        public FaceUV(int u, int v, int w, int h) {
+            this.u = u; this.v = v; this.w = w; this.h = h;
+        }
     }
 
+    // ===== Cube Definition =====
     public static class Cube {
-        public float ox, oy, oz, sx, sy, sz, inflate;
+        public float ox, oy, oz;
+        public float sx, sy, sz;
+        public float inflate;
         public Map<String, FaceUV> faces = new HashMap<>();
     }
 
+    // ===== Bone Definition =====
     public static class Bone {
         public String name;
         public String parent;
         public float px, py, pz;
-        public boolean mirror = false; // ✅ FIXED: Added missing field
+        public boolean mirror = false;
         public List<Cube> cubes = new ArrayList<>();
         public List<Bone> children = new ArrayList<>();
 
-        // ✅ FIXED: Added explicit constructor
         public Bone(String name, String parent, float px, float py, float pz) {
             this.name = name;
             this.parent = parent;
@@ -32,22 +38,23 @@ public class BedrockModelParser {
         }
     }
 
+    // ===== Model Container =====
     public static class Model {
         public String identifier;
         public Bone root;
         public Map<String, Bone> bones = new HashMap<>();
     }
 
-    // ✅ HELPER: Finds values ignoring trailing/leading spaces in keys
+    // ===== Helper: Get value ignoring trailing spaces in keys =====
     private static Object getRawValue(JSONObject obj, String targetKey) {
-        try {
-            Iterator<String> it = obj.keys();
-            while (it.hasNext()) {
-                String k = it.next();
-                if (k != null && k.trim().equals(targetKey)) {
-                    return obj.get(k);
+        try {            Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (key != null && key.trim().equals(targetKey)) {
+                    return obj.get(key);
                 }
-            }        } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
         return null;
     }
 
@@ -81,22 +88,23 @@ public class BedrockModelParser {
         return (val instanceof JSONArray) ? (JSONArray) val : null;
     }
 
-    // ✅ MAIN PARSE FUNCTION
+    // ===== MAIN PARSE FUNCTION =====
     public static Model parse(String json) {
+        Model model = null;
         try {
             JSONObject rootJson = new JSONObject(json);
             JSONArray geometries = getArr(rootJson, "minecraft:geometry");
             if (geometries == null || geometries.length() == 0) return null;
 
-            JSONObject geo = geometries.getJSONObject(0);
-            JSONObject desc = getObj(geo, "description");
-            Model model = new Model();
+            JSONObject geo = geometries.getJSONObject(0);            JSONObject desc = getObj(geo, "description");
+            model = new Model();
             model.identifier = getStr(desc, "identifier");
 
             JSONArray bonesJson = getArr(geo, "bones");
             if (bonesJson == null) return model;
 
-            // 1. Create Bones            for (int i = 0; i < bonesJson.length(); i++) {
+            // 1. Create all bones first
+            for (int i = 0; i < bonesJson.length(); i++) {
                 JSONObject b = bonesJson.getJSONObject(i);
                 String name = getStr(b, "name");
                 String parent = getStr(b, "parent");
@@ -107,7 +115,7 @@ public class BedrockModelParser {
                 model.bones.put(name, new Bone(name, parent, px, py, pz));
             }
 
-            // 2. Add Cubes & Build Hierarchy
+            // 2. Add cubes & build hierarchy
             for (int i = 0; i < bonesJson.length(); i++) {
                 JSONObject b = bonesJson.getJSONObject(i);
                 String name = getStr(b, "name");
@@ -130,38 +138,39 @@ public class BedrockModelParser {
                         cube.sz = size != null ? (float) size.optDouble(2, 0) : 0;
                         cube.inflate = (float) c.optDouble("inflate", 0);
 
-                        // Parse UVs
+                        // Parse UVs for each face
                         JSONObject uvObj = getObj(c, "uv");
                         if (uvObj != null) {
                             String[] dirs = {"north", "east", "south", "west", "up", "down"};
                             for (String dir : dirs) {
                                 JSONObject face = getObj(uvObj, dir);
                                 if (face != null) {
-                                    JSONArray uvArr = getArr(face, "uv");
-                                    JSONArray sizeArr = getArr(face, "uv_size");
+                                    JSONArray uvArr = getArr(face, "uv");                                    JSONArray sizeArr = getArr(face, "uv_size");
                                     if (uvArr != null && sizeArr != null) {
                                         cube.faces.put(dir, new FaceUV(
-                                            (int) uvArr.optDouble(0), (int) uvArr.optDouble(1),
-                                            (int) sizeArr.optDouble(0), (int) sizeArr.optDouble(1)
+                                            (int) uvArr.optDouble(0),
+                                            (int) uvArr.optDouble(1),
+                                            (int) sizeArr.optDouble(0),
+                                            (int) sizeArr.optDouble(1)
                                         ));
                                     }
-                                }                            }
+                                }
+                            }
                         }
                         bone.cubes.add(cube);
                     }
                 }
 
-                // Parent linking
+                // Link parent-child
                 if (bone.parent != null && model.bones.containsKey(bone.parent)) {
                     model.bones.get(bone.parent).children.add(bone);
                 } else if (bone.parent == null || "root".equals(bone.parent)) {
                     model.root = bone;
                 }
             }
-            return model;
         } catch (Exception e) {
             e.printStackTrace();
-            return null;
         }
+        return model;
     }
 }
