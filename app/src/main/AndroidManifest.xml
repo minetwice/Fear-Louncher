@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.fearlauncher.app">
 
-    <!-- Network & Storage Permissions -->
+    <!-- Network & Storage Permissions (Required for downloading versions/assets) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
@@ -11,17 +11,18 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="FearLauncher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.FearLouncher"
+        android:theme="@style/Theme.FearLouncher.Clean"
         android:usesCleartextTraffic="true">
 
-        <!-- ✅ Main Launcher Screen -->
+        <!-- ✅ Clean Main Activity (Entry Point, No Menus) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.FearLouncher.Clean">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -32,13 +33,13 @@
         <activity
             android:name=".AccountDashboardActivity"
             android:exported="false"
-            android:theme="@style/Theme.FearLouncher"/>
+            android:theme="@style/Theme.FearLouncher.Clean"/>
 
         <!-- ✅ Version Downloader Screen -->
         <activity
             android:name=".VersionsActivity"
             android:exported="false"
-            android:theme="@style/Theme.FearLouncher"
+            android:theme="@style/Theme.FearLouncher.Clean"
             android:parentActivityName=".MainActivity"/>
 
     </application>
