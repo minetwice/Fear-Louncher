@@ -29,12 +29,16 @@ public class MainActivity extends AppCompatActivity {
 
     // Menu Views
     private LinearLayout menuHome, menuPlay, menuInstall, menuMods, menuSettings, menuAccount;
+    
+    // Managers
     private AccountManager accountManager;
     private MicrosoftAuth microsoftAuth;
     private SkinManager skinManager;
+    
+    // Dialog
     private Dialog accountDialog;
 
-    // Character Preview Views
+    // Character Preview & UI Views
     private TextView textUsername, textCharacterName, textSkinInfo;
     private CharacterPreviewView characterPreview;
     private Button btnModelSteve, btnModelAlex, btnUploadSkin;
@@ -44,7 +48,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         initViews();
         setupClickListeners();
         selectMenuItem(menuHome);
@@ -52,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViews() {
+        // Bottom Navigation
         menuHome = findViewById(R.id.menuHome);
         menuPlay = findViewById(R.id.menuPlay);
         menuInstall = findViewById(R.id.menuInstall);
@@ -59,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         menuSettings = findViewById(R.id.menuSettings);
         menuAccount = findViewById(R.id.menuAccount);
 
+        // Character Preview Section
         textUsername = findViewById(R.id.textUsername);
         textCharacterName = findViewById(R.id.textCharacterName);
         characterPreview = findViewById(R.id.characterPreview);
@@ -67,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
         btnUploadSkin = findViewById(R.id.btnUploadSkin);
         textSkinInfo = findViewById(R.id.textSkinInfo);
 
+        // Initialize Managers
         accountManager = AccountManager.getInstance(this);
         microsoftAuth = new MicrosoftAuth();
         skinManager = new SkinManager(this);
@@ -87,11 +93,15 @@ public class MainActivity extends AppCompatActivity {
         if (menuAccount != null) menuAccount.setOnClickListener(v -> openAccountDashboard());
 
         View playNowBtn = findViewById(R.id.btnPlayNow);
-        if (playNowBtn != null) playNowBtn.setOnClickListener(v -> launchMinecraft());
+        if (playNowBtn != null) {
+            playNowBtn.setOnClickListener(v -> launchMinecraft());
+        }
+        // Model Toggles
+        if (btnModelSteve != null) btnModelSteve.setOnClickListener(v -> setModelType(ModelType.STEVE));
+        if (btnModelAlex != null) btnModelAlex.setOnClickListener(v -> setModelType(ModelType.ALEX));
 
-        btnModelSteve.setOnClickListener(v -> setModelType(ModelType.STEVE));
-        btnModelAlex.setOnClickListener(v -> setModelType(ModelType.ALEX));
-        btnUploadSkin.setOnClickListener(v -> pickSkinImage());
+        // Skin Upload
+        if (btnUploadSkin != null) btnUploadSkin.setOnClickListener(v -> pickSkinImage());
     }
 
     private void selectMenuItem(LinearLayout selected) {
@@ -119,8 +129,11 @@ public class MainActivity extends AppCompatActivity {
 
         for (int i = 0; i < menu.getChildCount(); i++) {
             View child = menu.getChildAt(i);
-            if (child instanceof TextView) ((TextView) child).setTextColor(color);
-            else if (child instanceof ImageView) ((ImageView) child).setColorFilter(color);
+            if (child instanceof TextView) {
+                ((TextView) child).setTextColor(color);
+            } else if (child instanceof ImageView) {
+                ((ImageView) child).setColorFilter(color);
+            }
         }
     }
 
@@ -132,7 +145,7 @@ public class MainActivity extends AppCompatActivity {
         else if (viewId == R.id.menuMods) name = getString(R.string.menu_mods);
         else if (viewId == R.id.menuSettings) name = getString(R.string.menu_settings);
         else name = "";
-        if (!name.isEmpty()) showToast(name + " clicked");
+                if (!name.isEmpty()) showToast(name + " clicked");
     }
 
     private void openAccountDashboard() {
@@ -169,29 +182,38 @@ public class MainActivity extends AppCompatActivity {
     private void loadCharacterPreview(Account account) {
         Bitmap skin = skinManager.loadSkin(account.getId(), account.getModelType());
         if (skin != null) {
-            characterPreview.setSkin(skin, account.getModelType());
+            characterPreview.setSkin(skin);
             textSkinInfo.setText("Custom skin loaded ✓");
         } else {
             int defaultRes = skinManager.getDefaultSkinResId(account.getModelType());
             Bitmap defaultSkin = BitmapFactory.decodeResource(getResources(), defaultRes);
-            characterPreview.setSkin(defaultSkin, account.getModelType());
+            if (defaultSkin != null) {
+                characterPreview.setSkin(defaultSkin);
+            }
             textSkinInfo.setText("Using default " + account.getModelLabel());
         }
     }
 
-    private void setModelType(ModelType type) {
-        Account selected = accountManager.getSelectedAccount();
-        if (selected == null) return;
+    private void setModelType(ModelType type) {        Account selected = accountManager.getSelectedAccount();
+        if (selected == null) {
+            showToast("Please select an account first");
+            return;
+        }
         
         selected.setModelType(type);
         accountManager.updateAccount(selected);
+        
+        String jsonFile = type == ModelType.ALEX ? "models/alex.json" : "models/steve.json";
+        characterPreview.switchModel(jsonFile);
+        
         updateModelToggle(selected);
         loadCharacterPreview(selected);
         showToast("Model changed: " + selected.getModelLabel());
     }
 
     private void updateModelToggle(Account account) {
-        if (account == null) return;
+        if (account == null || btnModelSteve == null || btnModelAlex == null) return;
+        
         boolean isAlex = account.getModelType() == ModelType.ALEX;
         
         btnModelSteve.setTextColor(isAlex ? getColor(R.color.text_secondary) : getColor(R.color.primary));
@@ -209,7 +231,6 @@ public class MainActivity extends AppCompatActivity {
         }
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/png");
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/png"});
         startActivityForResult(intent, REQUEST_PICK_SKIN);
     }
 
@@ -222,9 +243,8 @@ public class MainActivity extends AppCompatActivity {
                 boolean success = skinManager.saveSkin(data.getData(), selected.getId(), selected.getModelType());
                 if (success) {
                     loadCharacterPreview(selected);
-                    showToast("Skin uploaded successfully!");
-                } else {
-                    showToast("Invalid skin. Must be 64x64 PNG");
+                    showToast("Skin uploaded successfully!");                } else {
+                    showToast("Invalid skin. Must be exactly 64x64 PNG");
                 }
             }
         }
@@ -232,22 +252,26 @@ public class MainActivity extends AppCompatActivity {
 
     private void showQuickAccountDialog() {
         if (accountDialog != null && accountDialog.isShowing()) return;
+
         accountDialog = new Dialog(this);
         accountDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         accountDialog.setContentView(R.layout.dialog_account_form);
         accountDialog.setCancelable(true);
+
         Window window = accountDialog.getWindow();
         if (window != null) {
             window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
             window.setGravity(Gravity.BOTTOM);
             window.setWindowAnimations(R.style.SlideUpAnimation);
         }
+
         setupAccountDialogViews(accountDialog);
         accountDialog.show();
     }
 
     private void setupAccountDialogViews(Dialog dialog) {
         dialog.findViewById(R.id.btnClose).setOnClickListener(v -> dialog.dismiss());
+
         Button tabLocal = dialog.findViewById(R.id.tabLocal);
         Button tabMicrosoft = dialog.findViewById(R.id.tabMicrosoft);
         LinearLayout formLocal = dialog.findViewById(R.id.formLocal);
@@ -268,8 +292,7 @@ public class MainActivity extends AppCompatActivity {
             tabLocal.setTextColor(getColor(R.color.text_secondary));
             tabLocal.setBackgroundResource(android.R.color.transparent);
             formMicrosoft.setVisibility(View.VISIBLE);
-            formLocal.setVisibility(View.GONE);
-        });
+            formLocal.setVisibility(View.GONE);        });
 
         EditText inputUsername = dialog.findViewById(R.id.inputUsername);
         dialog.findViewById(R.id.btnCreateLocal).setOnClickListener(v -> {
@@ -318,8 +341,7 @@ public class MainActivity extends AppCompatActivity {
                             accountDialog.findViewById(R.id.progressLoading).setVisibility(View.GONE);
                             accountDialog.findViewById(R.id.btnSignInMicrosoft).setEnabled(true);
                         }
-                    });
-                }
+                    });                }
             });
         }
     }
@@ -342,4 +364,4 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         updateUIForSelectedAccount();
     }
-}
+    }
