@@ -1,21 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Standard Colors -->
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-
-    <!-- App Backgrounds -->
-    <color name="background">#0a0a0f</color>
+    <color name="primary">#E53935</color>
+    <color name="primary_dark">#B71C1C</color>
+    <color name="primary_glow">#FF5252</color>
+    <color name="background">#0A0A0F</color>
     <color name="sidebar_bg">#121218</color>
-    <color name="card_bg">#1a1a25</color>
-
-    <!-- Text Colors -->
-    <color name="text">#ffffff</color>
-    <color name="text_secondary">#888888</color>
+    <color name="card_bg">#1A1A25</color>
+    <color name="text">#FFFFFF</color>
+    <color name="text_secondary">#AAAAAA</color>
     <color name="text_muted">#555555</color>
-
-    <!-- Accent & Status -->
-    <color name="primary">#adff2f</color>
-    <color name="success">#00ff88</color>
-    <color name="divider">#2a2a35</color>
+    <color name="success">#4CAF50</color>
+    <color name="divider">#2A2A35</color>
 </resources>
