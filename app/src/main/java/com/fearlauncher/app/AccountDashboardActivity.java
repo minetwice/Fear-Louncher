@@ -65,14 +65,18 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
     private void setupRecyclerView() {
         accountsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new AccountAdapter(account -> {
-            accountManager.selectAccount(account.getId());
-            updatePreview();
-            finish();
-        }, account -> {
-            accountManager.deleteAccount(account.getId());
-            loadAccounts();
-            updatePreview();
+        // ✅ FIXED: Proper anonymous class for ClickListener
+        adapter = new AccountAdapter(new AccountAdapter.ClickListener() {
+            @Override public void onSelect(Account account) {
+                accountManager.selectAccount(account.getId());
+                updatePreview();
+                finish();
+            }
+            @Override public void onDelete(Account account) {
+                accountManager.deleteAccount(account.getId());
+                loadAccounts();
+                updatePreview();
+            }
         });
         accountsRecyclerView.setAdapter(adapter);
     }
@@ -92,11 +96,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
             characterPreview.setSkin(skin);
         } else {
             int defRes = skinManager.getDefaultSkinResId(sel.getModelType());
-            Bitmap defSkin = BitmapFactory.decodeResource(getResources(), defRes);
-            if (defSkin != null) characterPreview.setSkin(defSkin);
+            Bitmap defSkin = BitmapFactory.decodeResource(getResources(), defRes);            if (defSkin != null) characterPreview.setSkin(defSkin);
         }
         
-        boolean isAlex = sel.getModelType() == Account.ModelType.ALEX;        btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
+        boolean isAlex = sel.getModelType() == Account.ModelType.ALEX;
+        btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
         btnAlex.setBackgroundResource(isAlex ? R.drawable.menu_item_bg : android.R.color.transparent);
     }
 
@@ -141,11 +145,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private void showCreateAccountDialog() {
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_create_account, null);
         EditText inputUsername = dialogView.findViewById(R.id.inputUsername);
-        
-        AlertDialog dialog = new AlertDialog.Builder(this)
+                AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Create Account")
             .setView(dialogView)
-            .setPositiveButton("Create", null)            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Create", null)
+            .setNegativeButton("Cancel", null)
             .create();
         
         dialog.show();
@@ -169,31 +173,41 @@ public class AccountDashboardActivity extends AppCompatActivity {
         });
     }
 
-    // Minimal Adapter
+    // ✅ Adapter with proper constructor
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.VH> {
-        interface Listener { void onSelect(Account a); void onDelete(Account a); }
-        private final Listener listener;
+        public interface ClickListener {
+            void onSelect(Account account);
+            void onDelete(Account account);
+        }
+        private final ClickListener listener;
         private List<Account> accounts = new ArrayList<>();
 
-        AccountAdapter(Listener l) { listener = l; }
-        void setAccounts(List<Account> a) { accounts = a; notifyDataSetChanged(); }
-
-        @Override public VH onCreateViewHolder(ViewGroup p, int t) {
-            View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false);
-            return new VH(v);
+        // ✅ Constructor accepts ClickListener interface
+        public AccountAdapter(ClickListener listener) {
+            this.listener = listener;
         }
 
-        @Override public void onBindViewHolder(VH h, int i) {
-            Account a = accounts.get(i);
-            h.textName.setText(a.getDisplayName());
-            h.textType.setText(a.getAccountTypeLabel());
-            h.textEmail.setText(a.isMicrosoft() ? a.getEmail() : "Offline");
-            h.iconSelected.setVisibility(a.isSelected() ? View.VISIBLE : View.GONE);
-            h.itemView.setOnClickListener(v -> listener.onSelect(a));
-            h.iconDelete.setOnClickListener(v -> listener.onDelete(a));
+        public void setAccounts(List<Account> accounts) {
+            this.accounts = accounts;
+            notifyDataSetChanged();
+        }
+
+        @Override public VH onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_account_list, parent, false);
+            return new VH(v);        }
+
+        @Override public void onBindViewHolder(VH holder, int position) {
+            Account acc = accounts.get(position);
+            holder.textName.setText(acc.getDisplayName());
+            holder.textType.setText(acc.getAccountTypeLabel());
+            holder.textEmail.setText(acc.isMicrosoft() ? acc.getEmail() : "Offline");
+            holder.iconSelected.setVisibility(acc.isSelected() ? View.VISIBLE : View.GONE);
+            holder.itemView.setOnClickListener(v -> listener.onSelect(acc));
+            holder.iconDelete.setOnClickListener(v -> listener.onDelete(acc));
         }
 
         @Override public int getItemCount() { return accounts.size(); }
+
         static class VH extends RecyclerView.ViewHolder {
             TextView textName, textType, textEmail;
             ImageView iconSelected, iconDelete;
