@@ -15,9 +15,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-// ✅ FIXED: Added missing import
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.manager.SkinManager;
 import com.fearlauncher.app.model.Account;
@@ -32,9 +30,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private TextView emptyText;
     private ImageButton btnSteve, btnAlex;
     private ImageView btnMenuOptions;
-    
-    // ✅ Now using imported class correctly
-    private FloatingActionButton btnAddAccount; 
+    private FloatingActionButton btnAddAccount;
     
     private AccountManager accountManager;
     private SkinManager skinManager;
@@ -47,11 +43,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account_dashboard);
-                accountManager = AccountManager.getInstance(this);
+        
+        accountManager = AccountManager.getInstance(this);
         skinManager = new SkinManager(this);
         
-        initViews();
-        setupAdapter();
+        initViews();        setupAdapter();
         loadAccounts();
         safeUpdatePreview();
     }
@@ -82,9 +78,17 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
             @Override
             public void onDelete(Account account) {
-                accountManager.deleteAccount(account.getId());
-                loadAccounts();
-                safeUpdatePreview();
+                new AlertDialog.Builder(AccountDashboardActivity.this)
+                    .setTitle("Delete Account")
+                    .setMessage("Delete \"" + account.getUsername() + "\"?")
+                    .setPositiveButton("Delete", (d, w) -> {
+                        accountManager.deleteAccount(account.getId());
+                        skinManager.deleteSkin(account.getId(), account.getModelType());
+                        loadAccounts();
+                        safeUpdatePreview();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
             }
         });
         accountsRecyclerView.setAdapter(adapter);
@@ -92,11 +96,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
     private void loadAccounts() {
         List<Account> list = accountManager.getAllAccounts();
-        if (adapter != null) adapter.setAccounts(list);
-        boolean isEmpty = (list == null || list.isEmpty());
+        if (adapter != null) adapter.setAccounts(list);        boolean isEmpty = (list == null || list.isEmpty());
         if (accountsRecyclerView != null) accountsRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         if (emptyText != null) emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
+
     private void safeUpdatePreview() {
         try {
             Account selected = accountManager.getSelectedAccount();
@@ -114,7 +118,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // ✅ FIXED: Pass ModelType enum, not JSON string
+    // ✅ FIXED: Passes ModelType enum, not JSON path
     private void switchModel(String type) {
         Account selected = accountManager.getSelectedAccount();
         if (selected == null) {
@@ -125,9 +129,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
             Account.ModelType newType = "alex".equals(type) ? Account.ModelType.ALEX : Account.ModelType.STEVE;
             selected.setModelType(newType);
             accountManager.updateAccount(selected);
+            
             if (characterPreview != null) {
                 characterPreview.switchModel(newType);
             }
+            
             safeUpdatePreview();
             Toast.makeText(this, "Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
@@ -139,13 +145,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private void updateToggleButtons(Account selected) {
         if (selected == null) return;
         boolean isAlex = selected.getModelType() == Account.ModelType.ALEX;
-        if (btnSteve != null) {
-            btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
-        }
-        if (btnAlex != null) {
-            btnAlex.setBackgroundResource(isAlex ? R.drawable.menu_item_bg : android.R.color.transparent);
-        }
+        if (btnSteve != null) btnSteve.setSelected(!isAlex); // Triggers glass shine        if (btnAlex != null) btnAlex.setSelected(isAlex);    // Triggers glass shine
     }
+
     private void showCustomizeMenu() {
         new AlertDialog.Builder(this)
             .setTitle("Customize")
@@ -192,9 +194,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = input.getText().toString().trim();
             if (name.length() < 3) { 
-                Toast.makeText(this, "3+ chars", Toast.LENGTH_SHORT).show(); 
-                return; 
-            }            Account acc = new Account(name);
+                Toast.makeText(this, "3+ chars", Toast.LENGTH_SHORT).show();                 return; 
+            }
+            Account acc = new Account(name);
             if (accountManager.addAccount(acc)) {
                 accountManager.selectAccount(acc.getId());
                 loadAccounts();
