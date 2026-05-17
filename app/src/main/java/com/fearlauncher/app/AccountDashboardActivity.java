@@ -15,6 +15,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+// ✅ FIXED: Added missing import
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.manager.SkinManager;
 import com.fearlauncher.app.model.Account;
@@ -29,7 +32,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private TextView emptyText;
     private ImageButton btnSteve, btnAlex;
     private ImageView btnMenuOptions;
-    private FloatingActionButton btnAddAccount;
+    
+    // ✅ Now using imported class correctly
+    private FloatingActionButton btnAddAccount; 
     
     private AccountManager accountManager;
     private SkinManager skinManager;
@@ -42,12 +47,12 @@ public class AccountDashboardActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account_dashboard);
-        
-        accountManager = AccountManager.getInstance(this);
+                accountManager = AccountManager.getInstance(this);
         skinManager = new SkinManager(this);
         
         initViews();
-        setupAdapter();        loadAccounts();
+        setupAdapter();
+        loadAccounts();
         safeUpdatePreview();
     }
 
@@ -92,11 +97,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (accountsRecyclerView != null) accountsRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         if (emptyText != null) emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
-
     private void safeUpdatePreview() {
         try {
             Account selected = accountManager.getSelectedAccount();
             if (selected == null || characterPreview == null) return;
+
             Bitmap skin = skinManager.loadSkin(selected.getId(), selected.getModelType());
             if (skin == null) {
                 int defaultRes = skinManager.getDefaultSkinResId(selected.getModelType());
@@ -109,7 +114,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // ✅ FIXED METHOD: Ab ye ModelType enum pass karega, JSON string nahi
+    // ✅ FIXED: Pass ModelType enum, not JSON string
     private void switchModel(String type) {
         Account selected = accountManager.getSelectedAccount();
         if (selected == null) {
@@ -117,18 +122,12 @@ public class AccountDashboardActivity extends AppCompatActivity {
             return;
         }
         try {
-            // String ko ModelType enum mein convert karo
             Account.ModelType newType = "alex".equals(type) ? Account.ModelType.ALEX : Account.ModelType.STEVE;
-            
-            // Account update karo
             selected.setModelType(newType);
             accountManager.updateAccount(selected);
-            
-            // ✅ FIXED: CharacterPreviewView ko ENUM pass karo
             if (characterPreview != null) {
                 characterPreview.switchModel(newType);
             }
-            
             safeUpdatePreview();
             Toast.makeText(this, "Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
@@ -145,8 +144,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
         if (btnAlex != null) {
             btnAlex.setBackgroundResource(isAlex ? R.drawable.menu_item_bg : android.R.color.transparent);
-        }    }
-
+        }
+    }
     private void showCustomizeMenu() {
         new AlertDialog.Builder(this)
             .setTitle("Customize")
@@ -194,8 +193,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
             String name = input.getText().toString().trim();
             if (name.length() < 3) { 
                 Toast.makeText(this, "3+ chars", Toast.LENGTH_SHORT).show(); 
-                return;             }
-            Account acc = new Account(name);
+                return; 
+            }            Account acc = new Account(name);
             if (accountManager.addAccount(acc)) {
                 accountManager.selectAccount(acc.getId());
                 loadAccounts();
@@ -242,4 +241,4 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
         }
     }
-        }
+}
