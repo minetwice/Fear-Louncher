@@ -7,4 +7,21 @@
 
     <TextView
         android:layout_width="wrap_content"
-        android:layout_height
+        android:layout_height="wrap_content"
+        android:text="Enter Username"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp"/>
+
+    <EditText
+        android:id="@+id/inputUsername"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:hint="Steve or Alex"
+        android:textColor="@color/text"
+        android:textColorHint="@color/text_muted"
+        android:background="@drawable/card_bg"
+        android:paddingHorizontal="16dp"
+        android:inputType="textPersonName"
+        android:maxLines="1"/>
+</LinearLayout>
