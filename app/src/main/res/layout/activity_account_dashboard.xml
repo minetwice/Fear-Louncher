@@ -12,14 +12,15 @@
         android:layout_height="60dp"
         android:orientation="horizontal"
         android:background="@color/sidebar_bg"
-        android:paddingHorizontal="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:gravity="center_vertical">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Account & Preview"
+            android:text="Account and Preview"
             android:textColor="@color/text"
             android:textSize="20sp"
             android:textStyle="bold"/>
@@ -46,8 +47,7 @@
 
     <!-- Model Toggle (Head Icons) -->
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
         android:layout_marginBottom="16dp">
@@ -78,7 +78,8 @@
         android:textColor="@color/text"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:paddingHorizontal="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:paddingBottom="8dp"/>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -86,7 +87,8 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="16dp"/>
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"/>
 
     <!-- Add Account Button -->
     <Button
@@ -94,7 +96,6 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:text="+ Create New Account"
-        android:textColor="@color/black"
-        android:background="@drawable/button_primary_bg"
+        android:textColor="@color/black"        android:background="@drawable/button_primary_bg"
         android:layout_margin="16dp"/>
 </LinearLayout>
