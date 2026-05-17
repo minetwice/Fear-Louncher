@@ -1,119 +1,157 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/background"
     android:animateLayoutChanges="true">
 
-    <!-- Header -->
-    <LinearLayout
+    <!-- AppBar -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:orientation="horizontal"
-        android:background="@color/sidebar_bg"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:gravity="center_vertical">
+        android:layout_height="wrap_content"
+        android:background="@color/sidebar_bg">
 
-        <TextView
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Account and Preview"
-            android:textColor="@color/text"
-            android:textSize="20sp"
-            android:textStyle="bold"/>
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
 
-        <ImageView
-            android:id="@+id/btnMenuOptions"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@android:drawable/ic_menu_more"
-            android:tint="@color/text_secondary"
-            android:padding="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Menu"/>
-    </LinearLayout>
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Account and Preview"
+                android:textColor="@color/text"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
 
-    <!-- 3D Preview Card -->
-    <com.fearlauncher.app.view.CharacterPreviewView
-        android:id="@+id/characterPreview"
+            <ImageButton
+                android:id="@+id/btnMenuOptions"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_more"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Menu"
+                android:tint="@color/text_secondary"/>
+        </LinearLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Main Scrollable Content -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="220dp"
-        android:background="@drawable/card_bg"
-        android:layout_margin="16dp"/>
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-    <!-- Model Toggle -->
-    <LinearLayout
-        android:layout_width="match_parent"        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginBottom="16dp">
+        <LinearLayout
+            android:layout_width="match_parent"            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <ImageButton
-            android:id="@+id/btnSteve"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:src="@drawable/steve_head"
-            android:background="@drawable/menu_item_bg"
-            android:scaleType="fitCenter"
-            android:padding="8dp"
-            android:contentDescription="Steve"/>
+            <!-- 3D Preview Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp"
+                app:cardBackgroundColor="@color/sidebar_bg">
 
-        <ImageButton
-            android:id="@+id/btnAlex"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:src="@drawable/alex_head"
-            android:background="@android:color/transparent"
-            android:scaleType="fitCenter"
-            android:padding="8dp"
-            android:layout_marginStart="24dp"
-            android:contentDescription="Alex"/>
-    </LinearLayout>
+                <com.fearlauncher.app.view.CharacterPreviewView
+                    android:id="@+id/characterPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/background"/>
+            </androidx.cardview.widget.CardView>
 
-    <!-- Account List Header -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Your Accounts"
-        android:textColor="@color/text"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="8dp"/>
+            <!-- Model Toggle with Glass Shine -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
 
-    <!-- Account List -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/accountsRecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center">
 
-    <!-- Empty State -->
-    <TextView        android:id="@+id/emptyText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="No accounts yet"
-        android:gravity="center"
-        android:textColor="@color/text_muted"
-        android:padding="24dp"
-        android:visibility="gone"/>
+                    <ImageButton
+                        android:id="@+id/btnSteve"
+                        android:layout_width="0dp"
+                        android:layout_height="80dp"
+                        android:layout_weight="1"
+                        android:src="@drawable/steve_head"
+                        android:background="@drawable/menu_item_glass"
+                        android:scaleType="fitCenter"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="Steve"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:stateListAnimator="@animator/click_scale"/>
 
-    <!-- Add Account FAB -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btnAddAccount"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_margin="16dp"
-        android:src="@android:drawable/ic_input_add"
-        app:backgroundTint="@color/primary"
-        app:tint="@color/white"
-        android:contentDescription="Add Account"/>
-</LinearLayout>
+                    <View android:layout_width="16dp" android:layout_height="match_parent"/>
+                    <ImageButton
+                        android:id="@+id/btnAlex"
+                        android:layout_width="0dp"
+                        android:layout_height="80dp"
+                        android:layout_weight="1"
+                        android:src="@drawable/alex_head"
+                        android:background="@drawable/menu_item_glass"
+                        android:scaleType="fitCenter"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="Alex"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:stateListAnimator="@animator/click_scale"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Account List Header -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Your Accounts"
+                android:textColor="@color/text"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- Account List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/accountsRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Empty State -->
+            <TextView
+                android:id="@+id/emptyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No accounts yet"
+                android:gravity="center"
+                android:textColor="@color/text_muted"
+                android:padding="24dp"
+                android:visibility="gone"/>
+
+            <!-- FAB -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnAddAccount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"                android:layout_gravity="center_horizontal"
+                android:layout_margin="16dp"
+                android:src="@android:drawable/ic_input_add"
+                app:backgroundTint="@color/primary"
+                app:tint="@color/white"
+                android:contentDescription="Add Account"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
