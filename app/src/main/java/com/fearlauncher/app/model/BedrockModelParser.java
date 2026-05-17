@@ -13,7 +13,6 @@ public class BedrockModelParser {
 
     public static class Cube {
         public float ox, oy, oz, sx, sy, sz, inflate;
-        public boolean mirror;
         public Map<String, FaceUV> faces = new HashMap<>();
     }
 
@@ -21,8 +20,16 @@ public class BedrockModelParser {
         public String name;
         public String parent;
         public float px, py, pz;
+        public boolean mirror = false; // ✅ FIXED: Added missing field
         public List<Cube> cubes = new ArrayList<>();
         public List<Bone> children = new ArrayList<>();
+
+        // ✅ FIXED: Added explicit constructor
+        public Bone(String name, String parent, float px, float py, float pz) {
+            this.name = name;
+            this.parent = parent;
+            this.px = px; this.py = py; this.pz = pz;
+        }
     }
 
     public static class Model {
@@ -31,56 +38,50 @@ public class BedrockModelParser {
         public Map<String, Bone> bones = new HashMap<>();
     }
 
-    // ✅ Helper: JSON se value nikalo, key ke trailing spaces hata kar
-    private static String getStr(JSONObject obj, String key) {
-        for (String k : obj.keySet()) {
-            if (k.trim().equals(key)) {
-                try { return obj.getString(k); } catch(Exception e) { return null; }
-            }
-        }
-        return null;
-    }
-    private static int getInt(JSONObject obj, String key, int def) {
-        for (String k : obj.keySet()) {
-            if (k.trim().equals(key)) {
-                try { return obj.getInt(k); } catch(Exception e) { return def; }
-            }
-        }
-        return def;
-    }    private static double getDouble(JSONObject obj, String key, double def) {
-        for (String k : obj.keySet()) {
-            if (k.trim().equals(key)) {
-                try { return obj.getDouble(k); } catch(Exception e) { return def; }
-            }
-        }
-        return def;
-    }
-    private static boolean getBool(JSONObject obj, String key, boolean def) {
-        for (String k : obj.keySet()) {
-            if (k.trim().equals(key)) {
-                try { return obj.getBoolean(k); } catch(Exception e) { return def; }
-            }
-        }
-        return def;
-    }
-    private static JSONObject getObj(JSONObject obj, String key) {
-        for (String k : obj.keySet()) {
-            if (k.trim().equals(key)) {
-                try { return obj.getJSONObject(k); } catch(Exception e) { return null; }
-            }
-        }
-        return null;
-    }
-    private static JSONArray getArr(JSONObject obj, String key) {
-        for (String k : obj.keySet()) {
-            if (k.trim().equals(key)) {
-                try { return obj.getJSONArray(k); } catch(Exception e) { return null; }
-            }
-        }
+    // ✅ HELPER: Finds values ignoring trailing/leading spaces in keys
+    private static Object getRawValue(JSONObject obj, String targetKey) {
+        try {
+            Iterator<String> it = obj.keys();
+            while (it.hasNext()) {
+                String k = it.next();
+                if (k != null && k.trim().equals(targetKey)) {
+                    return obj.get(k);
+                }
+            }        } catch (Exception ignored) {}
         return null;
     }
 
-    // ✅ Main Parse Function
+    private static String getStr(JSONObject obj, String key) {
+        Object val = getRawValue(obj, key);
+        return (val instanceof String) ? (String) val : null;
+    }
+
+    private static int getInt(JSONObject obj, String key, int def) {
+        Object val = getRawValue(obj, key);
+        return (val instanceof Number) ? ((Number) val).intValue() : def;
+    }
+
+    private static double getDouble(JSONObject obj, String key, double def) {
+        Object val = getRawValue(obj, key);
+        return (val instanceof Number) ? ((Number) val).doubleValue() : def;
+    }
+
+    private static boolean getBool(JSONObject obj, String key, boolean def) {
+        Object val = getRawValue(obj, key);
+        return (val instanceof Boolean) ? (Boolean) val : def;
+    }
+
+    private static JSONObject getObj(JSONObject obj, String key) {
+        Object val = getRawValue(obj, key);
+        return (val instanceof JSONObject) ? (JSONObject) val : null;
+    }
+
+    private static JSONArray getArr(JSONObject obj, String key) {
+        Object val = getRawValue(obj, key);
+        return (val instanceof JSONArray) ? (JSONArray) val : null;
+    }
+
+    // ✅ MAIN PARSE FUNCTION
     public static Model parse(String json) {
         try {
             JSONObject rootJson = new JSONObject(json);
@@ -95,8 +96,8 @@ public class BedrockModelParser {
             JSONArray bonesJson = getArr(geo, "bones");
             if (bonesJson == null) return model;
 
-            // 1. Create Bones
-            for (int i = 0; i < bonesJson.length(); i++) {                JSONObject b = bonesJson.getJSONObject(i);
+            // 1. Create Bones            for (int i = 0; i < bonesJson.length(); i++) {
+                JSONObject b = bonesJson.getJSONObject(i);
                 String name = getStr(b, "name");
                 String parent = getStr(b, "parent");
                 JSONArray pivotArr = getArr(b, "pivot");
@@ -144,8 +145,8 @@ public class BedrockModelParser {
                                             (int) sizeArr.optDouble(0), (int) sizeArr.optDouble(1)
                                         ));
                                     }
-                                }
-                            }                        }
+                                }                            }
+                        }
                         bone.cubes.add(cube);
                     }
                 }
