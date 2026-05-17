@@ -14,8 +14,6 @@ public class CharacterPreviewView extends View {
 
     private MinecraftPlayerModel model;
     private Bitmap skinTexture;
-    private Account.ModelType currentModelType = Account.ModelType.STEVE;
-    
     private float rotationY = 0f;
     private float lastTouchX;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -32,38 +30,41 @@ public class CharacterPreviewView extends View {
 
     private void init() {
         paint.setFilterBitmap(true);
-        setLayerType(LAYER_TYPE_HARDWARE, null);
-        // Load default model
-        switchModel(currentModelType);
+        // Default model: Steve (Classic)
+        model = new MinecraftPlayerModel(false);
     }
 
-    // ✅ Set skin texture
+    // ✅ FIXED: Method ab ModelType leta hai, JSON String nahi
+    public void switchModel(Account.ModelType type) {
+        boolean isAlex = (type == Account.ModelType.ALEX);
+        // Create new model instance based on type
+        this.model = new MinecraftPlayerModel(isAlex);
+        invalidate(); // Refresh view
+    }
+
     public void setSkin(Bitmap skin) {
         this.skinTexture = skin;
-        invalidate();
-    }
-
-    // ✅ Switch between Steve/Alex model
-    public void switchModel(Account.ModelType type) {
-        this.currentModelType = type;
-        this.model = new MinecraftPlayerModel(type == Account.ModelType.ALEX);
         invalidate();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+
         if (model == null) return;
 
+        // Center and Scale logic
         float centerX = getWidth() / 2f;
         float centerY = getHeight() / 2f;
-        float scale = Math.min(getWidth(), getHeight()) / 70f;
+        // Scale to fit view nicely (Model is roughly 64 units high)
+        float scale = Math.min(getWidth(), getHeight()) / 80f;
 
-        // Render model with current skin
+        // Render model
+        // Note: This requires MinecraftPlayerModel to have the render() method
         model.render(canvas, skinTexture, paint, centerX, centerY, scale, rotationY);
     }
 
-    // ✅ Touch rotation
+    // Touch Rotation Logic
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
@@ -71,9 +72,12 @@ public class CharacterPreviewView extends View {
                 lastTouchX = event.getX();
                 return true;
             case MotionEvent.ACTION_MOVE:
-                rotationY += (event.getX() - lastTouchX) * 0.5f;
+                float dx = event.getX() - lastTouchX;
+                rotationY += dx * 0.5f; // Rotate sensitivity
                 lastTouchX = event.getX();
                 invalidate();
+                return true;
+            case MotionEvent.ACTION_UP:
                 return true;
         }
         return super.onTouchEvent(event);
