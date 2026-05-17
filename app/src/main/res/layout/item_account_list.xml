@@ -2,35 +2,28 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="72dp"
+    android:layout_height="60dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingHorizontal="16dp"
+    android:paddingHorizontal="12dp"
     android:background="?attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true">
 
-    <!-- Avatar -->
-    <FrameLayout
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+    <ImageView
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/ic_home"
+        app:tint="@color/primary"
         android:background="@drawable/card_bg"
-        android:padding="8dp">
-        <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_home"
-            app:tint="@color/primary"
-            android:layout_gravity="center"/>
-    </FrameLayout>
+        android:padding="8dp"/>
 
-    <!-- Info -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:layout_marginStart="16dp">
+        android:layout_marginStart="12dp">
 
         <TextView
             android:id="@+id/textUsername"
@@ -38,7 +31,7 @@
             android:layout_height="wrap_content"
             android:text="Username"
             android:textColor="@color/text"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold"/>
 
         <TextView
@@ -47,7 +40,7 @@
             android:layout_height="wrap_content"
             android:text="Local Account"
             android:textColor="@color/text_secondary"
-            android:textSize="13sp"/>
+            android:textSize="12sp"/>
 
         <TextView
             android:id="@+id/textEmail"
@@ -55,28 +48,23 @@
             android:layout_height="wrap_content"
             android:text="Offline"
             android:textColor="@color/text_muted"
-            android:textSize="12sp"/>
+            android:textSize="11sp"/>
     </LinearLayout>
 
-    <!-- Selected Indicator -->
     <ImageView
         android:id="@+id/iconSelected"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:src="@drawable/ic_check"
         app:tint="@color/success"
         android:visibility="gone"/>
 
-    <!-- Delete Button -->
     <ImageView
         android:id="@+id/iconDelete"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:src="@drawable/ic_delete"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@android:drawable/ic_menu_delete"
         app:tint="@color/text_muted"
         android:padding="6dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:layout_marginStart="8dp"/>
+        android:background="?attr/selectableItemBackgroundBorderless"/>
 </LinearLayout>
