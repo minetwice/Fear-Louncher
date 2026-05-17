@@ -19,12 +19,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Account Dashboard"
+            android:text="Account & Preview"
             android:textColor="@color/text"
             android:textSize="20sp"
             android:textStyle="bold"/>
 
-        <!-- 3-Line Menu Button -->
         <ImageView
             android:id="@+id/btnMenuOptions"
             android:layout_width="40dp"
@@ -41,11 +40,11 @@
     <com.fearlauncher.app.view.CharacterPreviewView
         android:id="@+id/characterPreview"
         android:layout_width="match_parent"
-        android:layout_height="240dp"
+        android:layout_height="220dp"
         android:background="@color/sidebar_bg"
         android:layout_margin="16dp"/>
 
-    <!-- Model Toggle -->
+    <!-- Model Toggle (Head Icons) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -53,24 +52,22 @@
         android:gravity="center"
         android:layout_marginBottom="16dp">
 
-        <Button
+        <ImageButton
             android:id="@+id/btnSteve"
-            android:layout_width="120dp"
-            android:layout_height="40dp"
-            android:text="Steve (Classic)"
-            android:textSize="12sp"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_head_steve"
             android:background="@drawable/menu_item_bg"
-            android:textColor="@color/primary"/>
+            android:contentDescription="Steve Model"/>
 
-        <Button
+        <ImageButton
             android:id="@+id/btnAlex"
-            android:layout_width="120dp"
-            android:layout_height="40dp"
-            android:text="Alex (Slim)"
-            android:textSize="12sp"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_head_alex"
             android:background="@android:color/transparent"
-            android:textColor="@color/text_secondary"
-            android:layout_marginStart="16dp"/>
+            android:contentDescription="Alex Model"
+            android:layout_marginStart="24dp"/>
     </LinearLayout>
 
     <!-- Account List -->
