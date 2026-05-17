@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <!-- AppBar with Animation -->
+    <!-- AppBar -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,7 +23,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="👤 Account & Preview"
+                android:text="Account and Preview"
                 android:textColor="@color/text"
                 android:textSize="20sp"
                 android:textStyle="bold"/>
@@ -40,7 +40,7 @@
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main Content with Scroll -->
+    <!-- Main Content -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -51,7 +51,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- 3D Character Preview Card -->
+            <!-- 3D Preview Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="240dp"
@@ -67,7 +67,7 @@
                     android:background="@color/background"/>
             </androidx.cardview.widget.CardView>
 
-            <!-- Model Toggle with Head Icons -->
+            <!-- Model Toggle -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -115,7 +115,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📋 Your Accounts"
+                android:text="Your Accounts"
                 android:textColor="@color/text"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -133,14 +133,14 @@
                 android:id="@+id/emptyText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=" No accounts yet!\nTap + to create one"
+                android:text="No accounts yet. Tap + to create one."
                 android:textColor="@color/text_secondary"
                 android:textSize="16sp"
                 android:gravity="center"
                 android:padding="32dp"
                 android:visibility="gone"/>
 
-            <!-- Add Account Button with Animation -->
+            <!-- Add Account FAB -->
             <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/btnAddAccount"
                 android:layout_width="wrap_content"
