@@ -11,10 +11,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.fearlauncher.app.api.MojangAPI;
 import com.fearlauncher.app.manager.VersionManager;
+import java.io.File;  // ✅ FIXED: Added missing import
 import java.util.ArrayList;
 import java.util.List;
 
-public class VersionsActivity extends AppCompatActivity {
+public class VersionsActivity extends AppCompatActivity {  // ✅ Class name matches file name
 
     private RecyclerView recyclerView;
     private SwipeRefreshLayout swipeRefresh;
@@ -47,7 +48,8 @@ public class VersionsActivity extends AppCompatActivity {
 
     private void loadVersions() {
         swipeRefresh.setRefreshing(true);
-        MojangAPI.fetchVersions(new MojangAPI.Callback() {            @Override
+        MojangAPI.fetchVersions(new MojangAPI.Callback() {
+            @Override
             public void onSuccess(MojangAPI.VersionManifest manifest) {
                 runOnUiThread(() -> {
                     versionList = manifest.versions;
@@ -56,7 +58,6 @@ public class VersionsActivity extends AppCompatActivity {
                     updateEmptyState();
                 });
             }
-
             @Override
             public void onError(String error) {
                 runOnUiThread(() -> {
@@ -86,26 +87,25 @@ public class VersionsActivity extends AppCompatActivity {
             notifyDataSetChanged();
         }
 
-        @Override
-        public VH onCreateViewHolder(ViewGroup parent, int viewType) {
+        @Override public VH onCreateViewHolder(ViewGroup parent, int viewType) {
             View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_version, parent, false);
             return new VH(v);
         }
 
-        @Override
-        public void onBindViewHolder(VH holder, int position) {
+        @Override public void onBindViewHolder(VH holder, int position) {
             MojangAPI.VersionManifest.VersionInfo v = versions.get(position);
-            holder.name.setText(v.id);            holder.type.setText(v.type.toUpperCase());
+            holder.name.setText(v.id);
+            holder.type.setText(v.type.toUpperCase());
             holder.date.setText(v.releaseTime.substring(0, 10));
             
             boolean installed = versionManager.isVersionInstalled(v.id);
-            holder.btnDownload.setText(installed ? "Installed ✓" : "Download");
+            holder.btnDownload.setText(installed ? "Installed" : "Download");
             holder.btnDownload.setEnabled(!installed);
-            holder.btnDownload.setOnClickListener(installed ? null : 
-                click -> downloadVersion(v, holder));
-
-            // Show progress if downloading
+            
+            if (!installed) {
+                holder.btnDownload.setOnClickListener(click -> downloadVersion(v, holder));
+            }
             holder.progress.setVisibility(View.GONE);
         }
 
@@ -115,25 +115,20 @@ public class VersionsActivity extends AppCompatActivity {
             holder.progress.setProgress(0);
 
             versionManager.downloadVersion(version.id, version.url, new VersionManager.DownloadListener() {
-                @Override
-                public void onProgress(String ver, int progress, long downloaded, long total) {
+                @Override public void onProgress(String ver, int progress, long downloaded, long total) {
                     runOnUiThread(() -> {
                         holder.progress.setProgress(progress);
                         holder.progressText.setText(progress + "%");
                     });
                 }
-
-                @Override
-                public void onComplete(String ver, File path) {
+                @Override public void onComplete(String ver, File path) {  // ✅ File class now recognized
                     runOnUiThread(() -> {
                         Toast.makeText(VersionsActivity.this, ver + " installed!", Toast.LENGTH_SHORT).show();
-                        holder.btnDownload.setText("Installed ✓");
+                        holder.btnDownload.setText("Installed");
                         holder.progress.setVisibility(View.GONE);
                     });
                 }
-
-                @Override
-                public void onError(String ver, String error) {
+                @Override public void onError(String ver, String error) {
                     runOnUiThread(() -> {
                         Toast.makeText(VersionsActivity.this, "Failed: " + error, Toast.LENGTH_LONG).show();
                         holder.btnDownload.setEnabled(true);
@@ -143,8 +138,8 @@ public class VersionsActivity extends AppCompatActivity {
             });
         }
 
-        @Override
-        public int getItemCount() { return versions.size(); }
+        @Override public int getItemCount() { return versions.size(); }
+
         class VH extends RecyclerView.ViewHolder {
             TextView name, type, date, progressText;
             Button btnDownload;
