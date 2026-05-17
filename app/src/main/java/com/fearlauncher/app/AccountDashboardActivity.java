@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup; // ✅ FIXED: Added missing import
 import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -14,9 +15,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-// ✅ FIXED: Added missing import
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
 import com.fearlauncher.app.manager.AccountManager;
 import com.fearlauncher.app.manager.SkinManager;
 import com.fearlauncher.app.model.Account;
@@ -31,9 +30,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private TextView emptyText;
     private ImageButton btnSteve, btnAlex;
     private ImageView btnMenuOptions;
-    
-    // ✅ Now using imported class correctly
-    private FloatingActionButton btnAddAccount; 
+    private FloatingActionButton btnAddAccount;
     
     private AccountManager accountManager;
     private SkinManager skinManager;
@@ -47,10 +44,10 @@ public class AccountDashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account_dashboard);
         
-        accountManager = AccountManager.getInstance(this);        skinManager = new SkinManager(this);
+        accountManager = AccountManager.getInstance(this);
+        skinManager = new SkinManager(this);
         
-        initViews();
-        setupAdapter();
+        initViews();        setupAdapter();
         loadAccounts();
         safeUpdatePreview();
     }
@@ -96,10 +93,10 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (accountsRecyclerView != null) accountsRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         if (emptyText != null) emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
+
     private void safeUpdatePreview() {
         try {
-            Account selected = accountManager.getSelectedAccount();
-            if (selected == null || characterPreview == null) return;
+            Account selected = accountManager.getSelectedAccount();            if (selected == null || characterPreview == null) return;
 
             Bitmap skin = skinManager.loadSkin(selected.getId(), selected.getModelType());
             if (skin == null) {
@@ -145,10 +142,10 @@ public class AccountDashboardActivity extends AppCompatActivity {
             .setItems(new String[]{"Upload Skin", "Reset"}, (dialog, which) -> {
                 if (which == 0) pickImage.launch("image/png");
                 else resetDefault();
-            }).show();    }
+            }).show();
+    }
 
-    private void handleSkinUpload(Uri uri) {
-        if (uri == null) return;
+    private void handleSkinUpload(Uri uri) {        if (uri == null) return;
         Account selected = accountManager.getSelectedAccount();
         if (selected == null) return;
         boolean ok = skinManager.saveSkin(uri, selected.getId(), selected.getModelType());
@@ -194,10 +191,10 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.VH> {
         interface ClickListener { void onSelect(Account a); void onDelete(Account a); }
         private final ClickListener listener;
-        private List<Account> data = new ArrayList<>();        
-        AccountAdapter(ClickListener l) { listener = l; }
-        void setAccounts(List<Account> a) { data = a; notifyDataSetChanged(); }
+        private List<Account> data = new ArrayList<>();
         
+        AccountAdapter(ClickListener l) { listener = l; }
+        void setAccounts(List<Account> a) { data = a; notifyDataSetChanged(); }        
         @Override public VH onCreateViewHolder(ViewGroup p, int t) {
             return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false));
         }
@@ -223,4 +220,4 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
         }
     }
-}
+    }
