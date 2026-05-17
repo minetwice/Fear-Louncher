@@ -25,6 +25,7 @@
             android:textSize="20sp"
             android:textStyle="bold"/>
 
+        <!-- 3-Line Menu for Skin/Cape -->
         <ImageView
             android:id="@+id/btnMenuOptions"
             android:layout_width="40dp"
@@ -34,10 +35,11 @@
             android:padding="8dp"
             android:clickable="true"
             android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless"/>
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="More Options"/>
     </LinearLayout>
 
-    <!-- 3D Character Preview -->
+    <!-- 3D Character Preview Area -->
     <com.fearlauncher.app.view.CharacterPreviewView
         android:id="@+id/characterPreview"
         android:layout_width="match_parent"
@@ -45,32 +47,44 @@
         android:background="@color/sidebar_bg"
         android:layout_margin="16dp"/>
 
-    <!-- Model Toggle (Head Icons) -->
-    <LinearLayout
-        android:layout_width="match_parent"        android:layout_height="wrap_content"
+    <!-- Model Toggle: Steve/Alex Head Buttons (Auto-Resize PNG) -->    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="16dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp">
 
+        <!-- Steve Head Button -->
         <ImageButton
             android:id="@+id/btnSteve"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:src="@drawable/ic_head_steve"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_weight="1"
+            android:src="@drawable/steve_head"
             android:background="@drawable/menu_item_bg"
-            android:contentDescription="Steve Model"/>
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
+            android:contentDescription="Steve Model"
+            android:padding="8dp"/>
 
+        <!-- Alex Head Button -->
         <ImageButton
             android:id="@+id/btnAlex"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:src="@drawable/ic_head_alex"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_weight="1"
+            android:src="@drawable/alex_head"
             android:background="@android:color/transparent"
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
             android:contentDescription="Alex Model"
-            android:layout_marginStart="24dp"/>
+            android:padding="8dp"
+            android:layout_marginStart="16dp"/>
     </LinearLayout>
 
-    <!-- Account List -->
+    <!-- Account List Header -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -82,13 +96,26 @@
         android:paddingEnd="16dp"
         android:paddingBottom="8dp"/>
 
-    <androidx.recyclerview.widget.RecyclerView
+    <!-- Account List (RecyclerView) -->    <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/accountsRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:paddingStart="16dp"
-        android:paddingEnd="16dp"/>
+        android:paddingEnd="16dp"
+        android:clipToPadding="false"/>
+
+    <!-- Empty State Text (shown when no accounts) -->
+    <TextView
+        android:id="@+id/emptyText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No accounts yet. Tap + to create one!"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:padding="24dp"
+        android:visibility="gone"/>
 
     <!-- Add Account Button -->
     <Button
@@ -96,6 +123,7 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:text="+ Create New Account"
-        android:textColor="@color/black"        android:background="@drawable/button_primary_bg"
+        android:textColor="@color/black"
+        android:background="@drawable/button_primary_bg"
         android:layout_margin="16dp"/>
 </LinearLayout>
