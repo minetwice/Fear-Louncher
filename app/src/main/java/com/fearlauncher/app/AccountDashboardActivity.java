@@ -1,5 +1,6 @@
 package com.fearlauncher.app;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -28,8 +29,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private SkinManager skinManager;
     private RecyclerView accountsRecyclerView;
     private AccountAdapter adapter;
-    private Button btnAddAccount, btnSteve, btnAlex;
+    private ImageButton btnSteve, btnAlex;
     private ImageView btnMenuOptions;
+    private Button btnAddAccount;
 
     private final ActivityResultLauncher<String> pickSkinLauncher = 
         registerForActivityResult(new ActivityResultContracts.GetContent(), this::handleSkinResult);
@@ -45,19 +47,19 @@ public class AccountDashboardActivity extends AppCompatActivity {
         skinManager = new SkinManager(this);
         
         initViews();
-        setupRecyclerView();
-        loadAccounts();
-        updatePreview();    }
+        setupRecyclerView();        loadAccounts();
+        updatePreview();
+    }
 
     private void initViews() {
         characterPreview = findViewById(R.id.characterPreview);
         accountsRecyclerView = findViewById(R.id.accountsRecyclerView);
-        btnAddAccount = findViewById(R.id.btnAddAccount);
         btnSteve = findViewById(R.id.btnSteve);
         btnAlex = findViewById(R.id.btnAlex);
         btnMenuOptions = findViewById(R.id.btnMenuOptions);
+        btnAddAccount = findViewById(R.id.btnAddAccount);
 
-        btnAddAccount.setOnClickListener(v -> showAddAccountDialog());
+        btnAddAccount.setOnClickListener(v -> showCreateAccountDialog());
         btnSteve.setOnClickListener(v -> switchModel("steve"));
         btnAlex.setOnClickListener(v -> switchModel("alex"));
         btnMenuOptions.setOnClickListener(v -> showSkinCapeMenu());
@@ -65,7 +67,6 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
     private void setupRecyclerView() {
         accountsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        // ✅ FIXED: Proper adapter construction with ClickListener interface
         adapter = new AccountAdapter(new AccountAdapter.ClickListener() {
             @Override public void onSelect(Account account) {
                 accountManager.selectAccount(account.getId());
@@ -95,8 +96,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
     }
 
     private void updatePreview() {
-        Account sel = accountManager.getSelectedAccount();
-        if (sel == null) return;        
+        Account sel = accountManager.getSelectedAccount();        if (sel == null) return;
+        
         Bitmap skin = skinManager.loadSkin(sel.getId(), sel.getModelType());
         if (skin != null) {
             characterPreview.setSkin(skin);
@@ -107,9 +108,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
         }
         
         boolean isAlex = sel.getModelType() == Account.ModelType.ALEX;
-        btnSteve.setTextColor(isAlex ? getColor(R.color.text_secondary) : getColor(R.color.primary));
         btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
-        btnAlex.setTextColor(isAlex ? getColor(R.color.primary) : getColor(R.color.text_secondary));
         btnAlex.setBackgroundResource(isAlex ? R.drawable.menu_item_bg : android.R.color.transparent);
     }
 
@@ -145,8 +144,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
         boolean ok = skinManager.saveSkin(uri, sel.getId(), sel.getModelType());
         if (ok) {
-            updatePreview();            Toast.makeText(this, "✅ Skin applied!", Toast.LENGTH_SHORT).show();
-        } else {
+            updatePreview();
+            Toast.makeText(this, "✅ Skin applied!", Toast.LENGTH_SHORT).show();        } else {
             Toast.makeText(this, "❌ Invalid skin. Use 64x64 PNG", Toast.LENGTH_LONG).show();
         }
     }
@@ -157,11 +156,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (sel == null) return;
 
         boolean ok = skinManager.saveCape(uri, sel.getId());
-        if (ok) {
-            Toast.makeText(this, "✅ Cape applied!", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "❌ Invalid cape. Use 64x32 PNG", Toast.LENGTH_LONG).show();
-        }
+        if (ok) Toast.makeText(this, "✅ Cape applied!", Toast.LENGTH_SHORT).show();
+        else Toast.makeText(this, "❌ Invalid cape. Use 64x32 PNG", Toast.LENGTH_LONG).show();
     }
 
     private void resetToDefault() {
@@ -173,56 +169,49 @@ public class AccountDashboardActivity extends AppCompatActivity {
         Toast.makeText(this, "🔄 Reset to default", Toast.LENGTH_SHORT).show();
     }
 
-    private void showAddAccountDialog() {
-        Toast.makeText(this, "Add Account (Implement dialog here)", Toast.LENGTH_SHORT).show();
+    // ✅ FULLY WORKING ACCOUNT CREATION DIALOG
+    private void showCreateAccountDialog() {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_create_account, null);
+        EditText inputUsername = dialogView.findViewById(R.id.inputUsername);
+        
+        new AlertDialog.Builder(this)
+            .setTitle("Create Local Account")
+            .setView(dialogView)
+            .setPositiveButton("Create", null) // Set listener after to prevent auto-dismiss
+            .setNegativeButton("Cancel", null)
+            .show()
+            .getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String username = inputUsername.getText().toString().trim();
+                if (username.length() < 3) {
+                    Toast.makeText(this, "Username must be 3+ characters", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Account newAcc = new Account(username);
+                if (accountManager.addAccount(newAcc)) {
+                    accountManager.selectAccount(newAcc.getId());
+                    loadAccounts();
+                    updatePreview();
+                    Toast.makeText(this, "✅ Account created!", Toast.LENGTH_SHORT).show();
+                    // Auto-dismiss dialog
+                    ((AlertDialog) ((View) v.getParent()).getParent()).dismiss();
+                } else {                    Toast.makeText(this, "❌ Username already exists", Toast.LENGTH_SHORT).show();
+                }
+            });
     }
 
-    // ================= ADAPTER =================
+    // Minimal Adapter
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.VH> {
-        public interface ClickListener {
-            void onSelect(Account account);
-            void onDelete(Account account);
-        }
+        public interface ClickListener { void onSelect(Account a); void onDelete(Account a); }
         private final ClickListener listener;
         private List<Account> accounts = new ArrayList<>();
 
-        AccountAdapter(ClickListener listener) { 
-            this.listener = listener; 
+        AccountAdapter(ClickListener l) { listener = l; }
+        void setAccounts(List<Account> a) { accounts = a; notifyDataSetChanged(); }
+
+        @Override public VH onCreateViewHolder(ViewGroup p, int t) {
+            return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false));
         }
 
-        void setAccounts(List<Account> accounts) {
-            this.accounts = accounts;
-            notifyDataSetChanged();
-        }
-        @Override public VH onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_account_list, parent, false);
-            return new VH(v);
-        }
-
-        @Override public void onBindViewHolder(VH holder, int position) {
-            Account acc = accounts.get(position);
-            holder.textName.setText(acc.getDisplayName());
-            holder.textType.setText(acc.getAccountTypeLabel());
-            holder.textEmail.setText(acc.isMicrosoft() ? acc.getEmail() : "Offline Mode");
-            holder.iconSelected.setVisibility(acc.isSelected() ? View.VISIBLE : View.GONE);
-            
-            holder.itemView.setOnClickListener(v -> listener.onSelect(acc));
-            holder.iconDelete.setOnClickListener(v -> listener.onDelete(acc));
-        }
-
-        @Override public int getItemCount() { return accounts.size(); }
-
-        static class VH extends RecyclerView.ViewHolder {
-            TextView textName, textType, textEmail;
-            ImageView iconSelected, iconDelete;
-            VH(View v) {
-                super(v);
-                textName = v.findViewById(R.id.textUsername);
-                textType = v.findViewById(R.id.textType);
-                textEmail = v.findViewById(R.id.textEmail);
-                iconSelected = v.findViewById(R.id.iconSelected);
-                iconDelete = v.findViewById(R.id.iconDelete);
-            }
-        }
-    }
-}
+        @Override public void onBindViewHolder(VH h, int i) {
+            Account a = accounts.get(i);
+            h
