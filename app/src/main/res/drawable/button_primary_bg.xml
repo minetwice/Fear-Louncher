@@ -15,7 +15,8 @@
                     <gradient android:angle="90" android:startColor="#D32F2F" android:endColor="#A31B1B"/>
                 </shape>
             </item>
-            <item android:bottom="50%">
+            <!-- ✅ FIXED: '50%' → '24dp' (dimension value) -->
+            <item android:bottom="24dp">
                 <shape android:shape="rectangle">
                     <corners android:topLeftRadius="12dp" android:topRightRadius="12dp"/>
                     <gradient android:angle="90" android:startColor="#30FFFFFF" android:endColor="#00FFFFFF"/>
