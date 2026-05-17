@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,36 +26,37 @@ import java.util.List;
 
 public class AccountDashboardActivity extends AppCompatActivity {
 
-    // Views
+    private static final String TAG = "AccountDashboard";
+
     private CharacterPreviewView characterPreview;
     private RecyclerView accountsRecyclerView;
     private TextView emptyText;
     private ImageButton btnSteve, btnAlex;
     private ImageView btnMenuOptions;
     private Button btnAddAccount;
-
-    // Logic
+    
     private AccountManager accountManager;
     private SkinManager skinManager;
     private AccountAdapter adapter;
 
-    // Image Picker
     private final ActivityResultLauncher<String> pickImage = 
         registerForActivityResult(new ActivityResultContracts.GetContent(), this::handleSkinUpload);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_account_dashboard);
-
-        // Init Managers        accountManager = AccountManager.getInstance(this);
-        skinManager = new SkinManager(this);
-
-        // Init UI
-        initViews();
-        setupAdapter(); // Adapter setup with fix
-        loadAccounts();
-        safeUpdatePreview();
+        try {
+            setContentView(R.layout.activity_account_dashboard);
+            accountManager = AccountManager.getInstance(this);            skinManager = new SkinManager(this);
+            initViews();
+            setupAdapter();
+            loadAccounts();
+            safeUpdatePreview();
+        } catch (Exception e) {
+            Log.e(TAG, "Crash on start: ", e);
+            Toast.makeText(this, "⚠️ Failed to load dashboard", Toast.LENGTH_LONG).show();
+            finish();
+        }
     }
 
     private void initViews() {
@@ -72,35 +74,29 @@ public class AccountDashboardActivity extends AppCompatActivity {
         safeClick(btnAddAccount, v -> showCreateDialog());
     }
 
-    // ✅ FIXED: Properly implementing ClickListener interface
     private void setupAdapter() {
         accountsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        
         adapter = new AccountAdapter(new AccountAdapter.ClickListener() {
-            @Override
-            public void onSelect(Account account) {
+            @Override public void onSelect(Account account) {
                 accountManager.selectAccount(account.getId());
                 safeUpdatePreview();
                 finish();
             }
-
-            @Override
-            public void onDelete(Account account) {
+            @Override public void onDelete(Account account) {
                 new AlertDialog.Builder(AccountDashboardActivity.this)
                     .setTitle("Delete Account")
                     .setMessage("Delete \"" + account.getUsername() + "\"?")
-                    .setPositiveButton("Delete", (dialog, which) -> {
+                    .setPositiveButton("Delete", (d, w) -> {
                         accountManager.deleteAccount(account.getId());
                         skinManager.deleteSkin(account.getId(), account.getModelType());
                         loadAccounts();
                         safeUpdatePreview();
                     })
                     .setNegativeButton("Cancel", null)
-                    .show();            }
+                    .show();
+            }
         });
-        
-        accountsRecyclerView.setAdapter(adapter);
-    }
+        accountsRecyclerView.setAdapter(adapter);    }
 
     private void loadAccounts() {
         List<Account> list = accountManager.getAllAccounts();
@@ -110,15 +106,22 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (emptyText != null) emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
 
+    // ✅ PNG CRASH FIX: Safe image loading with fallback
     private void safeUpdatePreview() {
         try {
             Account selected = accountManager.getSelectedAccount();
             if (selected == null) return;
 
             Bitmap skin = skinManager.loadSkin(selected.getId(), selected.getModelType());
+            
+            // If no custom skin, load default safely
             if (skin == null) {
-                int defaultRes = skinManager.getDefaultSkinResId(selected.getModelType());
-                skin = BitmapFactory.decodeResource(getResources(), defaultRes);
+                try {
+                    int defaultRes = skinManager.getDefaultSkinResId(selected.getModelType());
+                    skin = BitmapFactory.decodeResource(getResources(), defaultRes);
+                } catch (Exception e) {
+                    Log.e(TAG, "Default skin load failed", e);
+                }
             }
 
             if (skin != null && characterPreview != null) {
@@ -126,30 +129,28 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
             updateToggleButtons(selected);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Preview update failed", e);
         }
     }
 
     private void switchModel(String type) {
         Account selected = accountManager.getSelectedAccount();
         if (selected == null) {
-            Toast.makeText(this, "Please select an account first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Select account first", Toast.LENGTH_SHORT).show();
             return;
         }
-
         try {
             Account.ModelType newType = type.equals("alex") ? Account.ModelType.ALEX : Account.ModelType.STEVE;
             selected.setModelType(newType);
             accountManager.updateAccount(selected);
 
             if (characterPreview != null) {
-                characterPreview.switchModel("models/" + type + ".json");
-            }
-                        safeUpdatePreview();
+                characterPreview.switchModel("models/" + type + ".json");            }
+            safeUpdatePreview();
             Toast.makeText(this, "✅ Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(this, "⚠️ Error switching model. Check logs.", Toast.LENGTH_LONG).show();
-            e.printStackTrace();
+            Log.e(TAG, "Model switch failed", e);
+            Toast.makeText(this, "⚠️ Check assets/models/ JSON files", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -180,21 +181,26 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (uri == null) return;
         Account selected = accountManager.getSelectedAccount();
         if (selected == null) {
-            Toast.makeText(this, "Select an account first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Select account first", Toast.LENGTH_SHORT).show();
             return;
         }
-        boolean success = skinManager.saveSkin(uri, selected.getId(), selected.getModelType());
-        if (success) {
-            safeUpdatePreview();
-            Toast.makeText(this, "✅ Skin applied!", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "❌ Invalid skin. Use 64x64 PNG", Toast.LENGTH_LONG).show();
-        }
+        try {
+            boolean success = skinManager.saveSkin(uri, selected.getId(), selected.getModelType());
+            if (success) {
+                safeUpdatePreview();
+                Toast.makeText(this, "✅ Skin applied!", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "❌ Invalid skin. Use 64x64 PNG", Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Skin upload crash", e);
+            Toast.makeText(this, "⚠️ Upload failed. File may be corrupt.", Toast.LENGTH_LONG).show();        }
     }
 
     private void resetDefault() {
         Account selected = accountManager.getSelectedAccount();
-        if (selected == null) return;        skinManager.deleteSkin(selected.getId(), selected.getModelType());
+        if (selected == null) return;
+        skinManager.deleteSkin(selected.getId(), selected.getModelType());
         safeUpdatePreview();
         Toast.makeText(this, "🔄 Reset to default", Toast.LENGTH_SHORT).show();
     }
@@ -235,61 +241,44 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (v != null) v.setOnClickListener(listener);
     }
 
-    // ================= RECYCLER VIEW ADAPTER =================
+    // ================= ADAPTER =================
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.VH> {
-        
-        // ✅ Interface for callbacks
-        public interface ClickListener {
-            void onSelect(Account account);
+        public interface ClickListener {            void onSelect(Account account);
             void onDelete(Account account);
         }
         private final ClickListener listener;
         private List<Account> data = new ArrayList<>();
 
-        // Constructor accepts Interface instance
-        public AccountAdapter(ClickListener listener) {
-            this.listener = listener;
+        public AccountAdapter(ClickListener listener) { this.listener = listener; }
+        public void setAccounts(List<Account> accounts) { data = accounts; notifyDataSetChanged(); }
+
+        @Override public VH onCreateViewHolder(ViewGroup p, int t) {
+            return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false));
         }
 
-        public void setAccounts(List<Account> accounts) {
-            this.data = accounts;
-            notifyDataSetChanged();
+        @Override public void onBindViewHolder(VH h, int i) {
+            Account a = data.get(i);
+            h.name.setText(a.getDisplayName());
+            h.type.setText(a.getAccountTypeLabel());
+            h.email.setText(a.isMicrosoft() ? a.getEmail() : "Offline");
+            h.sel.setVisibility(a.isSelected() ? View.VISIBLE : View.GONE);
+            h.itemView.setOnClickListener(v -> listener.onSelect(a));
+            h.del.setOnClickListener(v -> listener.onDelete(a));
         }
 
-        @Override
-        public VH onCreateViewHolder(ViewGroup parent, int viewType) {
-            return new VH(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_account_list, parent, false));
-        }
-
-        @Override
-        public void onBindViewHolder(VH holder, int position) {
-            Account account = data.get(position);
-            holder.name.setText(account.getDisplayName());
-            holder.type.setText(account.getAccountTypeLabel());
-            holder.email.setText(account.isMicrosoft() ? account.getEmail() : "Offline");
-            holder.sel.setVisibility(account.isSelected() ? View.VISIBLE : View.GONE);
-            
-            // Attach click listeners
-            holder.itemView.setOnClickListener(v -> listener.onSelect(account));
-            holder.del.setOnClickListener(v -> listener.onDelete(account));
-        }
-
-        @Override
-        public int getItemCount() {
-            return data.size();
-        }
+        @Override public int getItemCount() { return data.size(); }
 
         static class VH extends RecyclerView.ViewHolder {
             TextView name, type, email;
             ImageView sel, del;
-
-            VH(View itemView) {
-                super(itemView);
-                name = itemView.findViewById(R.id.textUsername);
-                type = itemView.findViewById(R.id.textType);
-                email = itemView.findViewById(R.id.textEmail);
-                sel = itemView.findViewById(R.id.iconSelected);
-                del = itemView.findViewById(R.id.iconDelete);
+            VH(View v) {
+                super(v);
+                name = v.findViewById(R.id.textUsername);
+                type = v.findViewById(R.id.textType);
+                email = v.findViewById(R.id.textEmail);
+                sel = v.findViewById(R.id.iconSelected);
+                del = v.findViewById(R.id.iconDelete);
             }
         }
-    }}
+    }
+                }
