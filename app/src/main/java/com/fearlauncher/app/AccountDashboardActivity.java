@@ -1,6 +1,5 @@
 package com.fearlauncher.app;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -29,11 +28,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private SkinManager skinManager;
     private RecyclerView accountsRecyclerView;
     private AccountAdapter adapter;
-    private TextView emptyText;
     private Button btnAddAccount, btnSteve, btnAlex;
     private ImageView btnMenuOptions;
 
-    // Activity Result Launchers
     private final ActivityResultLauncher<String> pickSkinLauncher = 
         registerForActivityResult(new ActivityResultContracts.GetContent(), this::handleSkinResult);
     private final ActivityResultLauncher<String> pickCapeLauncher = 
@@ -50,13 +47,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
         initViews();
         setupRecyclerView();
         loadAccounts();
-        updatePreview();
-    }
+        updatePreview();    }
 
     private void initViews() {
         characterPreview = findViewById(R.id.characterPreview);
         accountsRecyclerView = findViewById(R.id.accountsRecyclerView);
-        emptyText = findViewById(R.id.emptyText);
         btnAddAccount = findViewById(R.id.btnAddAccount);
         btnSteve = findViewById(R.id.btnSteve);
         btnAlex = findViewById(R.id.btnAlex);
@@ -70,47 +65,38 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
     private void setupRecyclerView() {
         accountsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new AccountAdapter(
-            account -> {
+        // ✅ FIXED: Proper adapter construction with ClickListener interface
+        adapter = new AccountAdapter(new AccountAdapter.ClickListener() {
+            @Override public void onSelect(Account account) {
                 accountManager.selectAccount(account.getId());
                 updatePreview();
                 finish();
-            },
-            account -> {
-                new AlertDialog.Builder(this)
+            }
+            @Override public void onDelete(Account account) {
+                new AlertDialog.Builder(AccountDashboardActivity.this)
                     .setTitle("Delete Account")
-                    .setMessage("Are you sure you want to delete \"" + account.getUsername() + "\"?")
+                    .setMessage("Delete \"" + account.getUsername() + "\"?")
                     .setPositiveButton("Delete", (d, w) -> {
                         accountManager.deleteAccount(account.getId());
-                        skinManager.deleteSkin(account.getId(), account.getModelType());
-                        skinManager.deleteCape(account.getId());
                         loadAccounts();
                         updatePreview();
                     })
                     .setNegativeButton("Cancel", null)
                     .show();
             }
-        );
+        });
         accountsRecyclerView.setAdapter(adapter);
     }
 
     private void loadAccounts() {
         List<Account> accs = accountManager.getAllAccounts();
         adapter.setAccounts(accs);
-        
-        if (accs.isEmpty()) {
-            accountsRecyclerView.setVisibility(View.GONE);
-            if (emptyText != null) emptyText.setVisibility(View.VISIBLE);
-        } else {
-            accountsRecyclerView.setVisibility(View.VISIBLE);
-            if (emptyText != null) emptyText.setVisibility(View.GONE);
-        }
+        accountsRecyclerView.setVisibility(accs.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void updatePreview() {
         Account sel = accountManager.getSelectedAccount();
-        if (sel == null) return;
-        
+        if (sel == null) return;        
         Bitmap skin = skinManager.loadSkin(sel.getId(), sel.getModelType());
         if (skin != null) {
             characterPreview.setSkin(skin);
@@ -120,7 +106,6 @@ public class AccountDashboardActivity extends AppCompatActivity {
             if (defSkin != null) characterPreview.setSkin(defSkin);
         }
         
-        // Update toggle buttons
         boolean isAlex = sel.getModelType() == Account.ModelType.ALEX;
         btnSteve.setTextColor(isAlex ? getColor(R.color.text_secondary) : getColor(R.color.primary));
         btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
@@ -142,7 +127,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
     }
 
     private void showSkinCapeMenu() {
-        String[] options = {"🎨 Upload Skin (64x64 PNG)", "🧥 Upload Cape (64x32 PNG)", "🔄 Reset to Default"};
+        String[] options = {"🎨 Upload Skin (64x64 PNG)", "🧥 Upload Cape (64x32 PNG)", "🔄 Reset"};
         new AlertDialog.Builder(this)
             .setTitle("Customize Character")
             .setItems(options, (dialog, which) -> {
@@ -160,10 +145,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
         boolean ok = skinManager.saveSkin(uri, sel.getId(), sel.getModelType());
         if (ok) {
-            updatePreview();
-            Toast.makeText(this, "✅ Skin applied successfully!", Toast.LENGTH_SHORT).show();
+            updatePreview();            Toast.makeText(this, "✅ Skin applied!", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "❌ Invalid skin. Must be exactly 64x64 PNG", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "❌ Invalid skin. Use 64x64 PNG", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -174,25 +158,23 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
         boolean ok = skinManager.saveCape(uri, sel.getId());
         if (ok) {
-            Toast.makeText(this, "✅ Cape applied successfully!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "✅ Cape applied!", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "❌ Invalid cape. Must be exactly 64x32 PNG", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "❌ Invalid cape. Use 64x32 PNG", Toast.LENGTH_LONG).show();
         }
     }
 
     private void resetToDefault() {
         Account sel = accountManager.getSelectedAccount();
         if (sel == null) return;
-        
         skinManager.deleteSkin(sel.getId(), sel.getModelType());
         skinManager.deleteCape(sel.getId());
         updatePreview();
-        Toast.makeText(this, "🔄 Reset to default appearance", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "🔄 Reset to default", Toast.LENGTH_SHORT).show();
     }
 
     private void showAddAccountDialog() {
-        // Placeholder: You can integrate your existing dialog creation logic here
-        Toast.makeText(this, "Add Account Flow (Integrate your dialog here)", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Add Account (Implement dialog here)", Toast.LENGTH_SHORT).show();
     }
 
     // ================= ADAPTER =================
@@ -204,13 +186,14 @@ public class AccountDashboardActivity extends AppCompatActivity {
         private final ClickListener listener;
         private List<Account> accounts = new ArrayList<>();
 
-        AccountAdapter(ClickListener listener) { this.listener = listener; }
+        AccountAdapter(ClickListener listener) { 
+            this.listener = listener; 
+        }
 
         void setAccounts(List<Account> accounts) {
             this.accounts = accounts;
             notifyDataSetChanged();
         }
-
         @Override public VH onCreateViewHolder(ViewGroup parent, int viewType) {
             View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_account_list, parent, false);
             return new VH(v);
