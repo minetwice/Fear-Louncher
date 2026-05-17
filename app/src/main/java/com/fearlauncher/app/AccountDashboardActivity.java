@@ -1,6 +1,5 @@
 package com.fearlauncher.app;
 
-import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,13 +9,11 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AnimationUtils;
 import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.fearlauncher.app.manager.AccountManager;
@@ -47,13 +44,12 @@ public class AccountDashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account_dashboard);
         
-        accountManager = AccountManager.getInstance(this);        skinManager = new SkinManager(this);
+        accountManager = AccountManager.getInstance(this);
+        skinManager = new SkinManager(this);
         
-        initViews();
-        setupAdapter();
+        initViews();        setupAdapter();
         loadAccounts();
         safeUpdatePreview();
-        applyAnimations();
     }
 
     private void initViews() {
@@ -65,26 +61,25 @@ public class AccountDashboardActivity extends AppCompatActivity {
         btnMenuOptions = findViewById(R.id.btnMenuOptions);
         btnAddAccount = findViewById(R.id.btnAddAccount);
 
-        safeClick(btnSteve, v -> switchModel("steve"));
-        safeClick(btnAlex, v -> switchModel("alex"));
-        safeClick(btnMenuOptions, v -> showCustomizeMenu());
-        safeClick(btnAddAccount, v -> {
-            animateButton(btnAddAccount);
-            showCreateDialog();
-        });
+        if (btnSteve != null) btnSteve.setOnClickListener(v -> switchModel("steve"));
+        if (btnAlex != null) btnAlex.setOnClickListener(v -> switchModel("alex"));
+        if (btnMenuOptions != null) btnMenuOptions.setOnClickListener(v -> showCustomizeMenu());
+        if (btnAddAccount != null) btnAddAccount.setOnClickListener(v -> showCreateDialog());
     }
 
     private void setupAdapter() {
         accountsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new AccountAdapter(new AccountAdapter.ClickListener() {
-            @Override public void onSelect(Account account) {
+            @Override
+            public void onSelect(Account account) {
                 accountManager.selectAccount(account.getId());
-                safeUpdatePreview(); // ✅ This ensures PNG stays visible
+                safeUpdatePreview();
                 finish();
             }
-            @Override public void onDelete(Account account) {
+            @Override
+            public void onDelete(Account account) {
                 new AlertDialog.Builder(AccountDashboardActivity.this)
-                    .setTitle("🗑️ Delete Account")
+                    .setTitle("Delete Account")
                     .setMessage("Delete \"" + account.getUsername() + "\"?")
                     .setPositiveButton("Delete", (d, w) -> {
                         accountManager.deleteAccount(account.getId());
@@ -96,35 +91,26 @@ public class AccountDashboardActivity extends AppCompatActivity {
                     .show();
             }
         });
-        accountsRecyclerView.setAdapter(adapter);    }
+        accountsRecyclerView.setAdapter(adapter);
+    }
 
     private void loadAccounts() {
         List<Account> list = accountManager.getAllAccounts();
-        adapter.setAccounts(list);
-        boolean isEmpty = list.isEmpty();
+        adapter.setAccounts(list);        boolean isEmpty = list.isEmpty();
         accountsRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         if (emptyText != null) emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
 
-    // ✅ FIXED: PNG Persistence after account creation
     private void safeUpdatePreview() {
         try {
             Account selected = accountManager.getSelectedAccount();
             if (selected == null) return;
 
-            // Load custom skin if exists
             Bitmap skin = skinManager.loadSkin(selected.getId(), selected.getModelType());
-            
-            // Fallback to default skin
             if (skin == null) {
-                try {
-                    int defaultRes = skinManager.getDefaultSkinResId(selected.getModelType());
-                    skin = BitmapFactory.decodeResource(getResources(), defaultRes);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                int defaultRes = skinManager.getDefaultSkinResId(selected.getModelType());
+                skin = BitmapFactory.decodeResource(getResources(), defaultRes);
             }
-
             if (skin != null && characterPreview != null) {
                 characterPreview.setSkin(skin);
             }
@@ -137,10 +123,9 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private void switchModel(String type) {
         Account selected = accountManager.getSelectedAccount();
         if (selected == null) {
-            Toast.makeText(this, "🎮 Select account first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Select account first", Toast.LENGTH_SHORT).show();
             return;
         }
-
         try {
             Account.ModelType newType = type.equals("alex") ? Account.ModelType.ALEX : Account.ModelType.STEVE;
             selected.setModelType(newType);
@@ -148,12 +133,10 @@ public class AccountDashboardActivity extends AppCompatActivity {
             if (characterPreview != null) {
                 characterPreview.switchModel("models/" + type + ".json");
             }
-            
             safeUpdatePreview();
-            animateButton(type.equals("steve") ? btnSteve : btnAlex);
-            Toast.makeText(this, "✅ Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Switched to " + type.toUpperCase(), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(this, "⚠️ Check assets/models/", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Check assets/models/", Toast.LENGTH_LONG).show();
             e.printStackTrace();
         }
     }
@@ -161,10 +144,8 @@ public class AccountDashboardActivity extends AppCompatActivity {
     private void updateToggleButtons(Account selected) {
         if (selected == null) return;
         boolean isAlex = selected.getModelType() == Account.ModelType.ALEX;
-        
         if (btnSteve != null) {
-            btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);
-            btnSteve.setColorFilter(isAlex ? Color.GRAY : Color.WHITE);
+            btnSteve.setBackgroundResource(isAlex ? android.R.color.transparent : R.drawable.menu_item_bg);            btnSteve.setColorFilter(isAlex ? Color.GRAY : Color.WHITE);
         }
         if (btnAlex != null) {
             btnAlex.setBackgroundResource(isAlex ? R.drawable.menu_item_bg : android.R.color.transparent);
@@ -174,7 +155,7 @@ public class AccountDashboardActivity extends AppCompatActivity {
 
     private void showCustomizeMenu() {
         new AlertDialog.Builder(this)
-            .setTitle("🎨 Customize")
+            .setTitle("Customize")
             .setItems(new String[]{"Upload Skin (64x64 PNG)", "Reset Default"}, (dialog, which) -> {
                 if (which == 0) pickImage.launch("image/png");
                 else resetDefault();
@@ -191,12 +172,13 @@ public class AccountDashboardActivity extends AppCompatActivity {
         try {
             boolean success = skinManager.saveSkin(uri, selected.getId(), selected.getModelType());
             if (success) {
-                safeUpdatePreview(); // ✅ Reload preview with new skin
-                Toast.makeText(this, "✅ Skin applied!", Toast.LENGTH_SHORT).show();
+                safeUpdatePreview();
+                Toast.makeText(this, "Skin applied!", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "❌ Use 64x64 PNG", Toast.LENGTH_LONG).show();            }
+                Toast.makeText(this, "Use 64x64 PNG", Toast.LENGTH_LONG).show();
+            }
         } catch (Exception e) {
-            Toast.makeText(this, "⚠️ Upload failed", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Upload failed", Toast.LENGTH_LONG).show();
             e.printStackTrace();
         }
     }
@@ -206,15 +188,14 @@ public class AccountDashboardActivity extends AppCompatActivity {
         if (selected == null) return;
         skinManager.deleteSkin(selected.getId(), selected.getModelType());
         safeUpdatePreview();
-        Toast.makeText(this, "🔄 Reset done", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Reset done", Toast.LENGTH_SHORT).show();
     }
 
     private void showCreateDialog() {
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_create_account, null);
         EditText input = view.findViewById(R.id.inputUsername);
-        
-        AlertDialog dialog = new AlertDialog.Builder(this)
-            .setTitle("➕ Create Account")
+                AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("Create Account")
             .setView(view)
             .setPositiveButton("Create", null)
             .setNegativeButton("Cancel", null)
@@ -232,43 +213,16 @@ public class AccountDashboardActivity extends AppCompatActivity {
             if (accountManager.addAccount(acc)) {
                 accountManager.selectAccount(acc.getId());
                 loadAccounts();
-                safeUpdatePreview(); // ✅ Critical: Reload preview after account creation
+                safeUpdatePreview();
                 dialog.dismiss();
-                Toast.makeText(this, "✅ Account created!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Account created!", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "❌ Username exists", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Username exists", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    // 🎬 Animations
-    private void applyAnimations() {
-        // Fade in animation for RecyclerView        if (accountsRecyclerView != null) {
-            accountsRecyclerView.setAlpha(0f);
-            accountsRecyclerView.animate().alpha(1f).setDuration(500).start();
-        }
-        
-        // Bounce animation for FAB
-        if (btnAddAccount != null) {
-            ObjectAnimator.ofFloat(btnAddAccount, "translationY", 0, -10, 0)
-                .setDuration(1000)
-                .setRepeatCount(ObjectAnimator.INFINITE)
-                .start();
-        }
-    }
-
-    private void animateButton(View button) {
-        if (button == null) return;
-        button.setScaleX(0.8f);
-        button.setScaleY(0.8f);
-        button.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
-    }
-
-    private void safeClick(View v, View.OnClickListener listener) {
-        if (v != null) v.setOnClickListener(listener);
-    }
-
-    // ================= ADAPTER =================
+    // ================= ADAPTER CLASS =================
     private static class AccountAdapter extends RecyclerView.Adapter<AccountAdapter.VH> {
         public interface ClickListener {
             void onSelect(Account account);
@@ -277,14 +231,21 @@ public class AccountDashboardActivity extends AppCompatActivity {
         private final ClickListener listener;
         private List<Account> data = new ArrayList<>();
 
-        public AccountAdapter(ClickListener listener) { this.listener = listener; }
-        public void setAccounts(List<Account> accounts) { data = accounts; notifyDataSetChanged(); }
-
-        @Override public VH onCreateViewHolder(ViewGroup p, int t) {
-            return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false));
+        public AccountAdapter(ClickListener listener) { 
+            this.listener = listener; 
+        }
+        
+        public void setAccounts(List<Account> accounts) { 
+            data = accounts; 
+            notifyDataSetChanged(); 
         }
 
-        @Override public void onBindViewHolder(VH h, int i) {
+        @Override 
+        public VH onCreateViewHolder(ViewGroup p, int t) {
+            return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.item_account_list, p, false));
+        }
+        @Override 
+        public void onBindViewHolder(VH h, int i) {
             Account a = data.get(i);
             h.name.setText(a.getDisplayName());
             h.type.setText(a.getAccountTypeLabel());
@@ -293,7 +254,11 @@ public class AccountDashboardActivity extends AppCompatActivity {
             h.itemView.setOnClickListener(v -> listener.onSelect(a));
             h.del.setOnClickListener(v -> listener.onDelete(a));
         }
-        @Override public int getItemCount() { return data.size(); }
+
+        @Override 
+        public int getItemCount() { 
+            return data.size(); 
+        }
 
         static class VH extends RecyclerView.ViewHolder {
             TextView name, type, email;
@@ -308,4 +273,4 @@ public class AccountDashboardActivity extends AppCompatActivity {
             }
         }
     }
-}
+            }
