@@ -3,16 +3,18 @@ package com.fearlauncher.app;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.fearlauncher.app.manager.LaunchManager;
 
 public class GameActivity extends AppCompatActivity {
+    
     private LaunchManager launchManager;
     private ImageView cursor;
+    private TextView tvLog; // ✅ Declare field
     private float dX, dY;
 
     @Override
@@ -23,17 +25,35 @@ public class GameActivity extends AppCompatActivity {
         launchManager = new LaunchManager(this);
         String versionId = getIntent().getStringExtra("VERSION_ID");
 
+        // ✅ Initialize views properly
         cursor = findViewById(R.id.cursorOverlay);
+        tvLog = findViewById(R.id.tvLog);
+        
         setupCursorDrag();
 
         // Start launch process
         launchManager.launchGame(versionId, "FearPlayer", "0", "0", new LaunchManager.LaunchListener() {
-            @Override public void onLog(String line) { runOnUiThread(() -> findViewById(R.id.tvLog).setText(line)); }
-            @Override public void onLaunchSuccess() { runOnUiThread(() -> Toast.makeText(GameActivity.this, "🎮 Game Started!", Toast.LENGTH_SHORT).show()); }
-            @Override public void onLaunchError(String msg) { 
-                runOnUiThread(() -> new AlertDialog.Builder(GameActivity.this).setTitle("❌ Launch Failed").setMessage(msg).setPositiveButton("OK", (d,w)->finish()).show()); 
+            @Override 
+            public void onLog(String line) { 
+                // ✅ Now tvLog is TextView, so setText() works directly
+                runOnUiThread(() -> tvLog.setText(line)); 
             }
-            @Override public void onExit(int code) { runOnUiThread(() -> finish()); }
+            @Override 
+            public void onLaunchSuccess() { 
+                runOnUiThread(() -> Toast.makeText(GameActivity.this, "🎮 Game Started!", Toast.LENGTH_SHORT).show()); 
+            }
+            @Override 
+            public void onLaunchError(String msg) { 
+                runOnUiThread(() -> new AlertDialog.Builder(GameActivity.this)
+                    .setTitle("❌ Launch Failed")
+                    .setMessage(msg)
+                    .setPositiveButton("OK", (d,w) -> finish())
+                    .show()); 
+            }
+            @Override 
+            public void onExit(int code) { 
+                runOnUiThread(() -> finish()); 
+            }
         });
     }
 
