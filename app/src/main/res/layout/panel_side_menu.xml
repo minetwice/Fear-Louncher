@@ -15,6 +15,7 @@
         android:orientation="vertical"
         android:padding="24dp">
 
+        <!-- Header -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -35,7 +36,7 @@
             app:thin="true"
             android:stateListAnimator="@animator/btn_bubble"/>
 
-        <!-- Future Options -->
+        <!-- Future Options (Disabled) -->
         <com.fearlauncher.app.view.GlassButton
             android:layout_width="match_parent"
             android:layout_height="56dp"
@@ -46,16 +47,19 @@
             android:enabled="false"
             android:alpha="0.5"/>
 
+        <!-- Spacer -->
         <View
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"/>
 
+        <!-- Footer -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="FearLauncher v2.0"
             android:textColor="@color/text_muted"
             android:textSize="12sp"/>
+
     </LinearLayout>
-</androidx.cardview.widget.CoordinatorLayout>
+</androidx.cardview.widget.CardView>
