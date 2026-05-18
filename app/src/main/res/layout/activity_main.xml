@@ -7,13 +7,11 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="false">
 
-    <!-- 🌫️ Animated Background (Smoke + Anime Shine) -->
     <com.fearlauncher.app.view.AnimatedBackgroundView
         android:id="@+id/bgAnimated"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
-    <!-- 📱 Top Bar with Hamburger Menu -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
@@ -47,13 +45,11 @@
             android:gravity="center"
             android:layout_marginStart="8dp"/>
 
-        <!-- Balanced spacer -->
         <View
             android:layout_width="48dp"
             android:layout_height="48dp"/>
     </LinearLayout>
 
-    <!-- 🖥️ Clean Dashboard Center Content -->
     <LinearLayout
         android:id="@+id/dashboardContent"
         android:layout_width="match_parent"
@@ -91,7 +87,6 @@
             android:gravity="center"/>
     </LinearLayout>
 
-    <!-- 🔘 Bottom Thin Glass Navigation -->
     <LinearLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
@@ -135,9 +130,19 @@
             app:label="Versions"
             app:thin="true"
             android:stateListAnimator="@animator/btn_bubble"/>
+
+        <com.fearlauncher.app.view.GlassButton
+            android:id="@+id/btnSettings"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="4dp"
+            app:icon="@android:drawable/ic_menu_preferences"
+            app:label="Settings"
+            app:thin="true"
+            android:stateListAnimator="@animator/btn_bubble"/>
     </LinearLayout>
 
-    <!-- 📂 Slide-in Side Panel -->
     <include
         android:id="@+id/sidePanel"
         layout="@layout/panel_side_menu"
