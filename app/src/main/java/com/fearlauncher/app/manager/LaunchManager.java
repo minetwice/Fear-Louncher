@@ -7,6 +7,7 @@ import android.util.Log;
 import androidx.preference.PreferenceManager;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class LaunchManager {
@@ -14,6 +15,7 @@ public class LaunchManager {
     private final Context ctx;
     private final VersionManager versionManager;
     private Process gameProcess;
+    private boolean extractionComplete = false; // Track extraction status
 
     public interface LaunchListener {
         void onLog(String line);
@@ -25,6 +27,7 @@ public class LaunchManager {
     public LaunchManager(Context context) {
         this.ctx = context.getApplicationContext();
         this.versionManager = new VersionManager(context);
+        // Start extraction in background immediately
         new Thread(this::extractAllJREs).start();
     }
 
@@ -38,47 +41,72 @@ public class LaunchManager {
         File filesDir = ctx.getFilesDir();
         AssetManager assets = ctx.getAssets();
         
+        // ✅ DEBUG: Check if 'components' folder exists
+        try {
+            String[] components = assets.list("components");
+            Log.d(TAG, "📂 Found inside components: " + Arrays.toString(components));
+        } catch (IOException e) {
+            Log.e(TAG, "Cannot list components folder", e);
+        }
         for (String jrePath : jreVersions) {
             String jreVersion = jrePath.substring(jrePath.lastIndexOf('/') + 1);
             File jreDest = new File(filesDir, jreVersion);
             File javaBin = new File(jreDest, "bin/java");
             
-            if (javaBin.exists() && javaBin.canExecute()) {
-                Log.d(TAG, "✅ " + jreVersion + " already exists");
+            // Check if valid executable already exists
+            if (javaBin.exists() && javaBin.length() > 0 && javaBin.canExecute()) {
+                Log.d(TAG, "✅ " + jreVersion + " already valid.");
                 continue;
             }
-                        try {
+
+            // If exists but broken, delete and re-extract
+            if (jreDest.exists()) {
+                Log.w(TAG, "⚠️ " + jreVersion + " exists but seems broken. Re-extracting...");
+                deleteRecursive(jreDest);
+            }
+            
+            try {
                 String[] assetFiles = assets.list(jrePath);
                 if (assetFiles == null || assetFiles.length == 0) {
-                    Log.w(TAG, "⚠️ " + jrePath + " not found in assets");
+                    Log.e(TAG, "❌ " + jrePath + " is EMPTY or NOT FOUND in assets!");
                     continue;
                 }
                 
-                Log.d(TAG, "📦 Extracting " + jreVersion);
+                Log.d(TAG, "📦 Extracting " + jreVersion + " (" + assetFiles.length + " items)...");
                 copyAssetFolder(assets, jrePath, jreDest.getAbsolutePath());
                 
                 if (javaBin.exists()) {
-                    javaBin.setExecutable(true, true);
+                    // Force executable permission
+                    boolean execSuccess = javaBin.setExecutable(true, true);
+                    // Fallback chmod via Runtime if setExecutable fails (rare but possible)
+                    if (!execSuccess) {
+                        Runtime.getRuntime().exec("chmod 755 " + javaBin.getAbsolutePath());
+                    }
+                    Log.d(TAG, "✅ Extraction complete for " + jreVersion + ". Executable: " + javaBin.canExecute());
                     fixNativePermissions(new File(jreDest, "lib"));
+                } else {
+                    Log.e(TAG, "❌ bin/java missing after extraction for " + jreVersion);
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Failed to extract " + jreVersion, e);
             }
         }
+        extractionComplete = true;
+    }
+
+    private void deleteRecursive(File file) {
+        if (file.isDirectory()) {
+            for (File child : file.listFiles()) deleteRecursive(child);        }
+        file.delete();
     }
 
     private void fixNativePermissions(File libDir) {
         if (!libDir.exists()) return;
         File[] files = libDir.listFiles();
         if (files == null) return;
-        
         for (File f : files) {
-            if (f.isDirectory()) {
-                fixNativePermissions(f);
-            } else if (f.getName().endsWith(".so")) {
-                f.setExecutable(true, true);
-                f.setReadable(true, false);
-            }
+            if (f.isDirectory()) fixNativePermissions(f);
+            else if (f.getName().endsWith(".so")) f.setExecutable(true, true);
         }
     }
 
@@ -96,13 +124,12 @@ public class LaunchManager {
             String[] subFiles = assets.list(src);
             if (subFiles != null && subFiles.length > 0) {
                 copyAssetFolder(assets, src, destFile.getAbsolutePath());
-            } else {                try (InputStream in = assets.open(src);
+            } else {
+                try (InputStream in = assets.open(src);
                      FileOutputStream out = new FileOutputStream(destFile)) {
                     byte[] buffer = new byte[8192];
                     int read;
-                    while ((read = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, read);
-                    }
+                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
                 }
             }
         }
@@ -118,34 +145,42 @@ public class LaunchManager {
                     listener.onLaunchError("❌ Version not installed.");
                     return;
                 }
-
+                // ✅ Wait for extraction (Increased to 60 seconds)
                 int waitCount = 0;
-                while (findJavaRuntime() == null && waitCount < 20) {
+                while (!extractionComplete && waitCount < 120) {
                     Thread.sleep(500);
                     waitCount++;
                 }
 
+                // Double check extraction
+                String javaPath = findJavaRuntime();
+                if (javaPath == null) {
+                    // Try one last wait just in case
+                    Thread.sleep(2000); 
+                    javaPath = findJavaRuntime();
+                }
+
+                if (javaPath == null) {
+                    Log.e(TAG, "Final Check: JRE not found in " + ctx.getFilesDir().getAbsolutePath());
+                    listener.onLaunchError("❌ Java runtime not found.\n\nPlease check Logcat for 'Found inside components'.\nMake sure folders are named exactly: jre-8, jre-17, etc.");
+                    return;
+                }
+
+                // First launch natives download
                 if (!versionManager.isFirstLaunchComplete(versionId)) {
                     listener.onLog("📦 First launch: Downloading natives...");
                     versionManager.downloadFirstLaunchFiles(versionId, new VersionManager.FirstLaunchListener() {
-                        @Override
-                        public void onProgress(int percent, String status, long speed) {
-                            String speedStr = speed > 0 ? " (" + formatSpeed(speed) + ")" : "";
-                            listener.onLog("⬇️ " + status + speedStr + " " + percent + "%");
+                        @Override public void onProgress(int p, String s, long speed) {
+                            listener.onLog("⬇️ " + s + " " + p + "%");
                         }
-                        @Override
-                        public void onComplete() {
-                            listener.onLog("✅ Natives downloaded!");
-                        }
-                        @Override
-                        public void onError(String e) {
-                            listener.onLaunchError("❌ Failed: " + e);
-                        }
+                        @Override public void onComplete() { listener.onLog("✅ Natives ready!"); }
+                        @Override public void onError(String e) { listener.onLaunchError("❌ Natives failed: " + e); }
                     });
                 }
 
                 File baseDir = versionManager.getBaseDir();
-                File versionDir = new File(baseDir, "versions/" + versionId);                File gameJar = new File(versionDir, versionId + ".jar");
+                File versionDir = new File(baseDir, "versions/" + versionId);
+                File gameJar = new File(versionDir, versionId + ".jar");
                 File nativesDir = new File(baseDir, "natives/" + versionId);
                 File assetsDir = new File(baseDir, "assets");
                 File instanceDir = new File(baseDir, "instances/" + versionId);
@@ -155,18 +190,11 @@ public class LaunchManager {
                     return;
                 }
 
-                String javaPath = findJavaRuntime();
-                if (javaPath == null) {
-                    listener.onLaunchError("❌ Java runtime not found.\n\nMake sure JRE folders exist in:\napp/src/main/assets/components/");
-                    return;
-                }
-
                 listener.onLog("✅ Java: " + javaPath);
                 listener.onLog("📂 Instance: " + instanceDir.getAbsolutePath());
 
                 List<String> cmd = new ArrayList<>();
-                cmd.add(javaPath);
-                cmd.add("-Xmx2G");
+                cmd.add(javaPath);                cmd.add("-Xmx2G");
                 cmd.add("-Xms1G");
                 cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
                 cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
@@ -192,15 +220,12 @@ public class LaunchManager {
                 gameProcess = pb.start();
 
                 new Thread(() -> {
-                    try (BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(gameProcess.getInputStream()))) {
-                        String line;                        while ((line = reader.readLine()) != null) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
                             if (listener != null) listener.onLog(line);
-                            Log.d("Minecraft", line);
                         }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Output error", e);
-                    }
+                    } catch (Exception e) { Log.e(TAG, "Output error", e); }
                 }).start();
 
                 int exitCode = gameProcess.waitFor();
@@ -217,34 +242,26 @@ public class LaunchManager {
         }).start();
     }
 
-    private String formatSpeed(long bytesPerSec) {
-        if (bytesPerSec < 1024) return bytesPerSec + " B/s";
-        if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024) + " KB/s";
-        return String.format("%.1f MB/s", bytesPerSec / (1024.0 * 1024.0));
-    }
-
     public void stopGame() {
-        if (gameProcess != null && gameProcess.isAlive()) {
-            gameProcess.destroy();
-        }
-    }
+        if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();    }
 
     private String findJavaRuntime() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
         String preferredJre = prefs.getString("java_version", "jre-17");
         
+        // Check preferred
         File preferredBin = new File(ctx.getFilesDir(), preferredJre + "/bin/java");
-        if (preferredBin.exists() && preferredBin.canExecute()) {
-            return preferredBin.getAbsolutePath();
-        }
+        if (preferredBin.exists() && preferredBin.canExecute()) return preferredBin.getAbsolutePath();
         
+        // Fallbacks
         String[] fallbacks = {"jre-17", "jre-21", "jre-8", "jre-25"};
         for (String folder : fallbacks) {
             File bin = new File(ctx.getFilesDir(), folder + "/bin/java");
             if (bin.exists() && bin.canExecute()) {
+                Log.d(TAG, "Using fallback JRE: " + folder);
                 return bin.getAbsolutePath();
-            }        }
-        
+            }
+        }
         return null;
     }
 
