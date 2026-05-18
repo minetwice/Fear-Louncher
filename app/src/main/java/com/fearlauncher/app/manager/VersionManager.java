@@ -23,6 +23,7 @@ public class VersionManager {
     private final OkHttpClient http;
     private File baseDir;
 
+    // ✅ Interface for Download Progress
     public interface Listener {
         void onStatus(String msg);
         void onProgress(int percent, String status);
@@ -30,6 +31,7 @@ public class VersionManager {
         void onError(String e);
     }
 
+    // ✅ Interface for First Launch (Natives/Binaries) with Speed
     public interface FirstLaunchListener {
         void onProgress(int percent, String status, long speed);
         void onComplete();
@@ -46,8 +48,8 @@ public class VersionManager {
 
         setupStorage();
     }
-
-    private void setupStorage() {        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    private void setupStorage() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             File external = ctx.getExternalFilesDir(null);
             baseDir = external != null ? external : ctx.getFilesDir();
         } else {
@@ -94,9 +96,9 @@ public class VersionManager {
                     downloadFile(clientUrl, gameJar, listener, 5, 25, "client.jar");
                 }
 
-                // 3. Download libraries
-                JsonArray libs = vJson.getAsJsonArray("libraries");
-                if (libs != null) {                    int libCount = libs.size();
+                // 3. Download libraries                JsonArray libs = vJson.getAsJsonArray("libraries");
+                if (libs != null) {
+                    int libCount = libs.size();
                     for (int i = 0; i < libCount; i++) {
                         JsonObject lib = libs.get(i).getAsJsonObject();
                         if (!lib.has("downloads")) continue;
@@ -130,7 +132,7 @@ public class VersionManager {
                 new File(versionDir, ".installed").createNewFile();
                 new File(instanceDir, ".instance").createNewFile();
                 
-                // Remove first launch marker if exists
+                // Remove first launch marker if exists to force re-check
                 new File(instanceDir, ".first_launch_complete").delete();
                 
                 listener.onStatus("✅ Installation complete! First launch will download natives.");
@@ -143,19 +145,23 @@ public class VersionManager {
         }).start();
     }
 
-    private void createInstanceFolders(File instanceDir) {
-        String[] folders = {
-            "mods", "resourcepacks", "config", "saves", "screenshots",             "shaderpacks", "logs", "crash-reports", "options.txt"
+    private void createInstanceFolders(File instanceDir) {        String[] folders = {
+            "mods", "resourcepacks", "config", "saves", "screenshots", 
+            "shaderpacks", "logs", "crash-reports"
         };
         for (String folder : folders) {
-            if (folder.endsWith(".txt")) {
-                new File(instanceDir, folder).createNewFile();
-            } else {
-                new File(instanceDir, folder).mkdirs();
-            }
+            new File(instanceDir, folder).mkdirs();
+        }
+        // Create empty options.txt if needed
+        File opts = new File(instanceDir, "options.txt");
+        if (!opts.exists()) {
+            try { opts.createNewFile(); } catch (Exception ignored) {}
         }
     }
 
+    /**
+     * Downloads Natives/Binaries on First Launch with Real-Time Speed
+     */
     public void downloadFirstLaunchFiles(String versionId, FirstLaunchListener listener) {
         new Thread(() -> {
             try {
@@ -184,9 +190,11 @@ public class VersionManager {
                     File nativesDir = new File(baseDir, "natives/" + versionId);
                     if (!nativesDir.exists()) nativesDir.mkdirs();
 
+                    // ✅ FIX 1: Define OS string here so it's visible in the loop
+                    String os = System.getProperty("os.name").toLowerCase();
+                    
                     for (int i = 0; i < libs.size(); i++) {
-                        JsonObject lib = libs.get(i).getAsJsonObject();
-                        if (!lib.has("natives")) continue;
+                        JsonObject lib = libs.get(i).getAsJsonObject();                        if (!lib.has("natives")) continue;
 
                         JsonObject downloads = lib.getAsJsonObject("downloads");
                         if (downloads == null) continue;
@@ -194,14 +202,18 @@ public class VersionManager {
                         JsonObject classifiers = downloads.getAsJsonObject("classifiers");
                         if (classifiers == null) continue;
 
-                        // Get OS-specific native                        String os = System.getProperty("os.name").toLowerCase();
-                        String arch = System.getProperty("os.arch").toLowerCase();
-                        String classifier = os.contains("linux") || os.contains("android") ? 
-                            (arch.contains("64") || arch.contains("arm") ? "natives-linux" : "natives-linux-32") : 
-                            "natives-windows";
+                        // Determine correct classifier for Android/Linux
+                        String targetClassifier = null;
+                        if (classifiers.has("natives-linux") || classifiers.has("natives-linux-32")) {
+                            targetClassifier = "natives-linux"; 
+                        } else if (classifiers.has("natives-windows")) {
+                            targetClassifier = "natives-windows";
+                        } else if (classifiers.has("natives-osx")) {
+                            targetClassifier = "natives-osx";
+                        }
 
-                        if (classifiers.has(classifier)) {
-                            JsonObject nativeDl = classifiers.getAsJsonObject(classifier);
+                        if (targetClassifier != null && classifiers.has(targetClassifier)) {
+                            JsonObject nativeDl = classifiers.getAsJsonObject(targetClassifier);
                             String url = nativeDl.get("url").getAsString();
                             String path = nativeDl.get("path").getAsString();
                             
@@ -209,8 +221,8 @@ public class VersionManager {
                             if (!dest.exists()) {
                                 long start = System.currentTimeMillis();
                                 downloadFileWithSpeed(url, dest, listener, 
-                                    0 + (downloaded * 100 / totalNatives), 
-                                    90 + (downloaded * 10 / totalNatives), 
+                                    0 + (downloaded * 100 / Math.max(1, totalNatives)), 
+                                    90 + (downloaded * 10 / Math.max(1, totalNatives)), 
                                     "Native: " + (downloaded+1) + "/" + totalNatives,
                                     start);
                             }
@@ -231,7 +243,9 @@ public class VersionManager {
             }
         }).start();
     }
-
+    /**
+     * Helper method to download files with real-time speed calculation
+     */
     private void downloadFileWithSpeed(String url, File dest, FirstLaunchListener listener, 
                                        int startP, int endP, String status, long startTime) throws Exception {
         if (dest.exists() && dest.length() > 0) return;
@@ -244,6 +258,7 @@ public class VersionManager {
         long downloaded = 0;
         long lastUpdate = System.currentTimeMillis();
         long lastDownloaded = 0;
+
         try (InputStream is = res.body().byteStream(); 
              FileOutputStream fos = new FileOutputStream(dest)) {
             
@@ -254,11 +269,16 @@ public class VersionManager {
                 downloaded += len;
                 
                 long now = System.currentTimeMillis();
-                if (now - lastUpdate >= 1000 && listener != null) { // Update every second
-                    long deltaTime = (now - lastUpdate) / 1000.0;
-                    long speed = (long)((downloaded - lastDownloaded) / deltaTime);
+                // Update progress every second
+                if (now - lastUpdate >= 1000 && listener != null) { 
+                    // ✅ FIX 2: Use integer division or cast to avoid double->long error
+                    long deltaTime = (now - lastUpdate) / 1000; 
+                    if (deltaTime <= 0) deltaTime = 1; // Prevent divide by zero
+                    
+                    long speed = (downloaded - lastDownloaded) / deltaTime;
                     int progress = startP + (int)((float)downloaded / total * (endP - startP));
                     listener.onProgress(progress, status, speed);
+                    
                     lastUpdate = now;
                     lastDownloaded = downloaded;
                 }
@@ -272,8 +292,7 @@ public class VersionManager {
         Response res = http.newCall(req).execute();
         if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
         long total = res.body().contentLength();
-        long downloaded = 0;
-        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
+        long downloaded = 0;        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
             byte[] buf = new byte[16384]; int len;
             while ((len = is.read(buf)) != -1) {
                 fos.write(buf, 0, len);
@@ -292,6 +311,7 @@ public class VersionManager {
         JsonObject index = gson.fromJson(new java.io.FileReader(assetIndexFile), JsonObject.class);
         JsonObject objects = index.getAsJsonObject("objects");
         if (objects == null) return;
+
         File objectsDir = new File(baseDir, "assets/objects");
         if (!objectsDir.exists()) objectsDir.mkdirs();
 
@@ -321,8 +341,7 @@ public class VersionManager {
             } catch (Exception e) {
                 Log.w(TAG, "Failed asset: " + hash, e);
             }
-        }
-        Log.d(TAG, "Assets: " + downloaded + " new, " + skipped + " skipped");
+        }        Log.d(TAG, "Assets: " + downloaded + " new, " + skipped + " skipped");
     }
 
     private void downloadFileQuiet(String url, File dest) throws Exception {
@@ -341,7 +360,8 @@ public class VersionManager {
         return new File(baseDir, "instances/" + versionId + "/.instance").exists();
     }
 
-    public boolean isFirstLaunchComplete(String versionId) {        return new File(baseDir, "instances/" + versionId + "/.first_launch_complete").exists();
+    public boolean isFirstLaunchComplete(String versionId) {
+        return new File(baseDir, "instances/" + versionId + "/.first_launch_complete").exists();
     }
 
     public File getInstanceDir(String versionId) {
