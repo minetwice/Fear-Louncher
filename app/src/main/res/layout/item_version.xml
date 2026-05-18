@@ -45,7 +45,7 @@
                     android:text="RELEASE"
                     android:textColor="@color/primary"
                     android:textSize="11sp"
-                    android:background="@drawable/btn_glass_selected"
+                    android:background="@drawable/btn_glass"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="2dp"/>
 
