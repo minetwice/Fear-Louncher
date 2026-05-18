@@ -30,6 +30,12 @@ public class VersionManager {
         void onError(String e);
     }
 
+    public interface FirstLaunchListener {
+        void onProgress(int percent, String status, long speed);
+        void onComplete();
+        void onError(String e);
+    }
+
     public VersionManager(Context context) {
         this.ctx = context.getApplicationContext();
         this.http = new OkHttpClient.Builder()
@@ -38,7 +44,10 @@ public class VersionManager {
             .writeTimeout(120, TimeUnit.SECONDS)
             .build();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        setupStorage();
+    }
+
+    private void setupStorage() {        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             File external = ctx.getExternalFilesDir(null);
             baseDir = external != null ? external : ctx.getFilesDir();
         } else {
@@ -47,17 +56,17 @@ public class VersionManager {
             baseDir = legacy.canWrite() ? legacy : ctx.getFilesDir();
         }
         if (!baseDir.exists()) baseDir.mkdirs();
-        Log.d(TAG, "Storage: " + baseDir.getAbsolutePath());
+        Log.d(TAG, "📂 Storage: " + baseDir.getAbsolutePath());
     }
 
     public void downloadVersion(String versionId, String jsonUrl, Listener listener) {
         new Thread(() -> {
             try {
-                listener.onStatus("📦 Preparing instance...");
+                listener.onStatus("📦 Creating instance structure...");
                 
+                // ✅ Create PROFESSIONAL folder structure
                 File instanceDir = new File(baseDir, "instances/" + versionId);
-                String[] subDirs = {"mods", "resourcepacks", "config", "saves", "screenshots", "shaderpacks"};
-                for (String dir : subDirs) new File(instanceDir, dir).mkdirs();
+                createInstanceFolders(instanceDir);
 
                 File versionDir = new File(baseDir, "versions/" + versionId);
                 if (!versionDir.exists()) versionDir.mkdirs();
@@ -87,8 +96,7 @@ public class VersionManager {
 
                 // 3. Download libraries
                 JsonArray libs = vJson.getAsJsonArray("libraries");
-                if (libs != null) {
-                    int libCount = libs.size();
+                if (libs != null) {                    int libCount = libs.size();
                     for (int i = 0; i < libCount; i++) {
                         JsonObject lib = libs.get(i).getAsJsonObject();
                         if (!lib.has("downloads")) continue;
@@ -114,14 +122,18 @@ public class VersionManager {
                     listener.onStatus("🖼️ Fetching asset index...");
                     downloadFile(assetUrl, assetIndexFile, listener, 65, 70, "index");
 
-                    // 5. ✅ DOWNLOAD ACTUAL ASSETS (Textures, Sounds, etc.)
+                    // 5. Download actual assets
                     downloadAssets(assetIndexFile, listener);
                 }
 
-                // 6. Mark complete
+                // 6. Mark installed (but NOT first launch complete)
                 new File(versionDir, ".installed").createNewFile();
                 new File(instanceDir, ".instance").createNewFile();
-                listener.onStatus("✅ Installation complete!");
+                
+                // Remove first launch marker if exists
+                new File(instanceDir, ".first_launch_complete").delete();
+                
+                listener.onStatus("✅ Installation complete! First launch will download natives.");
                 listener.onComplete(instanceDir);
 
             } catch (Exception e) {
@@ -131,17 +143,155 @@ public class VersionManager {
         }).start();
     }
 
-    /**
-     * Downloads all missing assets from Mojang's resource server
-     */
+    private void createInstanceFolders(File instanceDir) {
+        String[] folders = {
+            "mods", "resourcepacks", "config", "saves", "screenshots",             "shaderpacks", "logs", "crash-reports", "options.txt"
+        };
+        for (String folder : folders) {
+            if (folder.endsWith(".txt")) {
+                new File(instanceDir, folder).createNewFile();
+            } else {
+                new File(instanceDir, folder).mkdirs();
+            }
+        }
+    }
+
+    public void downloadFirstLaunchFiles(String versionId, FirstLaunchListener listener) {
+        new Thread(() -> {
+            try {
+                File baseDir = getBaseDir();
+                File versionDir = new File(baseDir, "versions/" + versionId);
+                File jsonFile = new File(versionDir, versionId + ".json");
+                
+                if (!jsonFile.exists()) {
+                    listener.onError("version.json not found");
+                    return;
+                }
+
+                Gson gson = new Gson();
+                JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
+                
+                // Download natives
+                JsonArray libs = vJson.getAsJsonArray("libraries");
+                if (libs != null) {
+                    int totalNatives = 0;
+                    for (int i = 0; i < libs.size(); i++) {
+                        JsonObject lib = libs.get(i).getAsJsonObject();
+                        if (lib.has("natives")) totalNatives++;
+                    }
+
+                    int downloaded = 0;
+                    File nativesDir = new File(baseDir, "natives/" + versionId);
+                    if (!nativesDir.exists()) nativesDir.mkdirs();
+
+                    for (int i = 0; i < libs.size(); i++) {
+                        JsonObject lib = libs.get(i).getAsJsonObject();
+                        if (!lib.has("natives")) continue;
+
+                        JsonObject downloads = lib.getAsJsonObject("downloads");
+                        if (downloads == null) continue;
+
+                        JsonObject classifiers = downloads.getAsJsonObject("classifiers");
+                        if (classifiers == null) continue;
+
+                        // Get OS-specific native                        String os = System.getProperty("os.name").toLowerCase();
+                        String arch = System.getProperty("os.arch").toLowerCase();
+                        String classifier = os.contains("linux") || os.contains("android") ? 
+                            (arch.contains("64") || arch.contains("arm") ? "natives-linux" : "natives-linux-32") : 
+                            "natives-windows";
+
+                        if (classifiers.has(classifier)) {
+                            JsonObject nativeDl = classifiers.getAsJsonObject(classifier);
+                            String url = nativeDl.get("url").getAsString();
+                            String path = nativeDl.get("path").getAsString();
+                            
+                            File dest = new File(nativesDir, new File(path).getName());
+                            if (!dest.exists()) {
+                                long start = System.currentTimeMillis();
+                                downloadFileWithSpeed(url, dest, listener, 
+                                    0 + (downloaded * 100 / totalNatives), 
+                                    90 + (downloaded * 10 / totalNatives), 
+                                    "Native: " + (downloaded+1) + "/" + totalNatives,
+                                    start);
+                            }
+                            downloaded++;
+                        }
+                    }
+                }
+
+                // Mark first launch complete
+                File instanceDir = new File(baseDir, "instances/" + versionId);
+                new File(instanceDir, ".first_launch_complete").createNewFile();
+                
+                listener.onComplete();
+
+            } catch (Exception e) {
+                Log.e(TAG, "First launch download failed", e);
+                listener.onError(e.getMessage());
+            }
+        }).start();
+    }
+
+    private void downloadFileWithSpeed(String url, File dest, FirstLaunchListener listener, 
+                                       int startP, int endP, String status, long startTime) throws Exception {
+        if (dest.exists() && dest.length() > 0) return;
+        
+        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
+        Response res = http.newCall(req).execute();
+        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+        
+        long total = res.body().contentLength();
+        long downloaded = 0;
+        long lastUpdate = System.currentTimeMillis();
+        long lastDownloaded = 0;
+        try (InputStream is = res.body().byteStream(); 
+             FileOutputStream fos = new FileOutputStream(dest)) {
+            
+            byte[] buf = new byte[16384];
+            int len;
+            while ((len = is.read(buf)) != -1) {
+                fos.write(buf, 0, len);
+                downloaded += len;
+                
+                long now = System.currentTimeMillis();
+                if (now - lastUpdate >= 1000 && listener != null) { // Update every second
+                    long deltaTime = (now - lastUpdate) / 1000.0;
+                    long speed = (long)((downloaded - lastDownloaded) / deltaTime);
+                    int progress = startP + (int)((float)downloaded / total * (endP - startP));
+                    listener.onProgress(progress, status, speed);
+                    lastUpdate = now;
+                    lastDownloaded = downloaded;
+                }
+            }
+        }
+    }
+
+    private void downloadFile(String url, File dest, Listener listener, int startP, int endP, String type) throws Exception {
+        if (dest.exists() && dest.length() > 0) return;
+        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
+        Response res = http.newCall(req).execute();
+        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+        long total = res.body().contentLength();
+        long downloaded = 0;
+        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
+            byte[] buf = new byte[16384]; int len;
+            while ((len = is.read(buf)) != -1) {
+                fos.write(buf, 0, len);
+                downloaded += len;
+                if (total > 0 && listener != null) {
+                    int p = startP + (int)((float)downloaded / total * (endP - startP));
+                    listener.onProgress(p, type + ": " + (downloaded/1024) + "KB");
+                }
+            }
+        }
+    }
+
     private void downloadAssets(File assetIndexFile, Listener listener) throws Exception {
         if (!assetIndexFile.exists()) return;
-
         Gson gson = new Gson();
         JsonObject index = gson.fromJson(new java.io.FileReader(assetIndexFile), JsonObject.class);
         JsonObject objects = index.getAsJsonObject("objects");
         if (objects == null) return;
-
         File objectsDir = new File(baseDir, "assets/objects");
         if (!objectsDir.exists()) objectsDir.mkdirs();
 
@@ -166,39 +316,15 @@ public class VersionManager {
             try {
                 downloadFileQuiet(assetUrl, assetFile);
                 downloaded++;
-                
                 int progress = 70 + (int)((float)(downloaded + skipped) / total * 30);
                 listener.onProgress(progress, "Assets: " + (downloaded + skipped) + "/" + total);
             } catch (Exception e) {
-                Log.w(TAG, "Failed to download asset: " + hash, e);
-                // Continue with others instead of failing whole install
+                Log.w(TAG, "Failed asset: " + hash, e);
             }
         }
-
         Log.d(TAG, "Assets: " + downloaded + " new, " + skipped + " skipped");
     }
 
-    private void downloadFile(String url, File dest, Listener listener, int startP, int endP, String type) throws Exception {
-        if (dest.exists() && dest.length() > 0) return;
-        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
-        Response res = http.newCall(req).execute();
-        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
-        long total = res.body().contentLength();
-        long downloaded = 0;
-        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
-            byte[] buf = new byte[16384]; int len;
-            while ((len = is.read(buf)) != -1) {
-                fos.write(buf, 0, len);
-                downloaded += len;
-                if (total > 0 && listener != null) {
-                    int p = startP + (int)((float)downloaded / total * (endP - startP));
-                    listener.onProgress(p, type + ": " + (downloaded/1024) + "KB");
-                }
-            }
-        }
-    }
-
-    /** Silent downloader for assets (no progress spam) */
     private void downloadFileQuiet(String url, File dest) throws Exception {
         if (dest.exists() && dest.length() > 0) return;
         dest.getParentFile().mkdirs();
@@ -213,6 +339,9 @@ public class VersionManager {
 
     public boolean isVersionInstalled(String versionId) {
         return new File(baseDir, "instances/" + versionId + "/.instance").exists();
+    }
+
+    public boolean isFirstLaunchComplete(String versionId) {        return new File(baseDir, "instances/" + versionId + "/.first_launch_complete").exists();
     }
 
     public File getInstanceDir(String versionId) {
