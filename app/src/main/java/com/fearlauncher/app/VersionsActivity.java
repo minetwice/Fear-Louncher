@@ -1,9 +1,11 @@
 package com.fearlauncher.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -19,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VersionsActivity extends AppCompatActivity {
-
     private RecyclerView recyclerView;
     private SwipeRefreshLayout swipeRefresh;
     private TextView emptyText;
@@ -31,8 +32,6 @@ public class VersionsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_versions);
-
-        // ✅ Constructor now accepts Context
         versionManager = new VersionManager(this);
         initViews();
         loadVersions();
@@ -42,12 +41,10 @@ public class VersionsActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recyclerView);
         swipeRefresh = findViewById(R.id.swipeRefresh);
         emptyText = findViewById(R.id.emptyText);
-
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new VersionAdapter();
         recyclerView.setAdapter(adapter);
-
-        swipeRefresh.setOnRefreshListener(this::loadVersions);        
+        swipeRefresh.setOnRefreshListener(this::loadVersions);
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnRefresh).setOnClickListener(v -> loadVersions());
     }
@@ -55,129 +52,93 @@ public class VersionsActivity extends AppCompatActivity {
     private void loadVersions() {
         swipeRefresh.setRefreshing(true);
         MojangAPI.fetchVersions(new MojangAPI.Callback() {
-            @Override
-            public void onSuccess(MojangAPI.Manifest manifest) {
+            @Override public void onSuccess(MojangAPI.Manifest manifest) {
                 runOnUiThread(() -> {
                     versions = manifest.versions;
                     adapter.setVersions(versions);
                     swipeRefresh.setRefreshing(false);
-                    updateEmptyState();
+                    emptyText.setVisibility(versions.isEmpty() ? View.VISIBLE : View.GONE);
                 });
             }
-            @Override
-            public void onError(String error) {
+            @Override public void onError(String err) {
                 runOnUiThread(() -> {
-                    Toast.makeText(VersionsActivity.this, "Failed: " + error, Toast.LENGTH_LONG).show();
+                    Toast.makeText(VersionsActivity.this, "Failed: " + err, Toast.LENGTH_LONG).show();
                     swipeRefresh.setRefreshing(false);
                 });
             }
         });
     }
 
-    private void updateEmptyState() {
-        if (versions.isEmpty()) {
-            emptyText.setVisibility(View.VISIBLE);
-            recyclerView.setVisibility(View.GONE);
-        } else {
-            emptyText.setVisibility(View.GONE);
-            recyclerView.setVisibility(View.VISIBLE);
-        }
-    }
-
-    // ===== ADAPTER =====
     private class VersionAdapter extends RecyclerView.Adapter<VersionAdapter.VH> {
         private List<MojangAPI.Manifest.Version> list = new ArrayList<>();
+        void setVersions(List<MojangAPI.Manifest.Version> l) { list = l; notifyDataSetChanged(); }
 
-        void setVersions(List<MojangAPI.Manifest.Version> l) {
-            list = l;
-            notifyDataSetChanged();
+        @Override public VH onCreateViewHolder(ViewGroup p, int t) {
+            return new VH(LayoutInflater.from(p.getContext()).inflate(R.layout.activity_instance_item, p, false));
         }
 
-        @Override
-        public VH onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_version, parent, false);            return new VH(v);
-        }
-
-        @Override
-        public void onBindViewHolder(VH holder, int position) {
-            MojangAPI.Manifest.Version v = list.get(position);
-            holder.name.setText(v.id);
-            holder.type.setText(v.type.toUpperCase());
-            holder.date.setText(v.releaseTime.substring(0, 10));
+        @Override public void onBindViewHolder(VH h, int i) {
+            MojangAPI.Manifest.Version v = list.get(i);
+            h.name.setText(v.id);
+            h.status.setText(v.type.toUpperCase() + (v.type.equals("release") ? " (Stable)" : ""));
             
-            // ✅ This method now exists in VersionManager
             boolean installed = versionManager.isVersionInstalled(v.id);
-            holder.btnDownload.setText(installed ? "Installed" : "Download");
-            holder.btnDownload.setEnabled(!installed);
-            holder.progress.setVisibility(View.GONE);
-            holder.progressText.setVisibility(View.GONE);
-
-            if (!installed) {
-                holder.btnDownload.setOnClickListener(click -> downloadVersion(v, holder));
+            if (installed) {
+                h.btnAction.setText("▶ Launch");
+                h.btnAction.setOnClickListener(c -> launchInstance(v.id));
+                h.icon.setImageResource(R.mipmap.ic_launcher); // Replace with version-specific icon if available
+            } else {
+                h.btnAction.setText("⬇ Install");
+                h.btnAction.setOnClickListener(c -> downloadInstance(v, h));
+                h.icon.setImageResource(android.R.drawable.ic_menu_gallery);
             }
         }
 
-        private void downloadVersion(MojangAPI.Manifest.Version version, VH holder) {
-            holder.btnDownload.setEnabled(false);
-            holder.progress.setVisibility(View.VISIBLE);
-            holder.progressText.setVisibility(View.VISIBLE);
-            holder.progress.setProgress(0);
-            holder.progressText.setText("0%");
+        private void downloadInstance(MojangAPI.Manifest.Version v, VH h) {
+            h.btnAction.setEnabled(false);
+            h.status.setText("Downloading... 0%");
+            ProgressBar pb = new ProgressBar(VersionsActivity.this, null, android.R.attr.progressBarStyleHorizontal);
+            pb.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 8));
+            ((ViewGroup)h.itemView).addView(pb);
 
-            // ✅ Listener methods match exactly
-            versionManager.downloadVersion(version.id, version.url, new VersionManager.Listener() {
-                @Override
-                public void onStatus(String msg) {
-                    runOnUiThread(() -> holder.progressText.setText(msg));
+            versionManager.downloadVersion(v.id, v.url, new VersionManager.Listener() {
+                @Override public void onStatus(String msg) { runOnUiThread(() -> h.status.setText(msg)); }
+                @Override public void onProgress(int p, String s) { 
+                    runOnUiThread(() -> { pb.setProgress(p); h.status.setText(s + " " + p + "%"); });
                 }
-                @Override
-                public void onProgress(int percent, String status) {
+                @Override public void onComplete(File dir) {
                     runOnUiThread(() -> {
-                        holder.progress.setProgress(percent);
-                        holder.progressText.setText(percent + "%");
+                        Toast.makeText(VersionsActivity.this, "✅ " + v.id + " installed!", Toast.LENGTH_SHORT).show();
+                        h.btnAction.setText("▶ Launch");
+                        h.btnAction.setEnabled(true);
+                        h.btnAction.setOnClickListener(c -> launchInstance(v.id));
+                        h.status.setText("Ready to launch");
+                        h.icon.setImageResource(R.mipmap.ic_launcher);
+                        ((ViewGroup)h.itemView).removeView(pb);
                     });
                 }
-                @Override
-                public void onComplete(File dir) {
+                @Override public void onError(String e) {
                     runOnUiThread(() -> {
-                        Toast.makeText(VersionsActivity.this, version.id + " installed!", Toast.LENGTH_SHORT).show();
-                        holder.btnDownload.setText("Installed");
-                        holder.btnDownload.setEnabled(false);
-                        holder.progress.setVisibility(View.GONE);
-                        holder.progressText.setVisibility(View.GONE);                    });
-                }
-                @Override
-                public void onError(String message) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(VersionsActivity.this, "Failed: " + message, Toast.LENGTH_LONG).show();
-                        holder.btnDownload.setEnabled(true);
-                        holder.progress.setVisibility(View.GONE);
-                        holder.progressText.setVisibility(View.GONE);
+                        Toast.makeText(VersionsActivity.this, "❌ " + e, Toast.LENGTH_LONG).show();
+                        h.btnAction.setEnabled(true);
+                        h.status.setText("Failed. Tap to retry.");
+                        ((ViewGroup)h.itemView).removeView(pb);
                     });
                 }
             });
         }
 
-        @Override
-        public int getItemCount() {
-            return list.size();
+        private void launchInstance(String versionId) {
+            Intent intent = new Intent(VersionsActivity.this, GameActivity.class);
+            intent.putExtra("VERSION_ID", versionId);
+            startActivity(intent);
+            overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
         }
 
+        @Override public int getItemCount() { return list.size(); }
         class VH extends RecyclerView.ViewHolder {
-            TextView name, type, date, progressText;
-            GlassButton btnDownload;
-            ProgressBar progress;
-
-            VH(View v) {
-                super(v);
-                name = v.findViewById(R.id.versionName);
-                type = v.findViewById(R.id.versionType);
-                date = v.findViewById(R.id.versionDate);
-                btnDownload = v.findViewById(R.id.btnDownload);
-                progress = v.findViewById(R.id.progress);
-                progressText = v.findViewById(R.id.progressText);
-            }
+            ImageView icon; TextView name, status; GlassButton btnAction;
+            VH(View v) { super(v); icon = v.findViewById(R.id.iconVersion); name = v.findViewById(R.id.versionName); status = v.findViewById(R.id.versionStatus); btnAction = v.findViewById(R.id.btnAction); }
         }
     }
 }
