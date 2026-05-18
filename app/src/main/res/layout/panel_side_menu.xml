@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="280dp"
+    android:layout_height="match_parent"
+    android:layout_gravity="start"
+    app:cardCornerRadius="0dp"
+    app:cardElevation="16dp"
+    app:cardBackgroundColor="#CC0A0A0F">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="MENU"
+            android:textColor="@color/primary"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Version Option -->
+        <com.fearlauncher.app.view.GlassButton
+            android:id="@+id/btnOpenVersions"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="12dp"
+            app:icon="@drawable/ic_version"
+            app:label="Versions"
+            app:thin="true"
+            android:stateListAnimator="@animator/btn_bubble"/>
+
+        <!-- Future Options -->
+        <com.fearlauncher.app.view.GlassButton
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="12dp"
+            app:icon="@drawable/ic_home"
+            app:label="Settings"
+            app:thin="true"
+            android:enabled="false"
+            android:alpha="0.5"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FearLauncher v2.0"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp"/>
+    </LinearLayout>
+</androidx.cardview.widget.CoordinatorLayout>
