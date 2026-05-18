@@ -19,11 +19,14 @@ import com.fearlauncher.app.manager.VersionManager;
 import com.fearlauncher.app.view.AnimatedBackgroundView;
 import com.fearlauncher.app.view.GlassButton;
 
+// ✅ FIXED: Added missing import for File class
+import java.io.File; 
+
 public class MainActivity extends AppCompatActivity {
 
     private AnimatedBackgroundView bgAnimated;
     private ImageButton btnMenu;
-    private GlassButton btnHome, btnVersions, btnPlay; // ✅ Added btnPlay
+    private GlassButton btnHome, btnVersions, btnPlay;
     private View sidePanel;
     private boolean panelOpen = false;
 
@@ -31,7 +34,6 @@ public class MainActivity extends AppCompatActivity {
     private VersionManager versionManager;
     
     private static final int PERMISSION_REQUEST_CODE = 101;
-    private static final int EXECUTE_PERMISSION_CODE = 102;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
             btnMenu = findViewById(R.id.btnMenu);
             btnHome = findViewById(R.id.btnHome);
             btnVersions = findViewById(R.id.btnVersions);
-            btnPlay = findViewById(R.id.btnPlay); // ✅ Reference to Play button
+            btnPlay = findViewById(R.id.btnPlay);
             sidePanel = findViewById(R.id.sidePanel);
 
             // Navigation clicks
@@ -89,18 +91,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Storage permission
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
-            }
-            // Execute permission (for launching processes - Android 10+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.REQUEST_INSTALL_PACKAGES)
-                        != PackageManager.PERMISSION_GRANTED) {
-                    // Note: REQUEST_INSTALL_PACKAGES is a special permission; user must grant manually in Settings
-                }
             }
         }
     }
@@ -145,7 +139,6 @@ public class MainActivity extends AppCompatActivity {
                         "• Native libraries compiled for ARM\n\n" +
                         "Recommendation: Integrate PojavLauncher core for full support.")
                 .setPositiveButton("Learn More", (d, w) -> {
-                    // Optional: Open PojavLauncher GitHub
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW,
                             android.net.Uri.parse("https://github.com/PojavLauncher/PojavLauncher")));
@@ -161,6 +154,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String getFirstInstalledVersion() {
+        // ✅ FIXED: Now 'File' is recognized
         File[] versionFolders = new File(versionManager.getBaseDir(), "versions").listFiles(File::isDirectory);
         if (versionFolders != null) {
             for (File f : versionFolders) {
@@ -178,15 +172,13 @@ public class MainActivity extends AppCompatActivity {
             .setTitle("🚀 Launching Minecraft")
             .setMessage("Starting " + versionId + "...\n\nCheck Logcat for output.")
             .setCancelable(false)
-            .setNegativeButton("Cancel", (d, w) -> {
-                // Optional: Kill process if needed
-            })
+            .setNegativeButton("Cancel", (d, w) -> {})
             .show();
 
         // Use offline-mode credentials for testing
         String username = "FearPlayer";
-        String uuid = "00000000-0000-0000-0000-000000000000"; // Offline UUID
-        String accessToken = "0"; // Offline mode
+        String uuid = "00000000-0000-0000-0000-000000000000";
+        String accessToken = "0";
 
         launchManager.launchGame(versionId, username, uuid, accessToken, new LaunchManager.LaunchListener() {
             @Override
@@ -211,16 +203,14 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onLog(String line) {
-                // Stream game output to Logcat (visible via `adb logcat | grep Minecraft_Output`)
-                // Optional: Show in UI if needed
+                // Stream game output to Logcat
             }
         });
     }
 
-    // ✅ Fallback launch for testing (may only work on rooted devices or with Termux)
     private void launchWithFallback(String versionId) {
         Toast.makeText(this, "⚠️ Fallback mode: May not work without proper JVM", Toast.LENGTH_LONG).show();
-        launchGame(versionId); // Try anyway
+        launchGame(versionId);
     }
 
     // UI helpers
