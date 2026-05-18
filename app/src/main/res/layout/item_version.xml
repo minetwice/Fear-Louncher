@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="#1AFFFFFF">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Version Info -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/versionName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1.20.4"
+                android:textColor="@color/text"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+
+                <TextView
+                    android:id="@+id/versionType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RELEASE"
+                    android:textColor="@color/primary"
+                    android:textSize="11sp"
+                    android:background="@drawable/btn_glass_selected"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"/>
+
+                <TextView
+                    android:id="@+id/versionDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2024-01-15"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:layout_marginStart="8dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Download Button -->
+        <com.fearlauncher.app.view.GlassButton
+            android:id="@+id/btnDownload"
+            android:layout_width="100dp"
+            android:layout_height="40dp"
+            app:label="Download"
+            app:thin="true"
+            android:stateListAnimator="@animator/btn_bubble"/>
+
+        <!-- Progress (Hidden by Default) -->
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="100dp"
+            android:layout_height="4dp"
+            android:progress="0"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/progressText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0%"
+            android:textColor="@color/text_muted"
+            android:textSize="10sp"
+            android:visibility="gone"/>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
