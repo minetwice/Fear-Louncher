@@ -33,16 +33,12 @@ android {
         }
         debug {
             debuggable true
-            jniDebuggable true
         }
     }
 
     sourceSets {
         main {
             assets.srcDirs = ['src/main/assets']
-            java.srcDirs = ['src/main/java']
-            res.srcDirs = ['src/main/res']
-            manifest.srcFile 'src/main/AndroidManifest.xml'
         }
     }
 
@@ -50,60 +46,6 @@ android {
         resources {
             excludes += ['/META-INF/{AL2.0,LGPL2.1}', 'META-INF/DEPENDENCIES']
         }
-    }
-}
-
-// ✅ AUTO-DOWNLOAD JRE TASK (PojavLauncher ARM64 JRE)
-tasks.register('downloadJre', Task) {
-    description = 'Downloads ARM64 JRE from PojavLauncher if not present'
-    group = 'fearlauncher'
-
-    def jreDir = file('src/main/assets/jre')
-    def jreMarker = file('src/main/assets/.jre-downloaded')
-
-    onlyIf { !jreMarker.exists() }
-
-    doLast {
-        println "📦 JRE not found. Downloading from PojavLauncher..."
-        
-        // PojavLauncher JRE release URL (ARM64)
-        def jreUrl = 'https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip'
-        def tempZip = file("$buildDir/tmp/jre-android-arm64.zip")
-        
-        // Create dirs
-        jreDir.mkdirs()
-        tempZip.parentFile.mkdirs()
-        
-        // Download
-        ant.get(src: jreUrl, dest: tempZip, usetimestamp: true)
-        
-        // Extract
-        copy {
-            from zipTree(tempZip)
-            into jreDir
-        }
-        
-        // Cleanup
-        tempZip.delete()
-        
-        // Mark as downloaded
-        jreMarker.createNewFile()
-        
-        println "✅ JRE extracted to: ${jreDir.absolutePath}"
-    }
-}
-
-// ✅ Hook JRE download before asset packaging
-preBuild.dependsOn downloadJre
-
-// ✅ Optional: Task to force re-download
-tasks.register('forceDownloadJre', Task) {
-    description = 'Forces re-download of JRE'
-    group = 'fearlauncher'
-    
-    doLast {
-        file('src/main/assets/.jre-downloaded').delete()
-        println "🔄 JRE marker deleted. Next build will re-download."
     }
 }
 
