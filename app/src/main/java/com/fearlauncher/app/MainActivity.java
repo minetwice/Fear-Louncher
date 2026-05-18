@@ -10,9 +10,12 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import com.fearlauncher.app.manager.LaunchManager;
+import com.fearlauncher.app.manager.VersionManager;
 import com.fearlauncher.app.view.AnimatedBackgroundView;
 import com.fearlauncher.app.view.GlassButton;
 
@@ -20,18 +23,25 @@ public class MainActivity extends AppCompatActivity {
 
     private AnimatedBackgroundView bgAnimated;
     private ImageButton btnMenu;
-    private GlassButton btnHome, btnVersions;
+    private GlassButton btnHome, btnVersions, btnPlay; // ✅ Added btnPlay
     private View sidePanel;
     private boolean panelOpen = false;
 
+    private LaunchManager launchManager;
+    private VersionManager versionManager;
+    
     private static final int PERMISSION_REQUEST_CODE = 101;
+    private static final int EXECUTE_PERMISSION_CODE = 102;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Request Storage Permission
-        checkStoragePermission();
+        // Initialize managers
+        versionManager = new VersionManager(this);
+        launchManager = new LaunchManager(this);
+
+        checkPermissions();
 
         try {
             setContentView(R.layout.activity_main);
@@ -40,15 +50,27 @@ public class MainActivity extends AppCompatActivity {
             btnMenu = findViewById(R.id.btnMenu);
             btnHome = findViewById(R.id.btnHome);
             btnVersions = findViewById(R.id.btnVersions);
+            btnPlay = findViewById(R.id.btnPlay); // ✅ Reference to Play button
             sidePanel = findViewById(R.id.sidePanel);
 
+            // Navigation clicks
             if (btnMenu != null) btnMenu.setOnClickListener(v -> toggleSidePanel());
             if (btnHome != null) btnHome.setOnClickListener(v -> animateClick(v));
             if (btnVersions != null) btnVersions.setOnClickListener(v -> {
                 animateClick(v);
                 startActivity(new Intent(this, VersionsActivity.class));
-                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);            });
+                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
+            });
 
+            // ✅ PLAY BUTTON LOGIC
+            if (btnPlay != null) {
+                btnPlay.setOnClickListener(v -> {
+                    animateClick(v);
+                    attemptLaunch();
+                });
+            }
+
+            // Side panel -> Versions
             View btnOpenVersions = findViewById(R.id.btnOpenVersions);
             if (btnOpenVersions != null) {
                 btnOpenVersions.setOnClickListener(v -> {
@@ -65,12 +87,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void checkStoragePermission() {
+    private void checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Storage permission
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
+            }
+            // Execute permission (for launching processes - Android 10+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.REQUEST_INSTALL_PACKAGES)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    // Note: REQUEST_INSTALL_PACKAGES is a special permission; user must grant manually in Settings
+                }
             }
         }
     }
@@ -82,11 +112,118 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "✅ Storage access granted", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "⚠️ Permission denied", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "⚠️ Storage permission denied", Toast.LENGTH_LONG).show();
             }
         }
     }
 
+    // ✅ REAL LAUNCH LOGIC
+    private void attemptLaunch() {
+        // 1. Check if any version is installed
+        String installedVersion = getFirstInstalledVersion();
+        if (installedVersion == null) {
+            new AlertDialog.Builder(this)
+                .setTitle("⚠️ No Version Installed")
+                .setMessage("Please download a Minecraft version first from the Versions menu.")
+                .setPositiveButton("Go to Versions", (d, w) -> {
+                    startActivity(new Intent(this, VersionsActivity.class));
+                    overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+            return;
+        }
+
+        // 2. Check launch readiness
+        if (!launchManager.isLaunchReady(installedVersion)) {
+            new AlertDialog.Builder(this)
+                .setTitle("⚠️ Launch Prerequisites Missing")
+                .setMessage("Java runtime or game files not found.\n\n" +
+                        "To run Minecraft Java Edition on Android, you need:\n" +
+                        "• ARM-compatible Java Runtime (JRE)\n" +
+                        "• LWJGL3-Android port\n" +
+                        "• Native libraries compiled for ARM\n\n" +
+                        "Recommendation: Integrate PojavLauncher core for full support.")
+                .setPositiveButton("Learn More", (d, w) -> {
+                    // Optional: Open PojavLauncher GitHub
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://github.com/PojavLauncher/PojavLauncher")));
+                    } catch (Exception ignored) {}
+                })
+                .setNegativeButton("Try Anyway", (d, w) -> launchWithFallback(installedVersion))
+                .show();
+            return;
+        }
+
+        // 3. Launch the game!
+        launchGame(installedVersion);
+    }
+
+    private String getFirstInstalledVersion() {
+        File[] versionFolders = new File(versionManager.getBaseDir(), "versions").listFiles(File::isDirectory);
+        if (versionFolders != null) {
+            for (File f : versionFolders) {
+                if (new File(f, ".installed").exists()) {
+                    return f.getName();
+                }
+            }
+        }
+        return null;
+    }
+
+    private void launchGame(String versionId) {
+        // Show loading dialog
+        AlertDialog progressDialog = new AlertDialog.Builder(this)
+            .setTitle("🚀 Launching Minecraft")
+            .setMessage("Starting " + versionId + "...\n\nCheck Logcat for output.")
+            .setCancelable(false)
+            .setNegativeButton("Cancel", (d, w) -> {
+                // Optional: Kill process if needed
+            })
+            .show();
+
+        // Use offline-mode credentials for testing
+        String username = "FearPlayer";
+        String uuid = "00000000-0000-0000-0000-000000000000"; // Offline UUID
+        String accessToken = "0"; // Offline mode
+
+        launchManager.launchGame(versionId, username, uuid, accessToken, new LaunchManager.LaunchListener() {
+            @Override
+            public void onLaunchSuccess() {
+                runOnUiThread(() -> {
+                    progressDialog.dismiss();
+                    Toast.makeText(MainActivity.this, "🎮 Game launched!", Toast.LENGTH_LONG).show();
+                });
+            }
+
+            @Override
+            public void onLaunchError(String message) {
+                runOnUiThread(() -> {
+                    progressDialog.dismiss();
+                    new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("❌ Launch Failed")
+                        .setMessage(message)
+                        .setPositiveButton("OK", null)
+                        .show();
+                });
+            }
+
+            @Override
+            public void onLog(String line) {
+                // Stream game output to Logcat (visible via `adb logcat | grep Minecraft_Output`)
+                // Optional: Show in UI if needed
+            }
+        });
+    }
+
+    // ✅ Fallback launch for testing (may only work on rooted devices or with Termux)
+    private void launchWithFallback(String versionId) {
+        Toast.makeText(this, "⚠️ Fallback mode: May not work without proper JVM", Toast.LENGTH_LONG).show();
+        launchGame(versionId); // Try anyway
+    }
+
+    // UI helpers
     private void toggleSidePanel() {
         if (sidePanel == null) return;
         panelOpen = !panelOpen;
@@ -97,6 +234,7 @@ public class MainActivity extends AppCompatActivity {
                 .setInterpolator(new DecelerateInterpolator())
                 .start();
     }
+
     private void animateClick(View v) {
         if (v == null) return;
         v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(100)
