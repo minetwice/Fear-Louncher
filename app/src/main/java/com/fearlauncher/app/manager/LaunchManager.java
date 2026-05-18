@@ -26,34 +26,47 @@ public class LaunchManager {
         this.ctx = context.getApplicationContext();
         this.versionManager = new VersionManager(context);
         
-        // ✅ Auto-extract JRE on init
-        extractAllJREs();
+        // ✅ Auto-extract JRE from assets/components/
+        new Thread(this::extractAllJREs).start();
     }
 
-    // ✅ Extract ALL JRE versions from assets to internal storage
     private void extractAllJREs() {
-        String[] jreVersions = {"jre-8", "jre-17", "jre-21", "jre-25"};
+        // ✅ UPDATED: Look in components/ subfolder
+        String[] jreVersions = {
+            "components/jre-8", 
+            "components/jre-17", 
+            "components/jre-21", 
+            "components/jre-25"
+        };
         File filesDir = ctx.getFilesDir();
+        AssetManager assets = ctx.getAssets();
         
-        for (String jreVersion : jreVersions) {
+        for (String jrePath : jreVersions) {
+            // Extract folder name from path (e.g., "components/jre-17" -> "jre-17")
+            String jreVersion = jrePath.substring(jrePath.lastIndexOf('/') + 1);
             File jreDest = new File(filesDir, jreVersion);
             File javaBin = new File(jreDest, "bin/java");
             
-            // Skip if already extracted
-            if (javaBin.exists() && javaBin.canExecute()) {
-                Log.d(TAG, "✅ " + jreVersion + " already extracted");
+            // Skip if already extracted            if (javaBin.exists() && javaBin.canExecute()) {
+                Log.d(TAG, "✅ " + jreVersion + " already exists");
                 continue;
             }
             
             try {
-                Log.d(TAG, "📦 Extracting " + jreVersion + "...");
-                copyAssetFolder(ctx.getAssets(), jreVersion, jreDest.getAbsolutePath());                
+                // Check if folder exists in assets/components/
+                String[] assetFiles = assets.list(jrePath);
+                if (assetFiles == null || assetFiles.length == 0) {
+                    Log.w(TAG, "⚠️ " + jrePath + " not found in assets. Skipping.");
+                    continue;
+                }
+                
+                Log.d(TAG, "📦 Extracting " + jreVersion + " from " + jrePath + "...");
+                copyAssetFolder(assets, jrePath, jreDest.getAbsolutePath());
+                
                 // Make java executable
                 if (javaBin.exists()) {
                     boolean success = javaBin.setExecutable(true, true);
                     Log.d(TAG, "Made java executable: " + success);
-                    
-                    // Also fix permissions for all .so files
                     fixNativePermissions(new File(jreDest, "lib"));
                 }
             } catch (IOException e) {
@@ -83,7 +96,6 @@ public class LaunchManager {
         
         String[] files = assets.list(srcPath);
         if (files == null) return;
-
         for (String file : files) {
             String src = srcPath.isEmpty() ? file : srcPath + "/" + file;
             File destFile = new File(destDir, file);
@@ -96,7 +108,8 @@ public class LaunchManager {
                      FileOutputStream out = new FileOutputStream(destFile)) {
                     byte[] buffer = new byte[8192];
                     int read;
-                    while ((read = in.read(buffer)) != -1) {                        out.write(buffer, 0, read);
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
                     }
                 }
             }
@@ -114,9 +127,15 @@ public class LaunchManager {
                     return;
                 }
 
-                // ✅ First launch: Download binaries & natives
+                // Wait for JRE extraction if needed
+                int waitCount = 0;
+                while (findJavaRuntime() == null && waitCount < 20) {
+                    Thread.sleep(500);
+                    waitCount++;
+                }
+
                 if (!versionManager.isFirstLaunchComplete(versionId)) {
-                    listener.onLog("📦 First launch: Downloading natives & binaries...");
+                    listener.onLog("📦 First launch: Downloading natives...");
                     versionManager.downloadFirstLaunchFiles(versionId, new VersionManager.FirstLaunchListener() {
                         @Override
                         public void onProgress(int percent, String status, long speed) {
@@ -126,10 +145,9 @@ public class LaunchManager {
                         @Override
                         public void onComplete() {
                             listener.onLog("✅ Natives downloaded!");
-                        }
-                        @Override
+                        }                        @Override
                         public void onError(String e) {
-                            listener.onLaunchError("❌ Failed to download natives: " + e);
+                            listener.onLaunchError("❌ Failed: " + e);
                         }
                     });
                 }
@@ -142,19 +160,19 @@ public class LaunchManager {
                 File instanceDir = new File(baseDir, "instances/" + versionId);
 
                 if (!gameJar.exists()) {
-                    listener.onLaunchError("❌ game.jar missing. Redownload version.");
+                    listener.onLaunchError("❌ game.jar missing.");
                     return;
                 }
+
                 String javaPath = findJavaRuntime();
                 if (javaPath == null) {
-                    listener.onLaunchError("❌ Java runtime not found.\n\nMake sure JRE folders exist in app assets/\nExtracted to: " + ctx.getFilesDir().getAbsolutePath());
+                    listener.onLaunchError("❌ Java runtime not found.\n\nMake sure JRE folders exist in:\napp/src/main/assets/components/\n\nExtracted to: " + ctx.getFilesDir().getAbsolutePath());
                     return;
                 }
 
                 listener.onLog("✅ Java: " + javaPath);
                 listener.onLog("📂 Instance: " + instanceDir.getAbsolutePath());
 
-                // Build launch command
                 List<String> cmd = new ArrayList<>();
                 cmd.add(javaPath);
                 cmd.add("-Xmx2G");
@@ -176,8 +194,7 @@ public class LaunchManager {
                 cmd.add("--userType"); cmd.add("mojang");
                 cmd.add("--versionType"); cmd.add("FearLauncher");
 
-                listener.onLog("⚙️ Starting Minecraft...");
-                ProcessBuilder pb = new ProcessBuilder(cmd);
+                listener.onLog("⚙️ Starting Minecraft...");                ProcessBuilder pb = new ProcessBuilder(cmd);
                 pb.directory(instanceDir);
                 pb.redirectErrorStream(true);
                 gameProcess = pb.start();
@@ -191,14 +208,15 @@ public class LaunchManager {
                             Log.d("Minecraft", line);
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Output stream error", e);
+                        Log.e(TAG, "Output error", e);
                     }
                 }).start();
+
                 int exitCode = gameProcess.waitFor();
                 if (listener != null) {
                     listener.onExit(exitCode);
                     if (exitCode == 0) listener.onLaunchSuccess();
-                    else listener.onLaunchError("Game exited with code: " + exitCode);
+                    else listener.onLaunchError("Game exited: " + exitCode);
                 }
 
             } catch (Exception e) {
@@ -217,7 +235,6 @@ public class LaunchManager {
     public void stopGame() {
         if (gameProcess != null && gameProcess.isAlive()) {
             gameProcess.destroy();
-            Log.d(TAG, "🛑 Game process stopped.");
         }
     }
 
@@ -225,16 +242,10 @@ public class LaunchManager {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
         String preferredJre = prefs.getString("java_version", "jre-17");
         
-        Log.d(TAG, "🔍 Looking for: " + preferredJre);
-        
-        // Check extracted internal storage
         File preferredBin = new File(ctx.getFilesDir(), preferredJre + "/bin/java");
-        if (preferredBin.exists() && preferredBin.canExecute()) {
-            Log.d(TAG, "✅ Found: " + preferredBin.getAbsolutePath());
-            return preferredBin.getAbsolutePath();
+        if (preferredBin.exists() && preferredBin.canExecute()) {            return preferredBin.getAbsolutePath();
         }
         
-        // Fallback
         String[] fallbacks = {"jre-17", "jre-21", "jre-8", "jre-25"};
         for (String folder : fallbacks) {
             File bin = new File(ctx.getFilesDir(), folder + "/bin/java");
@@ -243,7 +254,8 @@ public class LaunchManager {
             }
         }
         
-        return null;    }
+        return null;
+    }
 
     public boolean isLaunchReady(String versionId) {
         return versionManager.isVersionInstalled(versionId);
