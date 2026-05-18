@@ -4,13 +4,16 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.fearlauncher.app.api.MojangAPI;
 import com.fearlauncher.app.manager.VersionManager;
+import com.fearlauncher.app.view.GlassButton;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,97 +47,121 @@ public class VersionsActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         swipeRefresh.setOnRefreshListener(this::loadVersions);
-        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+                findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnRefresh).setOnClickListener(v -> loadVersions());
     }
+
     private void loadVersions() {
         swipeRefresh.setRefreshing(true);
         MojangAPI.fetchVersions(new MojangAPI.Callback() {
-            @Override public void onSuccess(MojangAPI.Manifest manifest) {
+            @Override
+            public void onSuccess(MojangAPI.Manifest manifest) {
                 runOnUiThread(() -> {
                     versions = manifest.versions;
                     adapter.setVersions(versions);
                     swipeRefresh.setRefreshing(false);
-                    updateEmpty();
+                    updateEmptyState();
                 });
             }
-            @Override public void onError(String err) {
+            @Override
+            public void onError(String error) {
                 runOnUiThread(() -> {
-                    Toast.makeText(VersionsActivity.this, "Failed: " + err, Toast.LENGTH_LONG).show();
+                    Toast.makeText(VersionsActivity.this, "Failed: " + error, Toast.LENGTH_LONG).show();
                     swipeRefresh.setRefreshing(false);
                 });
             }
         });
     }
 
-    private void updateEmpty() {
-        emptyText.setVisibility(versions.isEmpty() ? View.VISIBLE : View.GONE);
-        recyclerView.setVisibility(versions.isEmpty() ? View.GONE : View.VISIBLE);
+    private void updateEmptyState() {
+        if (versions.isEmpty()) {
+            emptyText.setVisibility(View.VISIBLE);
+            recyclerView.setVisibility(View.GONE);
+        } else {
+            emptyText.setVisibility(View.GONE);
+            recyclerView.setVisibility(View.VISIBLE);
+        }
     }
 
-    // ===== Adapter =====
+    // ===== ADAPTER =====
     private class VersionAdapter extends RecyclerView.Adapter<VersionAdapter.VH> {
         private List<MojangAPI.Manifest.Version> list = new ArrayList<>();
-        void setVersions(List<MojangAPI.Manifest.Version> l) { list = l; notifyDataSetChanged(); }
 
-        @Override public VH onCreateViewHolder(ViewGroup p, int t) {
-            View v = LayoutInflater.from(p.getContext()).inflate(R.layout.item_version, p, false);
-            return new VH(v);
+        void setVersions(List<MojangAPI.Manifest.Version> l) {
+            list = l;
+            notifyDataSetChanged();
         }
 
-        @Override public void onBindViewHolder(VH h, int i) {
-            MojangAPI.Manifest.Version v = list.get(i);
-            h.name.setText(v.id);
-            h.type.setText(v.type.toUpperCase());
-            h.date.setText(v.releaseTime.substring(0, 10));
+        @Override
+        public VH onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_version, parent, false);
+            return new VH(v);        }
+
+        @Override
+        public void onBindViewHolder(VH holder, int position) {
+            MojangAPI.Manifest.Version v = list.get(position);
+            holder.name.setText(v.id);
+            holder.type.setText(v.type.toUpperCase());
+            holder.date.setText(v.releaseTime.substring(0, 10));
             
-            boolean installed = versionManager.isInstalled(v.id);
-            h.btnDownload.setText(installed ? "Installed" : "Download");
-            h.btnDownload.setEnabled(!installed);
-            h.progress.setVisibility(View.GONE);
-            h.progressText.setVisibility(View.GONE);
+            boolean installed = versionManager.isVersionInstalled(v.id);
+            holder.btnDownload.setText(installed ? "Installed" : "Download");
+            holder.btnDownload.setEnabled(!installed);
+            holder.progress.setVisibility(View.GONE);
+            holder.progressText.setVisibility(View.GONE);
 
             if (!installed) {
-                h.btnDownload.setOnClickListener(c -> download(v, h));
-            }        }
+                holder.btnDownload.setOnClickListener(click -> downloadVersion(v, holder));
+            }
+        }
 
-        private void download(MojangAPI.Manifest.Version v, VH h) {
-            h.btnDownload.setEnabled(false);
-            h.progress.setVisibility(View.VISIBLE);
-            h.progressText.setVisibility(View.VISIBLE);
-            
-            versionManager.download(v.id, v.url, new VersionManager.Listener() {
-                @Override public void progress(int p) {
+        private void downloadVersion(MojangAPI.Manifest.Version version, VH holder) {
+            holder.btnDownload.setEnabled(false);
+            holder.progress.setVisibility(View.VISIBLE);
+            holder.progressText.setVisibility(View.VISIBLE);
+            holder.progress.setProgress(0);
+            holder.progressText.setText("0%");
+
+            versionManager.downloadVersion(version.id, version.url, new VersionManager.Listener() {
+                @Override
+                public void progress(int percent) {
                     runOnUiThread(() -> {
-                        h.progress.setProgress(p);
-                        h.progressText.setText(p + "%");
+                        holder.progress.setProgress(percent);
+                        holder.progressText.setText(percent + "%");
                     });
                 }
-                @Override public void done(File dir) {
+                @Override
+                public void done(File dir) {
                     runOnUiThread(() -> {
-                        Toast.makeText(VersionsActivity.this, v.id + " installed!", Toast.LENGTH_SHORT).show();
-                        h.btnDownload.setText("Installed");
-                        h.progress.setVisibility(View.GONE);
-                        h.progressText.setVisibility(View.GONE);
+                        Toast.makeText(VersionsActivity.this, version.id + " installed!", Toast.LENGTH_SHORT).show();
+                        holder.btnDownload.setText("Installed");
+                        holder.btnDownload.setEnabled(false);
+                        holder.progress.setVisibility(View.GONE);
+                        holder.progressText.setVisibility(View.GONE);
                     });
                 }
-                @Override public void error(String e) {
+                @Override
+                public void error(String message) {
                     runOnUiThread(() -> {
-                        Toast.makeText(VersionsActivity.this, "Failed: " + e, Toast.LENGTH_LONG).show();
-                        h.btnDownload.setEnabled(true);
-                        h.progress.setVisibility(View.GONE);
-                        h.progressText.setVisibility(View.GONE);
+                        Toast.makeText(VersionsActivity.this, "Failed: " + message, Toast.LENGTH_LONG).show();
+                        holder.btnDownload.setEnabled(true);                        holder.progress.setVisibility(View.GONE);
+                        holder.progressText.setVisibility(View.GONE);
                     });
                 }
             });
         }
 
-        @Override public int getItemCount() { return list.size(); }
+        @Override
+        public int getItemCount() {
+            return list.size();
+        }
 
         class VH extends RecyclerView.ViewHolder {
             TextView name, type, date, progressText;
             GlassButton btnDownload;
             ProgressBar progress;
+
             VH(View v) {
                 super(v);
                 name = v.findViewById(R.id.versionName);
@@ -145,4 +172,5 @@ public class VersionsActivity extends AppCompatActivity {
                 progressText = v.findViewById(R.id.progressText);
             }
         }
-    }}
+    }
+}
