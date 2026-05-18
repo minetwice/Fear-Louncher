@@ -19,14 +19,13 @@ import com.fearlauncher.app.manager.VersionManager;
 import com.fearlauncher.app.view.AnimatedBackgroundView;
 import com.fearlauncher.app.view.GlassButton;
 
-// ✅ FIXED: Added missing import for File class
-import java.io.File; 
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
 
     private AnimatedBackgroundView bgAnimated;
     private ImageButton btnMenu;
-    private GlassButton btnHome, btnVersions, btnPlay;
+    private GlassButton btnHome, btnVersions, btnPlay, btnSettings;
     private View sidePanel;
     private boolean panelOpen = false;
 
@@ -39,7 +38,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Initialize managers
         versionManager = new VersionManager(this);
         launchManager = new LaunchManager(this);
 
@@ -53,9 +51,9 @@ public class MainActivity extends AppCompatActivity {
             btnHome = findViewById(R.id.btnHome);
             btnVersions = findViewById(R.id.btnVersions);
             btnPlay = findViewById(R.id.btnPlay);
+            btnSettings = findViewById(R.id.btnSettings);
             sidePanel = findViewById(R.id.sidePanel);
 
-            // Navigation clicks
             if (btnMenu != null) btnMenu.setOnClickListener(v -> toggleSidePanel());
             if (btnHome != null) btnHome.setOnClickListener(v -> animateClick(v));
             if (btnVersions != null) btnVersions.setOnClickListener(v -> {
@@ -63,8 +61,11 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(this, VersionsActivity.class));
                 overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
             });
-
-            // ✅ PLAY BUTTON LOGIC
+            if (btnSettings != null) btnSettings.setOnClickListener(v -> {
+                animateClick(v);
+                startActivity(new Intent(this, SettingsActivity.class));
+                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
+            });
             if (btnPlay != null) {
                 btnPlay.setOnClickListener(v -> {
                     animateClick(v);
@@ -72,7 +73,6 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
 
-            // Side panel -> Versions
             View btnOpenVersions = findViewById(R.id.btnOpenVersions);
             if (btnOpenVersions != null) {
                 btnOpenVersions.setOnClickListener(v -> {
@@ -111,9 +111,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ✅ REAL LAUNCH LOGIC
     private void attemptLaunch() {
-        // 1. Check if any version is installed
         String installedVersion = getFirstInstalledVersion();
         if (installedVersion == null) {
             new AlertDialog.Builder(this)
@@ -128,33 +126,23 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // 2. Check launch readiness
         if (!launchManager.isLaunchReady(installedVersion)) {
             new AlertDialog.Builder(this)
                 .setTitle("⚠️ Launch Prerequisites Missing")
-                .setMessage("Java runtime or game files not found.\n\n" +
-                        "To run Minecraft Java Edition on Android, you need:\n" +
-                        "• ARM-compatible Java Runtime (JRE)\n" +
-                        "• LWJGL3-Android port\n" +
-                        "• Native libraries compiled for ARM\n\n" +
-                        "Recommendation: Integrate PojavLauncher core for full support.")
-                .setPositiveButton("Learn More", (d, w) -> {
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://github.com/PojavLauncher/PojavLauncher")));
-                    } catch (Exception ignored) {}
+                .setMessage("Java runtime or game files not found.\n\nMake sure you have:\n• JRE installed in assets/\n• Minecraft version downloaded")
+                .setPositiveButton("Go to Settings", (d, w) -> {
+                    startActivity(new Intent(this, SettingsActivity.class));
+                    overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
                 })
-                .setNegativeButton("Try Anyway", (d, w) -> launchWithFallback(installedVersion))
+                .setNegativeButton("Try Anyway", (d, w) -> launchGame(installedVersion))
                 .show();
             return;
         }
 
-        // 3. Launch the game!
         launchGame(installedVersion);
     }
 
     private String getFirstInstalledVersion() {
-        // ✅ FIXED: Now 'File' is recognized
         File[] versionFolders = new File(versionManager.getBaseDir(), "versions").listFiles(File::isDirectory);
         if (versionFolders != null) {
             for (File f : versionFolders) {
@@ -167,20 +155,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void launchGame(String versionId) {
-        // Show loading dialog
         AlertDialog progressDialog = new AlertDialog.Builder(this)
             .setTitle("🚀 Launching Minecraft")
             .setMessage("Starting " + versionId + "...\n\nCheck Logcat for output.")
             .setCancelable(false)
-            .setNegativeButton("Cancel", (d, w) -> {})
+            .setNegativeButton("Cancel", (d, w) -> launchManager.stopGame())
             .show();
 
-        // Use offline-mode credentials for testing
         String username = "FearPlayer";
         String uuid = "00000000-0000-0000-0000-000000000000";
         String accessToken = "0";
 
         launchManager.launchGame(versionId, username, uuid, accessToken, new LaunchManager.LaunchListener() {
+            @Override
+            public void onLog(String line) {
+                runOnUiThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.setMessage("Starting " + versionId + "...\n\n" + line);
+                    }
+                });
+            }
+
             @Override
             public void onLaunchSuccess() {
                 runOnUiThread(() -> {
@@ -202,18 +197,16 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onLog(String line) {
-                // Stream game output to Logcat
+            public void onExit(int exitCode) {
+                runOnUiThread(() -> {
+                    if (exitCode != 0) {
+                        Toast.makeText(MainActivity.this, "Game exited with code: " + exitCode, Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
         });
     }
 
-    private void launchWithFallback(String versionId) {
-        Toast.makeText(this, "⚠️ Fallback mode: May not work without proper JVM", Toast.LENGTH_LONG).show();
-        launchGame(versionId);
-    }
-
-    // UI helpers
     private void toggleSidePanel() {
         if (sidePanel == null) return;
         panelOpen = !panelOpen;
