@@ -1,208 +1,223 @@
 package com.fearlauncher.app.manager;
 
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.res.AssetManager;
 import android.os.Build;
+import android.os.Environment;
 import android.util.Log;
-import androidx.preference.PreferenceManager;
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-public class LaunchManager {
-    private static final String TAG = "FearLauncher_Launch";
+public class VersionManager {
+    private static final String TAG = "FearLauncher_VM";
     private final Context ctx;
-    private final VersionManager versionManager;
-    private Process gameProcess;
+    private final OkHttpClient http;
+    private File baseDir;
 
-    public interface LaunchListener {
-        void onLog(String line);
-        void onLaunchSuccess();
-        void onLaunchError(String message);
-        void onExit(int exitCode);
+    public interface Listener {
+        void onStatus(String msg);
+        void onProgress(int percent, String status);
+        void onComplete(File instanceDir);
+        void onError(String e);
     }
 
-    public LaunchManager(Context context) {
+    public VersionManager(Context context) {
         this.ctx = context.getApplicationContext();
-        this.versionManager = new VersionManager(context);
+        this.http = new OkHttpClient.Builder()
+            .connectTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .build();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            File external = ctx.getExternalFilesDir(null);
+            baseDir = external != null ? external : ctx.getFilesDir();
+        } else {
+            File root = Environment.getExternalStorageDirectory();
+            File legacy = new File(root, "FearLauncher");
+            baseDir = legacy.canWrite() ? legacy : ctx.getFilesDir();
+        }
+        if (!baseDir.exists()) baseDir.mkdirs();
+        Log.d(TAG, "Storage: " + baseDir.getAbsolutePath());
     }
 
-    public void launchGame(String versionId, String username, String uuid,
-                           String accessToken, LaunchListener listener) {
+    public void downloadVersion(String versionId, String jsonUrl, Listener listener) {
         new Thread(() -> {
             try {
-                listener.onLog("🚀 Preparing launch for " + versionId + "...");
-
-                if (!versionManager.isVersionInstalled(versionId)) {
-                    listener.onLaunchError("❌ Version not installed.");
-                    return;
-                }
-
-                // ✅ Extract JRE from assets to internal storage (if not done)
-                extractJreIfNeeded();
-
-                File baseDir = versionManager.getBaseDir();
-                File versionDir = new File(baseDir, "versions/" + versionId);
-                File gameJar = new File(versionDir, versionId + ".jar");
-                File nativesDir = new File(baseDir, "natives");
-                File assetsDir = new File(baseDir, "assets");
-                if (!gameJar.exists()) {
-                    listener.onLaunchError("❌ game.jar missing. Redownload version.");
-                    return;
-                }
-
-                String javaPath = findJavaRuntime();
-                if (javaPath == null) {
-                    listener.onLaunchError("❌ Java runtime not found.\n\nMake sure JRE folders exist in assets/");
-                    return;
-                }
-
-                listener.onLog("✅ Java found at: " + javaPath);
-
-                List<String> cmd = new ArrayList<>();
-                cmd.add(javaPath);
-                cmd.add("-Xmx2G");
-                cmd.add("-Xms1G");
-                cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
-                cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
-                cmd.add("-cp");
-                cmd.add(gameJar.getAbsolutePath());
-                cmd.add("net.minecraft.client.main.Main");
+                listener.onStatus("📦 Preparing instance...");
                 
-                cmd.add("--username"); cmd.add(username);
-                cmd.add("--version"); cmd.add(versionId);
-                cmd.add("--gameDir"); cmd.add(baseDir.getAbsolutePath());
-                cmd.add("--assetsDir"); cmd.add(assetsDir.getAbsolutePath());
-                cmd.add("--assetIndex"); cmd.add(versionId);
-                cmd.add("--uuid"); cmd.add(uuid != null ? uuid : "0");
-                cmd.add("--accessToken"); cmd.add(accessToken != null ? accessToken : "0");
-                cmd.add("--userType"); cmd.add("mojang");
-                cmd.add("--versionType"); cmd.add("FearLauncher");
+                File instanceDir = new File(baseDir, "instances/" + versionId);
+                String[] subDirs = {"mods", "resourcepacks", "config", "saves", "screenshots", "shaderpacks"};
+                for (String dir : subDirs) new File(instanceDir, dir).mkdirs();
 
-                listener.onLog("⚙️ Starting process...");
-                ProcessBuilder pb = new ProcessBuilder(cmd);
-                pb.directory(baseDir);
-                pb.redirectErrorStream(true);
-                gameProcess = pb.start();
+                File versionDir = new File(baseDir, "versions/" + versionId);
+                if (!versionDir.exists()) versionDir.mkdirs();
+                
+                File librariesDir = new File(baseDir, "libraries");
+                if (!librariesDir.exists()) librariesDir.mkdirs();
 
-                new Thread(() -> {
-                    try (BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(gameProcess.getInputStream()))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            if (listener != null) listener.onLog(line);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Output stream error", e);
-                    }
-                }).start();
-                int exitCode = gameProcess.waitFor();
-                if (listener != null) {
-                    listener.onExit(exitCode);
-                    if (exitCode == 0) listener.onLaunchSuccess();
-                    else listener.onLaunchError("Game exited with code: " + exitCode);
+                File assetsDir = new File(baseDir, "assets/indexes");
+                if (!assetsDir.exists()) assetsDir.mkdirs();
+
+                // 1. Download version.json
+                listener.onStatus("📜 Downloading manifest...");
+                File jsonFile = new File(versionDir, versionId + ".json");
+                downloadFile(jsonUrl, jsonFile, listener, 0, 5, "manifest");
+
+                Gson gson = new Gson();
+                JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
+                
+                // 2. Download client.jar
+                JsonObject downloads = vJson.getAsJsonObject("downloads");
+                if (downloads != null && downloads.has("client")) {
+                    String clientUrl = downloads.getAsJsonObject("client").get("url").getAsString();
+                    File gameJar = new File(versionDir, versionId + ".jar");
+                    listener.onStatus("⬇️ Downloading game client...");
+                    downloadFile(clientUrl, gameJar, listener, 5, 25, "client.jar");
                 }
+
+                // 3. Download libraries
+                JsonArray libs = vJson.getAsJsonArray("libraries");
+                if (libs != null) {
+                    int libCount = libs.size();
+                    for (int i = 0; i < libCount; i++) {
+                        JsonObject lib = libs.get(i).getAsJsonObject();
+                        if (!lib.has("downloads")) continue;
+                        JsonObject dl = lib.getAsJsonObject("downloads").getAsJsonObject("artifact");
+                        String url = dl.get("url").getAsString();
+                        String path = dl.get("path").getAsString();
+                        File dest = new File(librariesDir, path);
+                        if (!dest.exists()) {
+                            dest.getParentFile().mkdirs();
+                            int p = 25 + (int)((float)i / libCount * 35);
+                            listener.onStatus("📚 Lib: " + (i+1) + "/" + libCount);
+                            downloadFile(url, dest, listener, p, p+2, "lib");
+                        }
+                    }
+                }
+
+                // 4. Download Asset Index
+                JsonObject assetsObj = vJson.getAsJsonObject("assetIndex");
+                if (assetsObj != null) {
+                    String assetId = assetsObj.get("id").getAsString();
+                    String assetUrl = assetsObj.get("url").getAsString();
+                    File assetIndexFile = new File(assetsDir, assetId + ".json");
+                    listener.onStatus("🖼️ Fetching asset index...");
+                    downloadFile(assetUrl, assetIndexFile, listener, 65, 70, "index");
+
+                    // 5. ✅ DOWNLOAD ACTUAL ASSETS (Textures, Sounds, etc.)
+                    downloadAssets(assetIndexFile, listener);
+                }
+
+                // 6. Mark complete
+                new File(versionDir, ".installed").createNewFile();
+                new File(instanceDir, ".instance").createNewFile();
+                listener.onStatus("✅ Installation complete!");
+                listener.onComplete(instanceDir);
 
             } catch (Exception e) {
-                Log.e(TAG, "Launch failed", e);
-                if (listener != null) listener.onLaunchError("❌ Launch failed: " + e.getMessage());
+                Log.e(TAG, "Download failed", e);
+                listener.onError("❌ " + e.getMessage());
             }
         }).start();
     }
 
-    public void stopGame() {
-        if (gameProcess != null && gameProcess.isAlive()) {
-            gameProcess.destroy();
-            Log.d(TAG, "🛑 Game process stopped.");
-        }
-    }
+    /**
+     * Downloads all missing assets from Mojang's resource server
+     */
+    private void downloadAssets(File assetIndexFile, Listener listener) throws Exception {
+        if (!assetIndexFile.exists()) return;
 
-    // ✅ Extract JRE from assets to internal storage
-    private void extractJreIfNeeded() {
-        String[] jreFolders = {"jre-8", "jre-17", "jre-21", "jre-25"};
-        File destBase = ctx.getFilesDir();
-        
-        for (String folder : jreFolders) {
-            File destDir = new File(destBase, folder);
-            // Check if already extracted (contains bin/java)
-            if (new File(destDir, "bin/java").exists()) continue;
+        Gson gson = new Gson();
+        JsonObject index = gson.fromJson(new java.io.FileReader(assetIndexFile), JsonObject.class);
+        JsonObject objects = index.getAsJsonObject("objects");
+        if (objects == null) return;
+
+        File objectsDir = new File(baseDir, "assets/objects");
+        if (!objectsDir.exists()) objectsDir.mkdirs();
+
+        int total = objects.size();
+        int downloaded = 0;
+        int skipped = 0;
+
+        listener.onStatus("📥 Downloading assets (0/" + total + ")...");
+
+        for (Map.Entry<String, JsonElement> entry : objects.entrySet()) {
+            JsonObject obj = entry.getValue().getAsJsonObject();
+            String hash = obj.get("hash").getAsString();
+            String prefix = hash.substring(0, 2);
             
+            File assetFile = new File(objectsDir, prefix + "/" + hash);
+            if (assetFile.exists() && assetFile.length() > 0) {
+                skipped++;
+                continue;
+            }
+
+            String assetUrl = "https://resources.download.minecraft.net/" + prefix + "/" + hash;
             try {
-                Log.d(TAG, "📦 Extracting " + folder + " from assets...");
-                copyAssetFolder(ctx.getAssets(), folder, destDir.getAbsolutePath());
+                downloadFileQuiet(assetUrl, assetFile);
+                downloaded++;
                 
-                // Make java executable
-                File javaBin = new File(destDir, "bin/java");
-                if (javaBin.exists()) {
-                    javaBin.setExecutable(true, true);
-                    Log.d(TAG, "✅ Made " + folder + "/bin/java executable");
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to extract " + folder, e);
+                int progress = 70 + (int)((float)(downloaded + skipped) / total * 30);
+                listener.onProgress(progress, "Assets: " + (downloaded + skipped) + "/" + total);
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to download asset: " + hash, e);
+                // Continue with others instead of failing whole install
             }
         }
+
+        Log.d(TAG, "Assets: " + downloaded + " new, " + skipped + " skipped");
     }
 
-    private void copyAssetFolder(AssetManager assets, String srcPath, String destPath) throws IOException {
-        File destDir = new File(destPath);        if (!destDir.exists()) destDir.mkdirs();
-        
-        String[] files = assets.list(srcPath);
-        if (files == null) return;
-
-        for (String file : files) {
-            String src = srcPath.isEmpty() ? file : srcPath + "/" + file;
-            File destFile = new File(destDir, file);
-            
-            String[] subFiles = assets.list(src);
-            if (subFiles != null && subFiles.length > 0) {
-                copyAssetFolder(assets, src, destFile.getAbsolutePath());
-            } else {
-                try (InputStream in = assets.open(src);
-                     FileOutputStream out = new FileOutputStream(destFile)) {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, read);
-                    }
+    private void downloadFile(String url, File dest, Listener listener, int startP, int endP, String type) throws Exception {
+        if (dest.exists() && dest.length() > 0) return;
+        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
+        Response res = http.newCall(req).execute();
+        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+        long total = res.body().contentLength();
+        long downloaded = 0;
+        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
+            byte[] buf = new byte[16384]; int len;
+            while ((len = is.read(buf)) != -1) {
+                fos.write(buf, 0, len);
+                downloaded += len;
+                if (total > 0 && listener != null) {
+                    int p = startP + (int)((float)downloaded / total * (endP - startP));
+                    listener.onProgress(p, type + ": " + (downloaded/1024) + "KB");
                 }
             }
         }
     }
 
-    private String findJavaRuntime() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
-        String preferredJre = prefs.getString("java_version", "jre-17"); // Default to 17
-        
-        Log.d(TAG, "🔍 Looking for Java: " + preferredJre);
-        
-        // Check extracted internal storage path
-        File preferredBin = new File(ctx.getFilesDir(), preferredJre + "/bin/java");
-        if (preferredBin.exists() && preferredBin.canExecute()) {
-            return preferredBin.getAbsolutePath();
+    /** Silent downloader for assets (no progress spam) */
+    private void downloadFileQuiet(String url, File dest) throws Exception {
+        if (dest.exists() && dest.length() > 0) return;
+        dest.getParentFile().mkdirs();
+        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
+        Response res = http.newCall(req).execute();
+        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
+            byte[] buf = new byte[16384]; int len;
+            while ((len = is.read(buf)) != -1) fos.write(buf, 0, len);
         }
-        
-        // Fallback to other extracted versions
-        String[] fallbackPaths = {"jre-17", "jre-21", "jre-8", "jre-25"};
-        for (String folder : fallbackPaths) {
-            File bin = new File(ctx.getFilesDir(), folder + "/bin/java");
-            if (bin.exists() && bin.canExecute()) {
-                Log.w(TAG, "⚠️ Using fallback: " + folder);
-                return bin.getAbsolutePath();
-            }
-        }
-        
-        // System paths (Termux/Root)
-        String[] systemPaths = {"/data/data/com.termux/files/usr/bin/java", "/system/bin/java"};
-        for (String path : systemPaths) {            if (new File(path).canExecute()) return path;
-        }
-        
-        return null;
     }
 
-    public boolean isLaunchReady(String versionId) {
-        File baseDir = versionManager.getBaseDir();
-        File versionDir = new File(baseDir, "versions/" + versionId);
-        return new File(versionDir, ".installed").exists();
+    public boolean isVersionInstalled(String versionId) {
+        return new File(baseDir, "instances/" + versionId + "/.instance").exists();
     }
+
+    public File getInstanceDir(String versionId) {
+        return new File(baseDir, "instances/" + versionId);
+    }
+
+    public File getBaseDir() { return baseDir; }
 }
