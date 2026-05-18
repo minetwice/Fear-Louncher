@@ -16,7 +16,8 @@
                     <stroke android:width="2dp" android:color="@color/primary"/>
                 </shape>
             </item>
-            <item android:bottom="40%">
+            <!-- ✅ FIXED: '40%' → '40dp' -->
+            <item android:bottom="40dp">
                 <shape android:shape="rectangle">
                     <corners android:radius="24dp"/>
                     <gradient android:angle="90" android:startColor="@color/glass_shine" android:endColor="#00FFFFFF"/>
