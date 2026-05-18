@@ -1,7 +1,6 @@
 package com.fearlauncher.app;
 
 import android.content.Intent;
-import android.graphics.drawable.AnimationDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageButton;
@@ -21,41 +20,41 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        
+        try {
+            setContentView(R.layout.activity_main);
 
-        // Start animated background
-        bgAnimated = findViewById(R.id.bgAnimated);
+            bgAnimated = findViewById(R.id.bgAnimated);
+            btnMenu = findViewById(R.id.btnMenu);
+            btnHome = findViewById(R.id.btnHome);
+            btnVersions = findViewById(R.id.btnVersions);
+            sidePanel = findViewById(R.id.sidePanel);
 
-        // Setup UI
-        btnMenu = findViewById(R.id.btnMenu);
-        btnHome = findViewById(R.id.btnHome);
-        btnVersions = findViewById(R.id.btnVersions);
-        sidePanel = findViewById(R.id.sidePanel);
+            if (btnMenu != null) btnMenu.setOnClickListener(v -> toggleSidePanel());
+            if (btnHome != null) btnHome.setOnClickListener(v -> animateClick(v));
+            if (btnVersions != null) btnVersions.setOnClickListener(v -> {
+                animateClick(v);
+                startActivity(new Intent(this, VersionsActivity.class));
+                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
+            });
 
-        // Hamburger menu toggle
-        btnMenu.setOnClickListener(v -> toggleSidePanel());
-
-        // Bottom buttons
-        btnHome.setOnClickListener(v -> {
-            animateClick(v);
-            Toast.makeText(this, "Home", Toast.LENGTH_SHORT).show();
-        });
-        btnVersions.setOnClickListener(v -> {
-            animateClick(v);
-            startActivity(new Intent(this, VersionsActivity.class));
-            overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-        });
-
-        // Side panel version button
-        findViewById(R.id.btnOpenVersions).setOnClickListener(v -> {
-            animateClick(v);
-            toggleSidePanel();
-            startActivity(new Intent(this, VersionsActivity.class));
-            overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-        });
+            View btnOpenVersions = findViewById(R.id.btnOpenVersions);
+            if (btnOpenVersions != null) {
+                btnOpenVersions.setOnClickListener(v -> {
+                    animateClick(v);
+                    toggleSidePanel();
+                    startActivity(new Intent(this, VersionsActivity.class));
+                    overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "UI Init Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void toggleSidePanel() {
+        if (sidePanel == null) return;
         panelOpen = !panelOpen;
         sidePanel.setVisibility(panelOpen ? View.VISIBLE : View.GONE);
         sidePanel.animate()
@@ -65,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void animateClick(View v) {
+        if (v == null) return;
         v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(100)
             .withEndAction(() -> v.animate().scaleX(1f).scaleY(1f).setDuration(100).start())
             .start();
@@ -72,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onResume() {
         super.onResume();
-        // Restart background animation
         if (bgAnimated != null) bgAnimated.invalidate();
     }
 }
