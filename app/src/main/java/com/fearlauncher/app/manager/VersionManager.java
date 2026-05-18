@@ -18,8 +18,10 @@ import java.util.concurrent.TimeUnit;
 public class VersionManager {
     private static final String TAG = "FearLauncher";
     private final Context ctx;
-    private final File baseDir;
     private final OkHttpClient http;
+    
+    // ✅ NO 'final' - allows safe conditional assignment
+    private File baseDir;
 
     public interface Listener {
         void onStatus(String msg);
@@ -31,28 +33,40 @@ public class VersionManager {
     public VersionManager(Context context) {
         this.ctx = context.getApplicationContext();
         
-        // ✅ Longer timeouts for Mojang API
+        // ✅ Longer timeouts for Mojang API (servers can be slow)
         this.http = new OkHttpClient.Builder()
             .connectTimeout(120, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(120, TimeUnit.SECONDS)
             .build();
 
-        // ✅ Android 10+ Compatible Storage Path
+        // ✅ Determine storage path safely (Android 10+ compatible)
+        File storagePath;
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Scoped Storage: Use app-specific external directory
+            // Path: /storage/emulated/0/Android/data/com.fearlauncher.app/files/
             File external = ctx.getExternalFilesDir(null);
-            this.baseDir = external != null ? external : ctx.getFilesDir();
-        } else {
-            // Legacy: Try external storage first
+            storagePath = external != null ? external : ctx.getFilesDir();        } else {
+            // Legacy Android: Try public external storage first
             File root = Environment.getExternalStorageDirectory();
-            this.baseDir = new File(root, "FearLauncher");
-            if (!baseDir.canWrite()) {                this.baseDir = ctx.getFilesDir(); // Fallback
+            File legacyPath = new File(root, "FearLauncher");
+            
+            if (legacyPath.canWrite() && legacyPath.mkdirs()) {
+                storagePath = legacyPath;
+            } else {
+                // Fallback to app-private internal storage
+                storagePath = ctx.getFilesDir();
             }
         }
-        if (!baseDir.exists()) baseDir.mkdirs();
         
-        Log.d(TAG, "Storage path: " + baseDir.getAbsolutePath());
+        // ✅ Single assignment to baseDir
+        this.baseDir = storagePath;
+        if (!this.baseDir.exists()) {
+            this.baseDir.mkdirs();
+        }
+        
+        Log.d(TAG, "Storage initialized: " + this.baseDir.getAbsolutePath());
     }
 
     public void downloadVersion(String versionId, String jsonUrl, Listener listener) {
@@ -60,30 +74,34 @@ public class VersionManager {
             try {
                 listener.onStatus("Preparing folders...");
                 
+                // Create required directories
                 File versionDir = new File(baseDir, "versions/" + versionId);
                 if (!versionDir.exists()) versionDir.mkdirs();
                 
                 File librariesDir = new File(baseDir, "libraries");
-                librariesDir.mkdirs();
+                if (!librariesDir.exists()) librariesDir.mkdirs();
 
                 File assetsDir = new File(baseDir, "assets/indexes");
-                assetsDir.mkdirs();
+                if (!assetsDir.exists()) assetsDir.mkdirs();
 
-                // 1. Download version.json
+                // 1. Download version.json (manifest)
                 listener.onStatus("Downloading version manifest...");
                 File jsonFile = new File(versionDir, versionId + ".json");
                 downloadFile(jsonUrl, jsonFile, listener, 0, 10, "manifest");
 
-                // 2. Parse JSON
+                // 2. Parse version JSON
                 Gson gson = new Gson();
-                JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
+                JsonObject vJson = gson.fromJson(
+                    new java.io.FileReader(jsonFile), JsonObject.class);
+                
                 JsonArray libs = vJson.getAsJsonArray("libraries");
                 JsonObject assetsObj = vJson.getAsJsonObject("assetIndex");
-
-                // 3. Download Libraries
+                // 3. Download Libraries (loop through all)
                 if (libs != null) {
                     int libCount = libs.size();
-                    listener.onStatus("Downloading libraries (1/" + libCount + ")...");
+                    if (libCount > 0) {
+                        listener.onStatus("Downloading libraries (1/" + libCount + ")...");
+                    }
                     
                     for (int i = 0; i < libCount; i++) {
                         JsonObject lib = libs.get(i).getAsJsonObject();
@@ -95,14 +113,18 @@ public class VersionManager {
                         
                         File dest = new File(baseDir, "libraries/" + path);
                         if (!dest.exists()) {
-                            dest.getParentFile().mkdirs();
-                            int progress = 10 + (int)((float)i / libCount * 60);                            listener.onStatus("Lib: " + (i+1) + "/" + libCount);
+                            File parent = dest.getParentFile();
+                            if (parent != null && !parent.exists()) {
+                                parent.mkdirs();
+                            }
+                            int progress = 10 + (int)((float)i / libCount * 60);
+                            listener.onStatus("Lib: " + (i+1) + "/" + libCount);
                             downloadFile(url, dest, listener, progress, progress + 3, "lib");
                         }
                     }
                 }
 
-                // 4. Download Asset Index (lightweight)
+                // 4. Download Asset Index (lightweight JSON)
                 if (assetsObj != null) {
                     String assetId = assetsObj.get("id").getAsString();
                     String assetUrl = assetsObj.get("url").getAsString();
@@ -112,20 +134,24 @@ public class VersionManager {
                     downloadFile(assetUrl, assetIndexFile, listener, 80, 90, "assets");
                 }
 
-                // 5. Mark Complete
-                new File(versionDir, ".installed").createNewFile();
+                // 5. Mark installation complete
+                File marker = new File(versionDir, ".installed");
+                if (!marker.exists()) {
+                    marker.createNewFile();
+                }
+                
                 listener.onStatus("✅ Installation complete!");
                 listener.onComplete(baseDir);
 
             } catch (Exception e) {
                 Log.e(TAG, "Download failed: " + e.getMessage(), e);
-                listener.onError("Error: " + e.getMessage());
-            }
+                listener.onError("Error: " + e.getMessage());            }
         }).start();
     }
 
     private void downloadFile(String url, File dest, Listener listener, 
                              int startP, int endP, String type) throws Exception {
+        // Skip if already downloaded and valid
         if (dest.exists() && dest.length() > 0) {
             Log.d(TAG, "Already exists: " + dest.getName());
             return;
@@ -145,18 +171,21 @@ public class VersionManager {
 
         long total = res.body().contentLength();
         long downloaded = 0;
+
         try (InputStream is = res.body().byteStream(); 
              FileOutputStream fos = new FileOutputStream(dest)) {
             
-            byte[] buf = new byte[16384]; // Larger buffer for speed
+            byte[] buf = new byte[16384]; // 16KB buffer for faster downloads
             int len;
             while ((len = is.read(buf)) != -1) {
                 fos.write(buf, 0, len);
                 downloaded += len;
                 
+                // Report progress if listener provided
                 if (total > 0 && listener != null) {
                     int p = startP + (int)((float)downloaded / total * (endP - startP));
-                    listener.onProgress(p, type + ": " + (downloaded/1024) + "KB");
+                    String status = type + ": " + (downloaded/1024) + "KB";
+                    listener.onProgress(p, status);
                 }
             }
         }
@@ -164,17 +193,39 @@ public class VersionManager {
         Log.d(TAG, "Downloaded: " + dest.getName() + " (" + downloaded + " bytes)");
     }
 
-    public boolean isVersionInstalled(String versionId) {
-        File marker = new File(baseDir, "versions/" + versionId + "/.installed");
+    // ✅ Check if version is already installed
+    public boolean isVersionInstalled(String versionId) {        File marker = new File(baseDir, "versions/" + versionId + "/.installed");
         return marker.exists();
     }
 
+    // ✅ Get base directory for file operations
     public File getBaseDir() { 
-        Log.d(TAG, "Base dir: " + baseDir.getAbsolutePath());
         return baseDir; 
     }
     
+    // ✅ Get human-readable storage path
     public String getStoragePath() {
-        return baseDir.getAbsolutePath();
+        return baseDir != null ? baseDir.getAbsolutePath() : "Unknown";
+    }
+    
+    // ✅ Clean up a version (optional feature)
+    public void deleteVersion(String versionId) {
+        File versionDir = new File(baseDir, "versions/" + versionId);
+        if (versionDir.exists()) {
+            deleteRecursive(versionDir);
+            Log.d(TAG, "Deleted version: " + versionId);
+        }
+    }
+    
+    private void deleteRecursive(File file) {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
+        }
+        file.delete();
     }
 }
