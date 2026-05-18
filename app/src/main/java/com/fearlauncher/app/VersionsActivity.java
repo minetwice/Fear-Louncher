@@ -32,6 +32,7 @@ public class VersionsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_versions);
 
+        // ✅ Constructor now accepts Context
         versionManager = new VersionManager(this);
         initViews();
         loadVersions();
@@ -46,8 +47,8 @@ public class VersionsActivity extends AppCompatActivity {
         adapter = new VersionAdapter();
         recyclerView.setAdapter(adapter);
 
-        swipeRefresh.setOnRefreshListener(this::loadVersions);
-                findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        swipeRefresh.setOnRefreshListener(this::loadVersions);        
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnRefresh).setOnClickListener(v -> loadVersions());
     }
 
@@ -95,8 +96,8 @@ public class VersionsActivity extends AppCompatActivity {
         @Override
         public VH onCreateViewHolder(ViewGroup parent, int viewType) {
             View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_version, parent, false);
-            return new VH(v);        }
+                .inflate(R.layout.item_version, parent, false);            return new VH(v);
+        }
 
         @Override
         public void onBindViewHolder(VH holder, int position) {
@@ -105,6 +106,7 @@ public class VersionsActivity extends AppCompatActivity {
             holder.type.setText(v.type.toUpperCase());
             holder.date.setText(v.releaseTime.substring(0, 10));
             
+            // ✅ This method now exists in VersionManager
             boolean installed = versionManager.isVersionInstalled(v.id);
             holder.btnDownload.setText(installed ? "Installed" : "Download");
             holder.btnDownload.setEnabled(!installed);
@@ -123,29 +125,34 @@ public class VersionsActivity extends AppCompatActivity {
             holder.progress.setProgress(0);
             holder.progressText.setText("0%");
 
+            // ✅ Listener methods match exactly
             versionManager.downloadVersion(version.id, version.url, new VersionManager.Listener() {
                 @Override
-                public void progress(int percent) {
+                public void onStatus(String msg) {
+                    runOnUiThread(() -> holder.progressText.setText(msg));
+                }
+                @Override
+                public void onProgress(int percent, String status) {
                     runOnUiThread(() -> {
                         holder.progress.setProgress(percent);
                         holder.progressText.setText(percent + "%");
                     });
                 }
                 @Override
-                public void done(File dir) {
+                public void onComplete(File dir) {
                     runOnUiThread(() -> {
                         Toast.makeText(VersionsActivity.this, version.id + " installed!", Toast.LENGTH_SHORT).show();
                         holder.btnDownload.setText("Installed");
                         holder.btnDownload.setEnabled(false);
                         holder.progress.setVisibility(View.GONE);
-                        holder.progressText.setVisibility(View.GONE);
-                    });
+                        holder.progressText.setVisibility(View.GONE);                    });
                 }
                 @Override
-                public void error(String message) {
+                public void onError(String message) {
                     runOnUiThread(() -> {
                         Toast.makeText(VersionsActivity.this, "Failed: " + message, Toast.LENGTH_LONG).show();
-                        holder.btnDownload.setEnabled(true);                        holder.progress.setVisibility(View.GONE);
+                        holder.btnDownload.setEnabled(true);
+                        holder.progress.setVisibility(View.GONE);
                         holder.progressText.setVisibility(View.GONE);
                     });
                 }
