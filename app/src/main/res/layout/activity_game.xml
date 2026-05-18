@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- Game Surface (Replace with actual GLSurfaceView later) -->
+    <TextView
+        android:id="@+id/tvLog"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:text="⏳ Initializing Minecraft..."
+        android:padding="24dp"/>
+
+    <!-- Draggable Cursor -->
+    <ImageView
+        android:id="@+id/cursorOverlay"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center"
+        android:src="@android:drawable/ic_menu_compass"
+        android:contentDescription="Mouse Cursor"
+        android:alpha="0.9"/>
+</FrameLayout>
