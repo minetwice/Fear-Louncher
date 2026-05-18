@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Red + Black Theme -->
+    <color name="primary">#E53935</color>
+    <color name="primary_dark">#B71C1C</color>
+    <color name="primary_glow">#FF5252</color>
+    
+    <!-- Background Gradient -->
+    <color name="bg_start">#0A0A0F</color>
+    <color name="bg_end">#1A0A0A</color>
+    <color name="bg_overlay">#80000000</color>
+    
+    <!-- Text -->
+    <color name="text">#FFFFFF</color>
+    <color name="text_secondary">#AAAAAA</color>
+    <color name="text_muted">#555555</color>
+    
+    <!-- Glass Effects -->
+    <color name="glass_base">#1AFFFFFF</color>
+    <color name="glass_border">#30FF5252</color>
+    <color name="glass_shine">#40FFFFFF</color>
+    
+    <!-- Button States -->
+    <color name="btn_normal">#00FFFFFF</color>
+    <color name="btn_pressed">#10FFFFFF</color>
+    <color name="btn_selected">#15FF5252</color>
+</resources>
