@@ -9,37 +9,45 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AnimatedBackgroundView extends View {
+    
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final List<SmokeParticle> smokeList = new ArrayList<>();
     private float shineOffset = 0;
-    private float time = 0;
 
-    public AnimatedBackgroundView(Context c) { super(c); init(); }
-    public AnimatedBackgroundView(Context c, AttributeSet a) { super(c, a); init(); }
+    public AnimatedBackgroundView(Context context) {
+        super(context);
+        init();
+    }
+
+    public AnimatedBackgroundView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init();
+    }
 
     private void init() {
         // Create initial smoke particles
         for (int i = 0; i < 15; i++) {
             smokeList.add(new SmokeParticle(getWidth(), getHeight()));
         }
-        startLoop();
+        startAnimationLoop();
     }
 
-    private void startLoop() {
+    private void startAnimationLoop() {
         post(new Runnable() {
-            @Override public void run() {
-                time += 0.02f;
+            @Override
+            public void run() {
                 shineOffset += 5; // Speed of shine line
                 
-                // Update Smoke
-                for (SmokeParticle p : smokeList) p.update();
+                // Update smoke particles
+                for (SmokeParticle p : smokeList) {
+                    p.update();
+                }
                 
-                invalidate();
-                postDelayed(this, 16); // 60 FPS
+                invalidate(); // Redraw
+                postDelayed(this, 16); // ~60 FPS
             }
         });
     }
-
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
@@ -48,6 +56,7 @@ public class AnimatedBackgroundView extends View {
             smokeList.add(new SmokeParticle(w, h));
         }
     }
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -55,14 +64,14 @@ public class AnimatedBackgroundView extends View {
         int h = getHeight();
         if (w == 0 || h == 0) return;
 
-        // 1. Base Gradient (Red/Black)
+        // 1. Base Gradient (Red/Black Theme)
         int[] colors = {
             getResources().getColor(R.color.bg_start, null),
             getResources().getColor(R.color.bg_end, null),
             getResources().getColor(R.color.primary_dark, null)
         };
-        float[] pos = {0f, 0.6f, 1f};
-        LinearGradient bgGrad = new LinearGradient(0, 0, w, h, colors, pos, Shader.TileMode.CLAMP);
+        float[] positions = {0f, 0.6f, 1f};
+        LinearGradient bgGrad = new LinearGradient(0, 0, w, h, colors, positions, Shader.TileMode.CLAMP);
         paint.setShader(bgGrad);
         canvas.drawRect(0, 0, w, h, paint);
 
@@ -70,7 +79,7 @@ public class AnimatedBackgroundView extends View {
         paint.setShader(null);
         for (SmokeParticle p : smokeList) {
             RadialGradient smokeGrad = new RadialGradient(p.x, p.y, p.radius,
-                new int[]{0x30FF5252, 0x00000000}, null, Shader.TileMode.CLAMP);
+                    new int[]{0x30FF5252, 0x00000000}, null, Shader.TileMode.CLAMP);
             paint.setShader(smokeGrad);
             canvas.drawCircle(p.x, p.y, p.radius, paint);
         }
@@ -87,8 +96,7 @@ public class AnimatedBackgroundView extends View {
 
         // Make the line sharp and glowing
         paint.setAlpha(30); // Transparency
-        paint.setStrokeWidth(40); // Thickness
-        canvas.drawLine(x1, y1, x2, y2, paint);
+        paint.setStrokeWidth(40); // Thickness        canvas.drawLine(x1, y1, x2, y2, paint);
         
         // Core bright line
         paint.setAlpha(150);
@@ -96,10 +104,12 @@ public class AnimatedBackgroundView extends View {
         canvas.drawLine(x1, y1, x2, y2, paint);
     }
 
-    // Smoke Particle Logic    private static class SmokeParticle {
+    // ✅ FIXED: Static inner class with proper constructor
+    private static class SmokeParticle {
         float x, y, radius, alpha;
         float speed;
 
+        // ✅ Constructor with return type NOT needed (it's a constructor)
         SmokeParticle(int w, int h) {
             reset(w, h);
             // Random start positions
