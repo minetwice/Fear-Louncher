@@ -37,7 +37,6 @@ android {
         }
     }
 
-    // ✅ FIXED: Assets folder configuration (FULL BLOCK)
     sourceSets {
         main {
             assets.srcDirs = ['src/main/assets']
@@ -47,7 +46,6 @@ android {
         }
     }
 
-    // ✅ Allow larger APK for bundled JRE/assets
     packagingOptions {
         resources {
             excludes += ['/META-INF/{AL2.0,LGPL2.1}', 'META-INF/DEPENDENCIES']
@@ -55,8 +53,62 @@ android {
     }
 }
 
+// ✅ AUTO-DOWNLOAD JRE TASK (PojavLauncher ARM64 JRE)
+tasks.register('downloadJre', Task) {
+    description = 'Downloads ARM64 JRE from PojavLauncher if not present'
+    group = 'fearlauncher'
+
+    def jreDir = file('src/main/assets/jre')
+    def jreMarker = file('src/main/assets/.jre-downloaded')
+
+    onlyIf { !jreMarker.exists() }
+
+    doLast {
+        println "📦 JRE not found. Downloading from PojavLauncher..."
+        
+        // PojavLauncher JRE release URL (ARM64)
+        def jreUrl = 'https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip'
+        def tempZip = file("$buildDir/tmp/jre-android-arm64.zip")
+        
+        // Create dirs
+        jreDir.mkdirs()
+        tempZip.parentFile.mkdirs()
+        
+        // Download
+        ant.get(src: jreUrl, dest: tempZip, usetimestamp: true)
+        
+        // Extract
+        copy {
+            from zipTree(tempZip)
+            into jreDir
+        }
+        
+        // Cleanup
+        tempZip.delete()
+        
+        // Mark as downloaded
+        jreMarker.createNewFile()
+        
+        println "✅ JRE extracted to: ${jreDir.absolutePath}"
+    }
+}
+
+// ✅ Hook JRE download before asset packaging
+preBuild.dependsOn downloadJre
+
+// ✅ Optional: Task to force re-download
+tasks.register('forceDownloadJre', Task) {
+    description = 'Forces re-download of JRE'
+    group = 'fearlauncher'
+    
+    doLast {
+        file('src/main/assets/.jre-downloaded').delete()
+        println "🔄 JRE marker deleted. Next build will re-download."
+    }
+}
+
 dependencies {
-    // ✅ AndroidX Core Libraries
+    // AndroidX Core
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
@@ -64,21 +116,19 @@ dependencies {
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.multidex:multidex:2.0.1'
-    
-    // ✅ Java 8+ desugaring (required for modern Java APIs on older Android)
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 
-    // ✅ Networking & JSON Parsing
+    // Networking & JSON
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.code.gson:gson:2.10.1'
-
-    // ✅ File & IO Utilities
+    
+    // File utilities
     implementation 'commons-io:commons-io:2.11.0'
-
-    // ✅ Custom Tabs for Microsoft Auth (if needed later)
+    
+    // Custom Tabs (for auth)
     implementation 'androidx.browser:browser:1.8.0'
 
-    // ✅ Testing Dependencies
+    // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
