@@ -25,13 +25,10 @@ public class LaunchManager {
     public LaunchManager(Context context) {
         this.ctx = context.getApplicationContext();
         this.versionManager = new VersionManager(context);
-        
-        // ✅ Auto-extract JRE from assets/components/
         new Thread(this::extractAllJREs).start();
     }
 
     private void extractAllJREs() {
-        // ✅ UPDATED: Look in components/ subfolder
         String[] jreVersions = {
             "components/jre-8", 
             "components/jre-17", 
@@ -42,31 +39,26 @@ public class LaunchManager {
         AssetManager assets = ctx.getAssets();
         
         for (String jrePath : jreVersions) {
-            // Extract folder name from path (e.g., "components/jre-17" -> "jre-17")
             String jreVersion = jrePath.substring(jrePath.lastIndexOf('/') + 1);
             File jreDest = new File(filesDir, jreVersion);
             File javaBin = new File(jreDest, "bin/java");
             
-            // Skip if already extracted            if (javaBin.exists() && javaBin.canExecute()) {
+            if (javaBin.exists() && javaBin.canExecute()) {
                 Log.d(TAG, "✅ " + jreVersion + " already exists");
                 continue;
             }
-            
-            try {
-                // Check if folder exists in assets/components/
+                        try {
                 String[] assetFiles = assets.list(jrePath);
                 if (assetFiles == null || assetFiles.length == 0) {
-                    Log.w(TAG, "⚠️ " + jrePath + " not found in assets. Skipping.");
+                    Log.w(TAG, "⚠️ " + jrePath + " not found in assets");
                     continue;
                 }
                 
-                Log.d(TAG, "📦 Extracting " + jreVersion + " from " + jrePath + "...");
+                Log.d(TAG, "📦 Extracting " + jreVersion);
                 copyAssetFolder(assets, jrePath, jreDest.getAbsolutePath());
                 
-                // Make java executable
                 if (javaBin.exists()) {
-                    boolean success = javaBin.setExecutable(true, true);
-                    Log.d(TAG, "Made java executable: " + success);
+                    javaBin.setExecutable(true, true);
                     fixNativePermissions(new File(jreDest, "lib"));
                 }
             } catch (IOException e) {
@@ -96,6 +88,7 @@ public class LaunchManager {
         
         String[] files = assets.list(srcPath);
         if (files == null) return;
+
         for (String file : files) {
             String src = srcPath.isEmpty() ? file : srcPath + "/" + file;
             File destFile = new File(destDir, file);
@@ -103,8 +96,7 @@ public class LaunchManager {
             String[] subFiles = assets.list(src);
             if (subFiles != null && subFiles.length > 0) {
                 copyAssetFolder(assets, src, destFile.getAbsolutePath());
-            } else {
-                try (InputStream in = assets.open(src);
+            } else {                try (InputStream in = assets.open(src);
                      FileOutputStream out = new FileOutputStream(destFile)) {
                     byte[] buffer = new byte[8192];
                     int read;
@@ -127,7 +119,6 @@ public class LaunchManager {
                     return;
                 }
 
-                // Wait for JRE extraction if needed
                 int waitCount = 0;
                 while (findJavaRuntime() == null && waitCount < 20) {
                     Thread.sleep(500);
@@ -145,7 +136,8 @@ public class LaunchManager {
                         @Override
                         public void onComplete() {
                             listener.onLog("✅ Natives downloaded!");
-                        }                        @Override
+                        }
+                        @Override
                         public void onError(String e) {
                             listener.onLaunchError("❌ Failed: " + e);
                         }
@@ -153,8 +145,7 @@ public class LaunchManager {
                 }
 
                 File baseDir = versionManager.getBaseDir();
-                File versionDir = new File(baseDir, "versions/" + versionId);
-                File gameJar = new File(versionDir, versionId + ".jar");
+                File versionDir = new File(baseDir, "versions/" + versionId);                File gameJar = new File(versionDir, versionId + ".jar");
                 File nativesDir = new File(baseDir, "natives/" + versionId);
                 File assetsDir = new File(baseDir, "assets");
                 File instanceDir = new File(baseDir, "instances/" + versionId);
@@ -166,7 +157,7 @@ public class LaunchManager {
 
                 String javaPath = findJavaRuntime();
                 if (javaPath == null) {
-                    listener.onLaunchError("❌ Java runtime not found.\n\nMake sure JRE folders exist in:\napp/src/main/assets/components/\n\nExtracted to: " + ctx.getFilesDir().getAbsolutePath());
+                    listener.onLaunchError("❌ Java runtime not found.\n\nMake sure JRE folders exist in:\napp/src/main/assets/components/");
                     return;
                 }
 
@@ -194,7 +185,8 @@ public class LaunchManager {
                 cmd.add("--userType"); cmd.add("mojang");
                 cmd.add("--versionType"); cmd.add("FearLauncher");
 
-                listener.onLog("⚙️ Starting Minecraft...");                ProcessBuilder pb = new ProcessBuilder(cmd);
+                listener.onLog("⚙️ Starting Minecraft...");
+                ProcessBuilder pb = new ProcessBuilder(cmd);
                 pb.directory(instanceDir);
                 pb.redirectErrorStream(true);
                 gameProcess = pb.start();
@@ -202,8 +194,7 @@ public class LaunchManager {
                 new Thread(() -> {
                     try (BufferedReader reader = new BufferedReader(
                             new InputStreamReader(gameProcess.getInputStream()))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
+                        String line;                        while ((line = reader.readLine()) != null) {
                             if (listener != null) listener.onLog(line);
                             Log.d("Minecraft", line);
                         }
@@ -243,7 +234,8 @@ public class LaunchManager {
         String preferredJre = prefs.getString("java_version", "jre-17");
         
         File preferredBin = new File(ctx.getFilesDir(), preferredJre + "/bin/java");
-        if (preferredBin.exists() && preferredBin.canExecute()) {            return preferredBin.getAbsolutePath();
+        if (preferredBin.exists() && preferredBin.canExecute()) {
+            return preferredBin.getAbsolutePath();
         }
         
         String[] fallbacks = {"jre-17", "jre-21", "jre-8", "jre-25"};
@@ -251,8 +243,7 @@ public class LaunchManager {
             File bin = new File(ctx.getFilesDir(), folder + "/bin/java");
             if (bin.exists() && bin.canExecute()) {
                 return bin.getAbsolutePath();
-            }
-        }
+            }        }
         
         return null;
     }
