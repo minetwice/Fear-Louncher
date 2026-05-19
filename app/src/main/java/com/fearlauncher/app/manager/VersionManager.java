@@ -24,7 +24,7 @@ public class VersionManager {
     private final OkHttpClient http;
     private File baseDir;
     
-    // ✅ Thread Pool for Parallel Downloads (Faster Speed)
+    // ✅ Thread Pool for Parallel Downloads
     private final ExecutorService downloadExecutor = Executors.newFixedThreadPool(8);
 
     public interface Listener {
@@ -58,8 +58,6 @@ public class VersionManager {
             baseDir = legacy.canWrite() ? legacy : ctx.getFilesDir();
         }
         if (!baseDir.exists()) baseDir.mkdirs();
-        
-        // Ensure Global Asset Folder Exists
         new File(baseDir, "assets/objects").mkdirs();
     }
 
@@ -76,7 +74,7 @@ public class VersionManager {
                 File librariesDir = new File(baseDir, "libraries");
                 if (!librariesDir.exists()) librariesDir.mkdirs();
 
-                // 1. Download Manifest
+                // 1. Manifest
                 listener.onStatus("📜 Manifest...");
                 File jsonFile = new File(versionDir, versionId + ".json");
                 downloadFile(jsonUrl, jsonFile, listener, 0, 5, "manifest");
@@ -84,7 +82,7 @@ public class VersionManager {
                 Gson gson = new Gson();
                 JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
                 
-                // 2. Download Client Jar
+                // 2. Client Jar
                 JsonObject downloads = vJson.getAsJsonObject("downloads");
                 if (downloads != null && downloads.has("client")) {
                     String clientUrl = downloads.getAsJsonObject("client").get("url").getAsString();
@@ -93,12 +91,12 @@ public class VersionManager {
                     downloadFile(clientUrl, gameJar, listener, 5, 15, "client.jar");
                 }
 
-                // 3. Download Libraries
+                // 3. Libraries
                 JsonArray libs = vJson.getAsJsonArray("libraries");
                 if (libs != null) {
-                    int libCount = libs.size();                    for (int i = 0; i < libCount; i++) {
-                        JsonObject lib = libs.get(i).getAsJsonObject();
-                        if (!lib.has("downloads")) continue;
+                    int libCount = libs.size();
+                    for (int i = 0; i < libCount; i++) {
+                        JsonObject lib = libs.get(i).getAsJsonObject();                        if (!lib.has("downloads")) continue;
                         JsonObject dl = lib.getAsJsonObject("downloads").getAsJsonObject("artifact");
                         String url = dl.get("url").getAsString();
                         String path = dl.get("path").getAsString();
@@ -111,23 +109,21 @@ public class VersionManager {
                     }
                 }
 
-                // 4. ✅ OPTIMIZED ASSET DOWNLOAD (Parallel + Global Cache)
+                // 4. Assets (Parallel)
                 JsonObject assetsObj = vJson.getAsJsonObject("assetIndex");
                 if (assetsObj != null) {
                     String assetId = assetsObj.get("id").getAsString();
                     String assetUrl = assetsObj.get("url").getAsString();
                     
-                    // Download Index Map first
                     File assetsDir = new File(baseDir, "assets/indexes");
                     if (!assetsDir.exists()) assetsDir.mkdirs();
                     File indexFile = new File(assetsDir, assetId + ".json");
                     downloadFile(assetUrl, indexFile, listener, 55, 60, "index");
 
-                    // Download Actual Assets in Parallel
                     downloadAssetsParallel(indexFile, listener);
                 }
 
-                // 5. Mark Complete
+                // 5. Complete
                 new File(versionDir, ".installed").createNewFile();
                 new File(instanceDir, ".instance").createNewFile();
                 new File(instanceDir, ".first_launch_complete").delete();
@@ -143,23 +139,20 @@ public class VersionManager {
     }
 
     /**
-     * ✅ PROFESSIONAL METHOD: Parallel Asset Download with Global Cache
+     * ✅ PARALLEL ASSET DOWNLOAD WITH GLOBAL CACHE
      */
-    private void downloadAssetsParallel(File indexFile, Listener listener) throws Exception {        if (!indexFile.exists()) return;
+    private void downloadAssetsParallel(File indexFile, Listener listener) throws Exception {
+        if (!indexFile.exists()) return;
         
         Gson gson = new Gson();
-        JsonObject index = gson.fromJson(new java.io.FileReader(indexFile), JsonObject.class);
-        JsonObject objects = index.getAsJsonObject("objects");
+        JsonObject index = gson.fromJson(new java.io.FileReader(indexFile), JsonObject.class);        JsonObject objects = index.getAsJsonObject("objects");
         if (objects == null) return;
 
         File objectsDir = new File(baseDir, "assets/objects");
         int total = objects.size();
         AtomicInteger downloaded = new AtomicInteger(0);
         AtomicInteger skipped = new AtomicInteger(0);
-        
-        // Use CountDownLatch to wait for all parallel tasks
         CountDownLatch latch = new CountDownLatch(total);
-        AtomicInteger errors = new AtomicInteger(0);
 
         listener.onStatus("📥 Assets: Checking cache...");
 
@@ -170,14 +163,13 @@ public class VersionManager {
             
             File assetFile = new File(objectsDir, prefix + "/" + hash);
             
-            // ✅ SMART CHECK: If exists and valid size, SKIP download
+            // Smart Check: Skip if exists
             if (assetFile.exists() && assetFile.length() > 0) {
                 skipped.incrementAndGet();
                 latch.countDown();
                 continue;
             }
 
-            // Submit download task to thread pool
             final String fHash = hash;
             final String fPrefix = prefix;
             downloadExecutor.submit(() -> {
@@ -185,32 +177,122 @@ public class VersionManager {
                     String assetUrl = "https://resources.download.minecraft.net/" + fPrefix + "/" + fHash;
                     File dest = new File(objectsDir, fPrefix + "/" + fHash);
                     dest.getParentFile().mkdirs();
-                    
-                    // Silent download (no progress spam for each file)
                     downloadFileQuiet(assetUrl, dest);
                     downloaded.incrementAndGet();
                 } catch (Exception e) {
-                    errors.incrementAndGet();
                     Log.w(TAG, "Asset fail: " + fHash);
                 } finally {
                     latch.countDown();
-                }            });
+                }
+            });
         }
 
-        // Wait for all downloads to finish (with timeout)
-        boolean finished = latch.await(10, TimeUnit.MINUTES);
-        
+        latch.await(10, TimeUnit.MINUTES);
         int done = downloaded.get() + skipped.get();
-        listener.onStatus("📥 Assets: " + done + "/" + total + (errors.get() > 0 ? " (" + errors.get() + " failed)" : ""));
+        listener.onStatus("📥 Assets: " + done + "/" + total);
+    }
+
+    /**
+     * ✅ FIRST LAUNCH NATIVES DOWNLOAD (Required for Game to Run)
+     */    public void downloadFirstLaunchFiles(String versionId, FirstLaunchListener listener) {
+        new Thread(() -> {
+            try {
+                File baseDir = getBaseDir();
+                File versionDir = new File(baseDir, "versions/" + versionId);
+                File jsonFile = new File(versionDir, versionId + ".json");
+                
+                if (!jsonFile.exists()) { listener.onError("version.json missing"); return; }
+
+                Gson gson = new Gson();
+                JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
+                JsonArray libs = vJson.getAsJsonArray("libraries");
+                
+                if (libs != null) {
+                    int totalNatives = 0;
+                    for (int i = 0; i < libs.size(); i++) {
+                        if (libs.get(i).getAsJsonObject().has("natives")) totalNatives++;
+                    }
+
+                    int downloaded = 0;
+                    File nativesDir = new File(baseDir, "natives/" + versionId);
+                    if (!nativesDir.exists()) nativesDir.mkdirs();
+
+                    for (int i = 0; i < libs.size(); i++) {
+                        JsonObject lib = libs.get(i).getAsJsonObject();
+                        if (!lib.has("natives")) continue;
+
+                        JsonObject dl = lib.getAsJsonObject("downloads");
+                        if (dl == null) continue;
+                        JsonObject classifiers = dl.getAsJsonObject("classifiers");
+                        if (classifiers == null) continue;
+
+                        String target = classifiers.has("natives-linux") ? "natives-linux" : 
+                                        classifiers.has("natives-windows") ? "natives-windows" : null;
+                        
+                        if (target != null && classifiers.has(target)) {
+                            JsonObject nativeDl = classifiers.getAsJsonObject(target);
+                            String url = nativeDl.get("url").getAsString();
+                            String path = nativeDl.get("path").getAsString();
+                            File dest = new File(nativesDir, new File(path).getName());
+                            
+                            if (!dest.exists()) {
+                                long start = System.currentTimeMillis();
+                                downloadFileWithSpeed(url, dest, listener, 
+                                    downloaded * 100 / Math.max(1, totalNatives), 
+                                    90 + (downloaded * 10 / Math.max(1, totalNatives)), 
+                                    "Native: " + (downloaded+1) + "/" + totalNatives, start);
+                            }
+                            downloaded++;
+                        }                    }
+                }
+
+                new File(baseDir, "instances/" + versionId + "/.first_launch_complete").createNewFile();
+                listener.onComplete();
+
+            } catch (Exception e) {
+                Log.e(TAG, "First launch failed", e);
+                listener.onError(e.getMessage());
+            }
+        }).start();
+    }
+
+    private void downloadFileWithSpeed(String url, File dest, FirstLaunchListener listener, 
+                                       int startP, int endP, String status, long startTime) throws Exception {
+        if (dest.exists() && dest.length() > 0) return;
         
-        if (!finished) {
-            Log.e(TAG, "Asset download timed out!");
+        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
+        Response res = http.newCall(req).execute();
+        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+        
+        long total = res.body().contentLength();
+        long downloaded = 0;
+        long lastUpdate = System.currentTimeMillis();
+        long lastDownloaded = 0;
+
+        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
+            byte[] buf = new byte[16384]; int len;
+            while ((len = is.read(buf)) != -1) {
+                fos.write(buf, 0, len); // ✅ Fixed typo: buffer -> buf
+                downloaded += len;
+                
+                long now = System.currentTimeMillis();
+                if (now - lastUpdate >= 1000 && listener != null) { 
+                    long deltaTime = (now - lastUpdate) / 1000;
+                    if (deltaTime <= 0) deltaTime = 1;
+                    
+                    long speed = (downloaded - lastDownloaded) / deltaTime;
+                    int progress = startP + (int)((float)downloaded / total * (endP - startP));
+                    listener.onProgress(progress, status, speed);
+                    
+                    lastUpdate = now;
+                    lastDownloaded = downloaded;
+                }
+            }
         }
     }
 
     private void downloadFile(String url, File dest, Listener listener, int startP, int endP, String type) throws Exception {
-        if (dest.exists() && dest.length() > 0) return;
-        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
+        if (dest.exists() && dest.length() > 0) return;        Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
         Response res = http.newCall(req).execute();
         if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
         long total = res.body().contentLength();
@@ -230,12 +312,13 @@ public class VersionManager {
 
     private void downloadFileQuiet(String url, File dest) throws Exception {
         if (dest.exists() && dest.length() > 0) return;
+        dest.getParentFile().mkdirs();
         Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
         Response res = http.newCall(req).execute();
         if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
         try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
             byte[] buf = new byte[16384]; int len;
-            while ((len = is.read(buf)) != -1) fos.write(buffer, 0, len);
+            while ((len = is.read(buf)) != -1) fos.write(buf, 0, len);
         }
     }
 
@@ -243,8 +326,7 @@ public class VersionManager {
         String[] folders = {"mods", "resourcepacks", "config", "saves", "screenshots", "shaderpacks", "logs"};
         for (String f : folders) new File(instanceDir, f).mkdirs();
     }
-    // ... [Rest of the methods: downloadFirstLaunchFiles, etc. remain same as previous code] ...
-    
+
     public boolean isVersionInstalled(String versionId) {
         return new File(baseDir, "instances/" + versionId + "/.instance").exists();
     }
