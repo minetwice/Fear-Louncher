@@ -4,23 +4,33 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Game Surface (Replace with actual GLSurfaceView later) -->
     <TextView
         android:id="@+id/tvLog"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
         android:textColor="#FFFFFF"
-        android:text="⏳ Initializing Minecraft..."
+        android:text="⏳ Initializing..."
+        android:gravity="center"
         android:padding="24dp"/>
 
-    <!-- Draggable Cursor -->
+    <!-- ✅ Add This ProgressBar -->
+    <ProgressBar
+        android:id="@+id/pbJRE"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_margin="24dp"
+        android:visibility="gone"
+        android:max="100"
+        android:progress="0"/>
+
     <ImageView
         android:id="@+id/cursorOverlay"
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:layout_gravity="center"
         android:src="@android:drawable/ic_menu_compass"
-        android:contentDescription="Mouse Cursor"
         android:alpha="0.9"/>
 </FrameLayout>
