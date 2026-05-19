@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
@@ -14,7 +15,8 @@ public class GameActivity extends AppCompatActivity {
     
     private LaunchManager launchManager;
     private ImageView cursor;
-    private TextView tvLog; // ✅ Declare field
+    private TextView tvLog;
+    private ProgressBar pbJRE; // Progress bar for JRE download
     private float dX, dY;
 
     @Override
@@ -25,23 +27,35 @@ public class GameActivity extends AppCompatActivity {
         launchManager = new LaunchManager(this);
         String versionId = getIntent().getStringExtra("VERSION_ID");
 
-        // ✅ Initialize views properly
         cursor = findViewById(R.id.cursorOverlay);
         tvLog = findViewById(R.id.tvLog);
-        
+        pbJRE = findViewById(R.id.pbJRE); // Make sure you add this to layout
+
         setupCursorDrag();
 
-        // Start launch process
         launchManager.launchGame(versionId, "FearPlayer", "0", "0", new LaunchManager.LaunchListener() {
             @Override 
             public void onLog(String line) { 
-                // ✅ Now tvLog is TextView, so setText() works directly
                 runOnUiThread(() -> tvLog.setText(line)); 
             }
+            
+            @Override 
+            public void onJREProgress(int percent) {
+                runOnUiThread(() -> {
+                    pbJRE.setVisibility(View.VISIBLE);
+                    pbJRE.setProgress(percent);
+                    tvLog.setText("⬇️ Downloading Java Runtime: " + percent + "%");
+                });
+            }
+
             @Override 
             public void onLaunchSuccess() { 
-                runOnUiThread(() -> Toast.makeText(GameActivity.this, "🎮 Game Started!", Toast.LENGTH_SHORT).show()); 
+                runOnUiThread(() -> {
+                    pbJRE.setVisibility(View.GONE);
+                    Toast.makeText(GameActivity.this, "🎮 Game Started!", Toast.LENGTH_SHORT).show();
+                }); 
             }
+            
             @Override 
             public void onLaunchError(String msg) { 
                 runOnUiThread(() -> new AlertDialog.Builder(GameActivity.this)
@@ -50,6 +64,7 @@ public class GameActivity extends AppCompatActivity {
                     .setPositiveButton("OK", (d,w) -> finish())
                     .show()); 
             }
+            
             @Override 
             public void onExit(int code) { 
                 runOnUiThread(() -> finish()); 
@@ -68,13 +83,10 @@ public class GameActivity extends AppCompatActivity {
                     v.animate().x(event.getRawX() + dX).y(event.getRawY() + dY).setDuration(0).start();
                     return true;
                 case MotionEvent.ACTION_UP:
-                    // Tap opens control panel
                     new AlertDialog.Builder(this)
                         .setTitle("🎮 Controls")
-                        .setMessage("• Drag cursor to move\n• Tap screen = Left Click\n• Long press = Right Click\n• Volume keys = Scroll")
-                        .setPositiveButton("Keyboard", null)
-                        .setNegativeButton("Joystick", null)
-                        .setNeutralButton("Exit Game", (d,w) -> { launchManager.stopGame(); finish(); })
+                        .setMessage("• Drag cursor to move\n• Tap = Left Click\n• Long Press = Right Click")
+                        .setNegativeButton("Exit", (d,w) -> { launchManager.stopGame(); finish(); })
                         .show();
                     return true;
             }
