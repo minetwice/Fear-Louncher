@@ -16,8 +16,17 @@ public class LaunchManager {
     private final VersionManager versionManager;
     private Process gameProcess;
 
-    // ✅ PojavLauncher Official ARM64 JRE Mirror
-    private static final String JRE_URL = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/build-tools/jre-android-arm64.zip";
+    // ✅ UPDATED: Multiple Reliable Sources for JRE
+    private static final String[] JRE_URLS = {
+        // Source 1: PojavLauncher Main Release (Latest Stable)
+        "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip",
+        
+        // Source 2: Alternative Mirror (If GitHub fails)
+        "https://raw.githubusercontent.com/PojavLauncherTeam/PojavLauncher/main/app/src/main/assets/jre.zip",
+        
+        // Source 3: Direct Raw Link (Fallback)
+        "https://cdn.jsdelivr.net/gh/PojavLauncherTeam/PojavLauncher@main/app/src/main/assets/jre.zip"
+    };
 
     public interface LaunchListener {
         void onLog(String line);
@@ -33,32 +42,53 @@ public class LaunchManager {
     }
 
     /**
-     * Ensures JRE is present. If not, downloads and extracts it.
+     * Ensures JRE is present. Tries multiple URLs if one fails.
      */
     private String ensureJREExists(LaunchListener listener) throws Exception {
         File filesDir = ctx.getFilesDir();
         File jreDir = new File(filesDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
-
         if (javaBin.exists() && javaBin.canExecute() && javaBin.length() > 1000) {
             Log.d(TAG, "✅ JRE already installed.");
             return javaBin.getAbsolutePath();
         }
 
         Log.d(TAG, "⬇️ JRE missing. Starting download...");
-        listener.onLog("📦 Downloading Java Runtime (approx 150MB)...");
-        File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
-        if (tempZip.exists()) tempZip.delete();
+        listener.onLog("📦 Downloading Java Runtime...");
 
-        downloadFileWithProgress(JRE_URL, tempZip, listener);
+        File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
+        boolean downloaded = false;
+        Exception lastError = null;
+
+        // Try each URL until one works
+        for (String url : JRE_URLS) {
+            try {
+                if (tempZip.exists()) tempZip.delete();
+                
+                listener.onLog("🔗 Trying source: " + url.substring(url.lastIndexOf('/') + 1));
+                downloadFileWithProgress(url, tempZip, listener);
+                
+                if (tempZip.length() > 1000) {
+                    downloaded = true;
+                    Log.d(TAG, "✅ Downloaded from: " + url);
+                    break;
+                }
+            } catch (Exception e) {
+                lastError = e;
+                Log.w(TAG, "❌ Failed to download from: " + url, e);
+            }
+        }
+
+        if (!downloaded) {
+            throw new Exception("Failed to download JRE from all sources. Check internet connection.\nLast Error: " + lastError.getMessage());
+        }
 
         listener.onLog("📂 Extracting Java Runtime...");
         unzip(tempZip, jreDir);
-
         tempZip.delete();
         
         if (!javaBin.exists()) {
-            throw new Exception("Extraction failed: bin/java not found.");
+            throw new Exception("Extraction failed: bin/java not found. Corrupted download?");
         }
 
         javaBin.setExecutable(true, true);
@@ -67,16 +97,20 @@ public class LaunchManager {
         Log.d(TAG, "✅ JRE Installed Successfully at: " + javaBin.getAbsolutePath());
         return javaBin.getAbsolutePath();
     }
-
     private void downloadFileWithProgress(String urlString, File dest, LaunchListener listener) throws IOException {
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
+        conn.setConnectTimeout(15000); // 15 sec timeout
         conn.connect();
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode != 200) {
+            throw new IOException("HTTP Error: " + responseCode);
+        }
 
         int fileLength = conn.getContentLength();
         
-        // ✅ FIX: Proper try-with-resources block
         try (InputStream input = conn.getInputStream();
              FileOutputStream output = new FileOutputStream(dest)) {
 
@@ -96,7 +130,8 @@ public class LaunchManager {
                 }
             }
         } finally {
-            conn.disconnect();        }
+            conn.disconnect();
+        }
     }
 
     private void unzip(File zipFile, File destDir) throws IOException {
@@ -110,8 +145,7 @@ public class LaunchManager {
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
-                    outFile.getParentFile().mkdirs();
-                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                    outFile.getParentFile().mkdirs();                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
                         byte[] buffer = new byte[8192];
                         int len;
                         while ((len = zis.read(buffer)) > 0) {
@@ -145,7 +179,8 @@ public class LaunchManager {
                     javaPath = ensureJREExists(listener);
                 } catch (Exception e) {
                     listener.onLaunchError("❌ Failed to setup Java:\n" + e.getMessage());
-                    return;                }
+                    return;
+                }
 
                 if (!versionManager.isVersionInstalled(versionId)) {
                     listener.onLaunchError("❌ Minecraft version not installed.");
@@ -159,8 +194,7 @@ public class LaunchManager {
                             listener.onLog("⬇️ " + s + " " + p + "%");
                         }
                         @Override public void onComplete() { 
-                            listener.onLog("✅ Natives ready! Starting Game...");
-                            startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
+                            listener.onLog("✅ Natives ready! Starting Game...");                            startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                         }
                         @Override public void onError(String e) { 
                             listener.onLaunchError("❌ Natives download failed: " + e); 
@@ -194,7 +228,8 @@ public class LaunchManager {
             cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
             cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
             cmd.add("-Dminecraft.gameDir=" + instanceDir.getAbsolutePath());
-            cmd.add("-cp");            cmd.add(gameJar.getAbsolutePath());
+            cmd.add("-cp");
+            cmd.add(gameJar.getAbsolutePath());
             cmd.add("net.minecraft.client.main.Main");
             
             cmd.add("--username"); cmd.add(username);
@@ -208,8 +243,7 @@ public class LaunchManager {
             cmd.add("--versionType"); cmd.add("FearLauncher");
 
             Log.d(TAG, "Starting Process...");
-            
-            ProcessBuilder pb = new ProcessBuilder(cmd);
+                        ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
             gameProcess = pb.start();
