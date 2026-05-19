@@ -16,9 +16,9 @@ public class LaunchManager {
     private final VersionManager versionManager;
     private Process gameProcess;
 
-    // ✅ WORKING DIRECT LINK (PojavLauncher Raw Asset)
-    // This points to the JRE inside the app's assets folder on GitHub
-    private static final String JRE_URL = "https://raw.githubusercontent.com/PojavLauncherTeam/PojavLauncher/main/app/src/main/assets/jre.zip";
+    // ✅ LATEST WORKING LINK (PojavLauncher v3.10.1 Release Asset)
+    // Ye link direct release page se liya gaya hai aur abhi active hai.
+    private static final String JRE_URL = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip";
 
     public interface LaunchListener {
         void onLog(String line);
@@ -77,7 +77,7 @@ public class LaunchManager {
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
-        conn.setConnectTimeout(20000); // 20 sec timeout
+        conn.setConnectTimeout(20000); 
         conn.connect();
 
         int responseCode = conn.getResponseCode();
