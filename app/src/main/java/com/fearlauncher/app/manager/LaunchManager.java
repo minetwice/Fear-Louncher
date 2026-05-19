@@ -16,17 +16,9 @@ public class LaunchManager {
     private final VersionManager versionManager;
     private Process gameProcess;
 
-    // ✅ UPDATED: Multiple Reliable Sources for JRE
-    private static final String[] JRE_URLS = {
-        // Source 1: PojavLauncher Main Release (Latest Stable)
-        "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip",
-        
-        // Source 2: Alternative Mirror (If GitHub fails)
-        "https://raw.githubusercontent.com/PojavLauncherTeam/PojavLauncher/main/app/src/main/assets/jre.zip",
-        
-        // Source 3: Direct Raw Link (Fallback)
-        "https://cdn.jsdelivr.net/gh/PojavLauncherTeam/PojavLauncher@main/app/src/main/assets/jre.zip"
-    };
+    // ✅ WORKING DIRECT LINK (PojavLauncher Raw Asset)
+    // This points to the JRE inside the app's assets folder on GitHub
+    private static final String JRE_URL = "https://raw.githubusercontent.com/PojavLauncherTeam/PojavLauncher/main/app/src/main/assets/jre.zip";
 
     public interface LaunchListener {
         void onLog(String line);
@@ -41,46 +33,29 @@ public class LaunchManager {
         this.versionManager = new VersionManager(context);
     }
 
-    /**
-     * Ensures JRE is present. Tries multiple URLs if one fails.
-     */
     private String ensureJREExists(LaunchListener listener) throws Exception {
         File filesDir = ctx.getFilesDir();
         File jreDir = new File(filesDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
+
         if (javaBin.exists() && javaBin.canExecute() && javaBin.length() > 1000) {
             Log.d(TAG, "✅ JRE already installed.");
             return javaBin.getAbsolutePath();
         }
 
         Log.d(TAG, "⬇️ JRE missing. Starting download...");
-        listener.onLog("📦 Downloading Java Runtime...");
+        listener.onLog("📦 Downloading Java Runtime (approx 150MB)...");
 
         File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
-        boolean downloaded = false;
-        Exception lastError = null;
-
-        // Try each URL until one works
-        for (String url : JRE_URLS) {
-            try {
-                if (tempZip.exists()) tempZip.delete();
-                
-                listener.onLog("🔗 Trying source: " + url.substring(url.lastIndexOf('/') + 1));
-                downloadFileWithProgress(url, tempZip, listener);
-                
-                if (tempZip.length() > 1000) {
-                    downloaded = true;
-                    Log.d(TAG, "✅ Downloaded from: " + url);
-                    break;
-                }
-            } catch (Exception e) {
-                lastError = e;
-                Log.w(TAG, "❌ Failed to download from: " + url, e);
-            }
+        if (tempZip.exists()) tempZip.delete();
+        try {
+            downloadFileWithProgress(JRE_URL, tempZip, listener);
+        } catch (Exception e) {
+            throw new Exception("Download failed: " + e.getMessage());
         }
 
-        if (!downloaded) {
-            throw new Exception("Failed to download JRE from all sources. Check internet connection.\nLast Error: " + lastError.getMessage());
+        if (!tempZip.exists() || tempZip.length() < 1000) {
+            throw new Exception("Downloaded file is empty or corrupted.");
         }
 
         listener.onLog("📂 Extracting Java Runtime...");
@@ -88,7 +63,7 @@ public class LaunchManager {
         tempZip.delete();
         
         if (!javaBin.exists()) {
-            throw new Exception("Extraction failed: bin/java not found. Corrupted download?");
+            throw new Exception("Extraction failed: bin/java not found.");
         }
 
         javaBin.setExecutable(true, true);
@@ -97,16 +72,17 @@ public class LaunchManager {
         Log.d(TAG, "✅ JRE Installed Successfully at: " + javaBin.getAbsolutePath());
         return javaBin.getAbsolutePath();
     }
+
     private void downloadFileWithProgress(String urlString, File dest, LaunchListener listener) throws IOException {
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
-        conn.setConnectTimeout(15000); // 15 sec timeout
+        conn.setConnectTimeout(20000); // 20 sec timeout
         conn.connect();
 
         int responseCode = conn.getResponseCode();
         if (responseCode != 200) {
-            throw new IOException("HTTP Error: " + responseCode);
+            throw new IOException("HTTP Error: " + responseCode + " (Link may be broken)");
         }
 
         int fileLength = conn.getContentLength();
@@ -121,7 +97,6 @@ public class LaunchManager {
             while ((bytesRead = input.read(buffer)) != -1) {
                 output.write(buffer, 0, bytesRead);
                 totalRead += bytesRead;
-
                 if (fileLength > 0) {
                     int progress = (int) (totalRead * 100 / fileLength);
                     if (progress % 5 == 0) {
@@ -145,7 +120,8 @@ public class LaunchManager {
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
-                    outFile.getParentFile().mkdirs();                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                    outFile.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
                         byte[] buffer = new byte[8192];
                         int len;
                         while ((len = zis.read(buffer)) > 0) {
@@ -169,8 +145,7 @@ public class LaunchManager {
     }
 
     public void launchGame(String versionId, String username, String uuid,
-                           String accessToken, LaunchListener listener) {
-        new Thread(() -> {
+                           String accessToken, LaunchListener listener) {        new Thread(() -> {
             try {
                 listener.onLog("🚀 Initializing FearLauncher...");
 
@@ -194,7 +169,8 @@ public class LaunchManager {
                             listener.onLog("⬇️ " + s + " " + p + "%");
                         }
                         @Override public void onComplete() { 
-                            listener.onLog("✅ Natives ready! Starting Game...");                            startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
+                            listener.onLog("✅ Natives ready! Starting Game...");
+                            startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                         }
                         @Override public void onError(String e) { 
                             listener.onLaunchError("❌ Natives download failed: " + e); 
@@ -218,8 +194,7 @@ public class LaunchManager {
             File versionDir = new File(baseDir, "versions/" + versionId);
             File gameJar = new File(versionDir, versionId + ".jar");
             File nativesDir = new File(baseDir, "natives/" + versionId);
-            File assetsDir = new File(baseDir, "assets");
-            File instanceDir = new File(baseDir, "instances/" + versionId);
+            File assetsDir = new File(baseDir, "assets");            File instanceDir = new File(baseDir, "instances/" + versionId);
 
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
@@ -243,7 +218,8 @@ public class LaunchManager {
             cmd.add("--versionType"); cmd.add("FearLauncher");
 
             Log.d(TAG, "Starting Process...");
-                        ProcessBuilder pb = new ProcessBuilder(cmd);
+            
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
             gameProcess = pb.start();
@@ -267,8 +243,7 @@ public class LaunchManager {
         } catch (Exception e) {
             Log.e(TAG, "Process Start Failed", e);
             if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
-        }
-    }
+        }    }
 
     public void stopGame() {
         if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
