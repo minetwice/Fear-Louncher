@@ -2,102 +2,133 @@ package com.fearlauncher.app.manager;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.AssetManager;
 import android.util.Log;
 import androidx.preference.PreferenceManager;
 import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class LaunchManager {
     private static final String TAG = "FearLauncher_Launch";
     private final Context ctx;
     private final VersionManager versionManager;
     private Process gameProcess;
-    private boolean extractionComplete = false; // Track extraction status
+
+    // ✅ PojavLauncher Official ARM64 JRE Mirror
+    private static final String JRE_URL = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/build-tools/jre-android-arm64.zip";
 
     public interface LaunchListener {
         void onLog(String line);
         void onLaunchSuccess();
         void onLaunchError(String message);
         void onExit(int exitCode);
+        void onJREProgress(int percent); // New callback for JRE download
     }
 
     public LaunchManager(Context context) {
         this.ctx = context.getApplicationContext();
         this.versionManager = new VersionManager(context);
-        // Start extraction in background immediately
-        new Thread(this::extractAllJREs).start();
     }
 
-    private void extractAllJREs() {
-        String[] jreVersions = {
-            "components/jre-8", 
-            "components/jre-17", 
-            "components/jre-21", 
-            "components/jre-25"
-        };
+    /**
+     * Ensures JRE is present. If not, downloads and extracts it.
+     */
+    private String ensureJREExists(LaunchListener listener) throws Exception {
         File filesDir = ctx.getFilesDir();
-        AssetManager assets = ctx.getAssets();
-        
-        // ✅ DEBUG: Check if 'components' folder exists
-        try {
-            String[] components = assets.list("components");
-            Log.d(TAG, "📂 Found inside components: " + Arrays.toString(components));
-        } catch (IOException e) {
-            Log.e(TAG, "Cannot list components folder", e);
-        }
-        for (String jrePath : jreVersions) {
-            String jreVersion = jrePath.substring(jrePath.lastIndexOf('/') + 1);
-            File jreDest = new File(filesDir, jreVersion);
-            File javaBin = new File(jreDest, "bin/java");
-            
-            // Check if valid executable already exists
-            if (javaBin.exists() && javaBin.length() > 0 && javaBin.canExecute()) {
-                Log.d(TAG, "✅ " + jreVersion + " already valid.");
-                continue;
-            }
+        File jreDir = new File(filesDir, "jre-17"); // Standard folder name
+        File javaBin = new File(jreDir, "bin/java");
 
-            // If exists but broken, delete and re-extract
-            if (jreDest.exists()) {
-                Log.w(TAG, "⚠️ " + jreVersion + " exists but seems broken. Re-extracting...");
-                deleteRecursive(jreDest);
-            }
-            
-            try {
-                String[] assetFiles = assets.list(jrePath);
-                if (assetFiles == null || assetFiles.length == 0) {
-                    Log.e(TAG, "❌ " + jrePath + " is EMPTY or NOT FOUND in assets!");
-                    continue;
-                }
-                
-                Log.d(TAG, "📦 Extracting " + jreVersion + " (" + assetFiles.length + " items)...");
-                copyAssetFolder(assets, jrePath, jreDest.getAbsolutePath());
-                
-                if (javaBin.exists()) {
-                    // Force executable permission
-                    boolean execSuccess = javaBin.setExecutable(true, true);
-                    // Fallback chmod via Runtime if setExecutable fails (rare but possible)
-                    if (!execSuccess) {
-                        Runtime.getRuntime().exec("chmod 755 " + javaBin.getAbsolutePath());
-                    }
-                    Log.d(TAG, "✅ Extraction complete for " + jreVersion + ". Executable: " + javaBin.canExecute());
-                    fixNativePermissions(new File(jreDest, "lib"));
-                } else {
-                    Log.e(TAG, "❌ bin/java missing after extraction for " + jreVersion);
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to extract " + jreVersion, e);
-            }
+        // 1. Check if valid JRE exists
+        if (javaBin.exists() && javaBin.canExecute() && javaBin.length() > 1000) {
+            Log.d(TAG, "✅ JRE already installed.");
+            return javaBin.getAbsolutePath();
         }
-        extractionComplete = true;
+        Log.d(TAG, "⬇️ JRE missing. Starting download...");
+        listener.onLog("📦 Downloading Java Runtime (approx 150MB)...");
+
+        // 2. Prepare Temp File
+        File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
+        if (tempZip.exists()) tempZip.delete();
+
+        // 3. Download Zip
+        downloadFileWithProgress(JRE_URL, tempZip, listener);
+
+        // 4. Extract Zip
+        listener.onLog("📂 Extracting Java Runtime...");
+        unzip(tempZip, jreDir);
+
+        // 5. Cleanup & Verify
+        tempZip.delete();
+        
+        if (!javaBin.exists()) {
+            throw new Exception("Extraction failed: bin/java not found.");
+        }
+
+        // 6. Set Permissions
+        javaBin.setExecutable(true, true);
+        fixNativePermissions(new File(jreDir, "lib"));
+
+        Log.d(TAG, "✅ JRE Installed Successfully at: " + javaBin.getAbsolutePath());
+        return javaBin.getAbsolutePath();
     }
 
-    private void deleteRecursive(File file) {
-        if (file.isDirectory()) {
-            for (File child : file.listFiles()) deleteRecursive(child);        }
-        file.delete();
+    private void downloadFileWithProgress(String urlString, File dest, LaunchListener listener) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.connect();
+
+        int fileLength = conn.getContentLength();
+        try (InputStream input = conn.getInputStream();
+             FileOutputStream output = new FileOutputStream(dest)) {
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long totalRead = 0;
+
+            while ((bytesRead = input.read(buffer)) != -1) {
+                output.write(buffer, 0, bytesRead);
+                totalRead += bytesRead;
+
+                if (fileLength > 0) {
+                    int progress = (int) (totalRead * 100 / fileLength);
+                    // Update UI every 5% to avoid spam                    if (progress % 5 == 0) {
+                        listener.onJREProgress(progress);
+                    }
+                }
+            }
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    private void unzip(File zipFile, File destDir) throws IOException {
+        if (!destDir.exists()) destDir.mkdirs();
+        
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                File outFile = new File(destDir, entry.getName());
+                
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                } else {
+                    outFile.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                        byte[] buffer = new byte[8192];
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                }
+                zis.closeEntry();
+            }
+        }
     }
 
     private void fixNativePermissions(File libDir) {
@@ -110,162 +141,115 @@ public class LaunchManager {
         }
     }
 
-    private void copyAssetFolder(AssetManager assets, String srcPath, String destPath) throws IOException {
-        File destDir = new File(destPath);
-        if (!destDir.exists()) destDir.mkdirs();
-        
-        String[] files = assets.list(srcPath);
-        if (files == null) return;
-
-        for (String file : files) {
-            String src = srcPath.isEmpty() ? file : srcPath + "/" + file;
-            File destFile = new File(destDir, file);
-            
-            String[] subFiles = assets.list(src);
-            if (subFiles != null && subFiles.length > 0) {
-                copyAssetFolder(assets, src, destFile.getAbsolutePath());
-            } else {
-                try (InputStream in = assets.open(src);
-                     FileOutputStream out = new FileOutputStream(destFile)) {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
-                }
-            }
-        }
-    }
-
     public void launchGame(String versionId, String username, String uuid,
                            String accessToken, LaunchListener listener) {
         new Thread(() -> {
             try {
-                listener.onLog("🚀 Preparing launch for " + versionId + "...");
+                listener.onLog("🚀 Initializing FearLauncher...");
+                // ✅ STEP 1: Ensure JRE is ready (Auto-download if needed)
+                String javaPath;
+                try {
+                    javaPath = ensureJREExists(listener);
+                } catch (Exception e) {
+                    listener.onLaunchError("❌ Failed to setup Java:\n" + e.getMessage());
+                    return;
+                }
 
                 if (!versionManager.isVersionInstalled(versionId)) {
-                    listener.onLaunchError("❌ Version not installed.");
-                    return;
-                }
-                // ✅ Wait for extraction (Increased to 60 seconds)
-                int waitCount = 0;
-                while (!extractionComplete && waitCount < 120) {
-                    Thread.sleep(500);
-                    waitCount++;
-                }
-
-                // Double check extraction
-                String javaPath = findJavaRuntime();
-                if (javaPath == null) {
-                    // Try one last wait just in case
-                    Thread.sleep(2000); 
-                    javaPath = findJavaRuntime();
-                }
-
-                if (javaPath == null) {
-                    Log.e(TAG, "Final Check: JRE not found in " + ctx.getFilesDir().getAbsolutePath());
-                    listener.onLaunchError("❌ Java runtime not found.\n\nPlease check Logcat for 'Found inside components'.\nMake sure folders are named exactly: jre-8, jre-17, etc.");
+                    listener.onLaunchError("❌ Minecraft version not installed.");
                     return;
                 }
 
-                // First launch natives download
+                // ✅ STEP 2: First Launch Natives Download
                 if (!versionManager.isFirstLaunchComplete(versionId)) {
                     listener.onLog("📦 First launch: Downloading natives...");
                     versionManager.downloadFirstLaunchFiles(versionId, new VersionManager.FirstLaunchListener() {
                         @Override public void onProgress(int p, String s, long speed) {
                             listener.onLog("⬇️ " + s + " " + p + "%");
                         }
-                        @Override public void onComplete() { listener.onLog("✅ Natives ready!"); }
-                        @Override public void onError(String e) { listener.onLaunchError("❌ Natives failed: " + e); }
-                    });
-                }
-
-                File baseDir = versionManager.getBaseDir();
-                File versionDir = new File(baseDir, "versions/" + versionId);
-                File gameJar = new File(versionDir, versionId + ".jar");
-                File nativesDir = new File(baseDir, "natives/" + versionId);
-                File assetsDir = new File(baseDir, "assets");
-                File instanceDir = new File(baseDir, "instances/" + versionId);
-
-                if (!gameJar.exists()) {
-                    listener.onLaunchError("❌ game.jar missing.");
-                    return;
-                }
-
-                listener.onLog("✅ Java: " + javaPath);
-                listener.onLog("📂 Instance: " + instanceDir.getAbsolutePath());
-
-                List<String> cmd = new ArrayList<>();
-                cmd.add(javaPath);                cmd.add("-Xmx2G");
-                cmd.add("-Xms1G");
-                cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
-                cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
-                cmd.add("-Dminecraft.gameDir=" + instanceDir.getAbsolutePath());
-                cmd.add("-cp");
-                cmd.add(gameJar.getAbsolutePath());
-                cmd.add("net.minecraft.client.main.Main");
-                
-                cmd.add("--username"); cmd.add(username);
-                cmd.add("--version"); cmd.add(versionId);
-                cmd.add("--gameDir"); cmd.add(instanceDir.getAbsolutePath());
-                cmd.add("--assetsDir"); cmd.add(assetsDir.getAbsolutePath());
-                cmd.add("--assetIndex"); cmd.add(versionId);
-                cmd.add("--uuid"); cmd.add(uuid != null ? uuid : "0");
-                cmd.add("--accessToken"); cmd.add(accessToken != null ? accessToken : "0");
-                cmd.add("--userType"); cmd.add("mojang");
-                cmd.add("--versionType"); cmd.add("FearLauncher");
-
-                listener.onLog("⚙️ Starting Minecraft...");
-                ProcessBuilder pb = new ProcessBuilder(cmd);
-                pb.directory(instanceDir);
-                pb.redirectErrorStream(true);
-                gameProcess = pb.start();
-
-                new Thread(() -> {
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            if (listener != null) listener.onLog(line);
+                        @Override public void onComplete() { 
+                            listener.onLog("✅ Natives ready! Starting Game...");
+                            startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                         }
-                    } catch (Exception e) { Log.e(TAG, "Output error", e); }
-                }).start();
-
-                int exitCode = gameProcess.waitFor();
-                if (listener != null) {
-                    listener.onExit(exitCode);
-                    if (exitCode == 0) listener.onLaunchSuccess();
-                    else listener.onLaunchError("Game exited: " + exitCode);
+                        @Override public void onError(String e) { 
+                            listener.onLaunchError("❌ Natives download failed: " + e); 
+                        }
+                    });
+                } else {
+                    // Subsequent launches
+                    startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                 }
 
             } catch (Exception e) {
-                Log.e(TAG, "Launch failed", e);
-                if (listener != null) listener.onLaunchError("❌ " + e.getMessage());
+                Log.e(TAG, "Critical Launch Error", e);
+                listener.onLaunchError("❌ Critical Error: " + e.getMessage());
             }
         }).start();
     }
 
-    public void stopGame() {
-        if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();    }
+    private void startMinecraftProcess(String javaPath, String versionId, String username, 
+                                       String uuid, String accessToken, LaunchListener listener) {
+        try {
+            File baseDir = versionManager.getBaseDir();
+            File versionDir = new File(baseDir, "versions/" + versionId);
+            File gameJar = new File(versionDir, versionId + ".jar");
+            File nativesDir = new File(baseDir, "natives/" + versionId);
+            File assetsDir = new File(baseDir, "assets");            File instanceDir = new File(baseDir, "instances/" + versionId);
 
-    private String findJavaRuntime() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
-        String preferredJre = prefs.getString("java_version", "jre-17");
-        
-        // Check preferred
-        File preferredBin = new File(ctx.getFilesDir(), preferredJre + "/bin/java");
-        if (preferredBin.exists() && preferredBin.canExecute()) return preferredBin.getAbsolutePath();
-        
-        // Fallbacks
-        String[] fallbacks = {"jre-17", "jre-21", "jre-8", "jre-25"};
-        for (String folder : fallbacks) {
-            File bin = new File(ctx.getFilesDir(), folder + "/bin/java");
-            if (bin.exists() && bin.canExecute()) {
-                Log.d(TAG, "Using fallback JRE: " + folder);
-                return bin.getAbsolutePath();
+            List<String> cmd = new ArrayList<>();
+            cmd.add(javaPath);
+            cmd.add("-Xmx2G"); // Adjust RAM as needed
+            cmd.add("-Xms1G");
+            cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
+            cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
+            cmd.add("-Dminecraft.gameDir=" + instanceDir.getAbsolutePath());
+            cmd.add("-cp");
+            cmd.add(gameJar.getAbsolutePath());
+            cmd.add("net.minecraft.client.main.Main");
+            
+            cmd.add("--username"); cmd.add(username);
+            cmd.add("--version"); cmd.add(versionId);
+            cmd.add("--gameDir"); cmd.add(instanceDir.getAbsolutePath());
+            cmd.add("--assetsDir"); cmd.add(assetsDir.getAbsolutePath());
+            cmd.add("--assetIndex"); cmd.add(versionId);
+            cmd.add("--uuid"); cmd.add(uuid != null ? uuid : "0");
+            cmd.add("--accessToken"); cmd.add(accessToken != null ? accessToken : "0");
+            cmd.add("--userType"); cmd.add("mojang");
+            cmd.add("--versionType"); cmd.add("FearLauncher");
+
+            Log.d(TAG, "Starting Process: " + String.join(" ", cmd));
+            
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.directory(instanceDir);
+            pb.redirectErrorStream(true);
+            gameProcess = pb.start();
+
+            new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (listener != null) listener.onLog(line);
+                    }
+                } catch (Exception e) { Log.e(TAG, "Output error", e); }
+            }).start();
+
+            int exitCode = gameProcess.waitFor();
+            if (listener != null) {
+                listener.onExit(exitCode);
+                if (exitCode == 0) listener.onLaunchSuccess();
+                else listener.onLaunchError("Game exited with code: " + exitCode);
             }
-        }
-        return null;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Process Start Failed", e);
+            if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
+        }    }
+
+    public void stopGame() {
+        if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
     }
 
     public boolean isLaunchReady(String versionId) {
         return versionManager.isVersionInstalled(versionId);
     }
-}
+        }
