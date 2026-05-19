@@ -1,9 +1,7 @@
 package com.fearlauncher.app.manager;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.util.Log;
-import androidx.preference.PreferenceManager;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -26,7 +24,7 @@ public class LaunchManager {
         void onLaunchSuccess();
         void onLaunchError(String message);
         void onExit(int exitCode);
-        void onJREProgress(int percent); // New callback for JRE download
+        void onJREProgress(int percent);
     }
 
     public LaunchManager(Context context) {
@@ -39,36 +37,30 @@ public class LaunchManager {
      */
     private String ensureJREExists(LaunchListener listener) throws Exception {
         File filesDir = ctx.getFilesDir();
-        File jreDir = new File(filesDir, "jre-17"); // Standard folder name
+        File jreDir = new File(filesDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
 
-        // 1. Check if valid JRE exists
         if (javaBin.exists() && javaBin.canExecute() && javaBin.length() > 1000) {
             Log.d(TAG, "✅ JRE already installed.");
             return javaBin.getAbsolutePath();
         }
+
         Log.d(TAG, "⬇️ JRE missing. Starting download...");
         listener.onLog("📦 Downloading Java Runtime (approx 150MB)...");
-
-        // 2. Prepare Temp File
         File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
         if (tempZip.exists()) tempZip.delete();
 
-        // 3. Download Zip
         downloadFileWithProgress(JRE_URL, tempZip, listener);
 
-        // 4. Extract Zip
         listener.onLog("📂 Extracting Java Runtime...");
         unzip(tempZip, jreDir);
 
-        // 5. Cleanup & Verify
         tempZip.delete();
         
         if (!javaBin.exists()) {
             throw new Exception("Extraction failed: bin/java not found.");
         }
 
-        // 6. Set Permissions
         javaBin.setExecutable(true, true);
         fixNativePermissions(new File(jreDir, "lib"));
 
@@ -83,6 +75,8 @@ public class LaunchManager {
         conn.connect();
 
         int fileLength = conn.getContentLength();
+        
+        // ✅ FIX: Proper try-with-resources block
         try (InputStream input = conn.getInputStream();
              FileOutputStream output = new FileOutputStream(dest)) {
 
@@ -96,14 +90,13 @@ public class LaunchManager {
 
                 if (fileLength > 0) {
                     int progress = (int) (totalRead * 100 / fileLength);
-                    // Update UI every 5% to avoid spam                    if (progress % 5 == 0) {
+                    if (progress % 5 == 0) {
                         listener.onJREProgress(progress);
                     }
                 }
             }
         } finally {
-            conn.disconnect();
-        }
+            conn.disconnect();        }
     }
 
     private void unzip(File zipFile, File destDir) throws IOException {
@@ -146,21 +139,19 @@ public class LaunchManager {
         new Thread(() -> {
             try {
                 listener.onLog("🚀 Initializing FearLauncher...");
-                // ✅ STEP 1: Ensure JRE is ready (Auto-download if needed)
+
                 String javaPath;
                 try {
                     javaPath = ensureJREExists(listener);
                 } catch (Exception e) {
                     listener.onLaunchError("❌ Failed to setup Java:\n" + e.getMessage());
-                    return;
-                }
+                    return;                }
 
                 if (!versionManager.isVersionInstalled(versionId)) {
                     listener.onLaunchError("❌ Minecraft version not installed.");
                     return;
                 }
 
-                // ✅ STEP 2: First Launch Natives Download
                 if (!versionManager.isFirstLaunchComplete(versionId)) {
                     listener.onLog("📦 First launch: Downloading natives...");
                     versionManager.downloadFirstLaunchFiles(versionId, new VersionManager.FirstLaunchListener() {
@@ -176,7 +167,6 @@ public class LaunchManager {
                         }
                     });
                 } else {
-                    // Subsequent launches
                     startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                 }
 
@@ -194,17 +184,17 @@ public class LaunchManager {
             File versionDir = new File(baseDir, "versions/" + versionId);
             File gameJar = new File(versionDir, versionId + ".jar");
             File nativesDir = new File(baseDir, "natives/" + versionId);
-            File assetsDir = new File(baseDir, "assets");            File instanceDir = new File(baseDir, "instances/" + versionId);
+            File assetsDir = new File(baseDir, "assets");
+            File instanceDir = new File(baseDir, "instances/" + versionId);
 
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
-            cmd.add("-Xmx2G"); // Adjust RAM as needed
+            cmd.add("-Xmx2G");
             cmd.add("-Xms1G");
             cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
             cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
             cmd.add("-Dminecraft.gameDir=" + instanceDir.getAbsolutePath());
-            cmd.add("-cp");
-            cmd.add(gameJar.getAbsolutePath());
+            cmd.add("-cp");            cmd.add(gameJar.getAbsolutePath());
             cmd.add("net.minecraft.client.main.Main");
             
             cmd.add("--username"); cmd.add(username);
@@ -217,7 +207,7 @@ public class LaunchManager {
             cmd.add("--userType"); cmd.add("mojang");
             cmd.add("--versionType"); cmd.add("FearLauncher");
 
-            Log.d(TAG, "Starting Process: " + String.join(" ", cmd));
+            Log.d(TAG, "Starting Process...");
             
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
@@ -243,7 +233,8 @@ public class LaunchManager {
         } catch (Exception e) {
             Log.e(TAG, "Process Start Failed", e);
             if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
-        }    }
+        }
+    }
 
     public void stopGame() {
         if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
@@ -252,4 +243,4 @@ public class LaunchManager {
     public boolean isLaunchReady(String versionId) {
         return versionManager.isVersionInstalled(versionId);
     }
-        }
+}
