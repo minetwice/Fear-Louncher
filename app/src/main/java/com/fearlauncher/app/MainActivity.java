@@ -88,7 +88,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkPermissions() {
-        // Storage Permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -96,9 +95,8 @@ public class MainActivity extends AppCompatActivity {
                         new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
             }
         }
-                // Notification Permission (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIF_PERMISSION_CODE);
@@ -144,11 +142,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void launchGame(String versionId) {
-        // Check if JRE exists. If not, start Background Service.
-        File jreDir = new File(getFilesDir(), "jre-17");        File javaBin = new File(jreDir, "bin/java");
+        File jreDir = new File(getFilesDir(), "jre-17");
+        File javaBin = new File(jreDir, "bin/java");
 
-        if (!javaBin.exists() || !javaBin.canExecute()) {
-            new AlertDialog.Builder(this)
+        if (!javaBin.exists() || !javaBin.canExecute()) {            new AlertDialog.Builder(this)
                 .setTitle("📦 Java Runtime Missing")
                 .setMessage("Java Runtime needs to be installed. This will run in the background.\n\nCheck your notification area for progress.")
                 .setPositiveButton("Start Installation", (d, w) -> {
@@ -159,7 +156,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // JRE Exists, Proceed with Launch
         AlertDialog progressDialog = new AlertDialog.Builder(this)
             .setTitle("🚀 Launching Minecraft")
             .setMessage("Starting " + versionId + "...")
@@ -167,17 +163,27 @@ public class MainActivity extends AppCompatActivity {
             .setNegativeButton("Cancel", (d, w) -> launchManager.stopGame())
             .show();
 
+        // ✅ FIX 3: Implement ALL methods of LaunchListener including onJREProgress
         launchManager.launchGame(versionId, "FearPlayer", "0", "0", new LaunchManager.LaunchListener() {
-            @Override public void onLog(String line) {
+            
+            @Override
+            public void onJREProgress(int percent) {
+                // Not used here because JRE is handled by Service now, but required by interface
+            }
+
+            @Override 
+            public void onLog(String line) {
                 runOnUiThread(() -> progressDialog.setMessage("Starting " + versionId + "...\n\n" + line));
             }
-            @Override public void onLaunchSuccess() {
+            @Override 
+            public void onLaunchSuccess() {
                 runOnUiThread(() -> {
                     progressDialog.dismiss();
                     Toast.makeText(MainActivity.this, "🎮 Game launched!", Toast.LENGTH_LONG).show();
                 });
             }
-            @Override public void onLaunchError(String message) {
+            @Override 
+            public void onLaunchError(String message) {
                 runOnUiThread(() -> {
                     progressDialog.dismiss();
                     new AlertDialog.Builder(MainActivity.this)
@@ -186,15 +192,16 @@ public class MainActivity extends AppCompatActivity {
                         .setPositiveButton("OK", null).show();
                 });
             }
-            @Override public void onExit(int exitCode) {
-                runOnUiThread(() -> {
-                    if (exitCode != 0) progressDialog.dismiss();
+            @Override 
+            public void onExit(int exitCode) {
+                runOnUiThread(() -> {                    if (exitCode != 0) progressDialog.dismiss();
                 });
             }
         });
     }
 
-    private void startJreInstallationService() {        Intent serviceIntent = new Intent(this, JreInstallService.class);
+    private void startJreInstallationService() {
+        Intent serviceIntent = new Intent(this, JreInstallService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         } else {
