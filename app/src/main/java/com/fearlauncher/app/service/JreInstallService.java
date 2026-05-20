@@ -10,7 +10,7 @@ import android.os.Build;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import com.fearlauncher.app.MainActivity; // Replace with your main activity package if different
+import com.fearlauncher.app.MainActivity;
 import com.fearlauncher.app.R;
 import java.io.*;
 import java.util.zip.ZipEntry;
@@ -43,11 +43,14 @@ public class JreInstallService extends Service {
             return START_NOT_STICKY;
         }
 
-        new Thread(() -> installJRE()).start();
-        return START_STICKY;
-    }
+        // Start Foreground Notification immediately
+        startForeground(NOTIFICATION_ID, createNotification("Starting Installation...", 0, false));
 
-    private void createNotificationChannel() {        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        new Thread(() -> installJRE()).start();
+        return START_STICKY;    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "JRE Installation",
@@ -64,23 +67,23 @@ public class JreInstallService extends Service {
         File jreDir = new File(filesDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
 
-        // If already exists, skip
-        if (javaBin.exists() && javaBin.canExecute()) {
-            sendNotification("✅ JRE Already Installed", 100, true);
-            stopSelf();
-            return;
-        }
-
         try {
-            // 1. Copy ZIP from Assets to Cache (Faster & Stable)
-            sendNotification("📦 Preparing Installer...", 5, false);
+            // If already exists, skip
+            if (javaBin.exists() && javaBin.canExecute()) {
+                updateNotification("✅ JRE Already Installed", 100, true);
+                stopSelf();
+                return;
+            }
+
+            // 1. Copy ZIP from Assets to Cache (Stable & Fast)
+            updateNotification("📦 Preparing Installer...", 5, false);
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
             copyAssetToCache("components/jre-17.zip", tempZip);
 
             if (isCancelled) { cleanup(tempZip); return; }
 
             // 2. Extract ZIP
-            sendNotification("📂 Extracting Java Runtime...", 50, false);
+            updateNotification("📂 Extracting Java Runtime...", 50, false);
             if (jreDir.exists()) deleteRecursive(jreDir);
             jreDir.mkdirs();
             
@@ -89,20 +92,20 @@ public class JreInstallService extends Service {
             if (isCancelled) { cleanup(tempZip); return; }
 
             // 3. Set Permissions
-            sendNotification("⚙️ Setting Permissions...", 90, false);
+            updateNotification("⚙️ Setting Permissions...", 90, false);
             javaBin.setExecutable(true, true);
             fixNativePermissions(new File(jreDir, "lib"));
 
-            // 4. Finish
-            sendNotification("✅ Java Runtime Installed!", 100, true);
+            // 4. Finish            updateNotification("✅ Java Runtime Installed!", 100, true);
             cleanup(tempZip);
-                        // Optional: Start Main Activity or Broadcast result
+            
+            // Launch MainActivity after success
             Intent launchIntent = new Intent(this, MainActivity.class);
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(launchIntent);
 
         } catch (Exception e) {
-            sendNotification("❌ Installation Failed: " + e.getMessage(), 0, true);
+            updateNotification("❌ Failed: " + e.getMessage(), 0, true);
             e.printStackTrace();
         } finally {
             stopSelf();
@@ -114,7 +117,7 @@ public class JreInstallService extends Service {
              FileOutputStream out = new FileOutputStream(dest)) {
             byte[] buffer = new byte[8192];
             int read;
-            long total = in.available(); // Approximate size
+            long total = in.available(); 
             long copied = 0;
             
             while ((read = in.read(buffer)) != -1) {
@@ -123,7 +126,7 @@ public class JreInstallService extends Service {
                 copied += read;
                 
                 if (total > 0) {
-                    int progress = 5 + (int)((copied * 45) / total); // 5% to 50%
+                    int progress = 5 + (int)((copied * 45) / total); 
                     updateNotificationProgress(progress);
                 }
             }
@@ -133,7 +136,6 @@ public class JreInstallService extends Service {
     private void unzip(File zipFile, File destDir) throws IOException {
         try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
             ZipEntry entry;
-            long totalEntries = 0; // Just for estimation logic if needed, skipping for simplicity
             int fileCount = 0;
             
             while ((entry = zis.getNextEntry()) != null) {
@@ -143,9 +145,9 @@ public class JreInstallService extends Service {
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
-                    outFile.getParentFile().mkdirs();
-                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                        byte[] buffer = new byte[8192];                        int len;
+                    outFile.getParentFile().mkdirs();                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                        byte[] buffer = new byte[8192];
+                        int len;
                         while ((len = zis.read(buffer)) > 0) {
                             fos.write(buffer, 0, len);
                         }
@@ -154,7 +156,6 @@ public class JreInstallService extends Service {
                 zis.closeEntry();
                 fileCount++;
                 
-                // Simple progress estimation for extraction (50% to 90%)
                 if (fileCount % 50 == 0) {
                      updateNotificationProgress(50 + Math.min(40, fileCount / 10));
                 }
@@ -184,17 +185,16 @@ public class JreInstallService extends Service {
         if (tempZip.exists()) tempZip.delete();
     }
 
-    private void sendNotification(String text, int progress, boolean isDone) {
+    private NotificationCompat.Builder createNotification(String text, int progress, boolean isDone) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FearLauncher")
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Ensure you have an icon
+            .setSmallIcon(R.drawable.ic_launcher_foreground) 
             .setOngoing(!isDone)
             .setPriority(NotificationCompat.PRIORITY_LOW);
 
         if (!isDone) {
-            builder.setProgress(100, progress, false);
-                        // Cancel Action
+            builder.setProgress(100, progress, false);            
             Intent cancelIntent = new Intent(this, JreInstallService.class);
             cancelIntent.setAction("CANCEL");
             PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
@@ -202,12 +202,15 @@ public class JreInstallService extends Service {
         } else {
             builder.setProgress(0, 0, false);
         }
+        return builder;
+    }
 
+    private void updateNotification(String text, int progress, boolean isDone) {
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager != null) manager.notify(NOTIFICATION_ID, builder.build());
+        if (manager != null) manager.notify(NOTIFICATION_ID, createNotification(text, progress, isDone).build());
     }
 
     private void updateNotificationProgress(int progress) {
-        sendNotification("Installing JRE...", progress, false);
+        updateNotification("Installing JRE...", progress, false);
     }
 }
