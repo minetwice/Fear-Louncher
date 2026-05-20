@@ -1,6 +1,7 @@
 package com.fearlauncher.app.manager;
 
 import android.content.Context;
+import android.content.res.AssetManager;
 import android.util.Log;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -16,12 +17,8 @@ public class LaunchManager {
     private final VersionManager versionManager;
     private Process gameProcess;
 
-    // ✅ UPDATED WORKING LINKS
-    // Link 1: New Pojav Structure (Try this first)
-    private static final String JRE_URL_1 = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-17-android-arm64.zip";
-    
-    // Link 2: Fallback to older version if new one fails
-    private static final String JRE_URL_2 = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/build-tools/jre-android-arm64.zip";
+    // ✅ Fallback URL (Only used if Assets ZIP is missing or corrupted)
+    private static final String JRE_BACKUP_URL = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip";
 
     public interface LaunchListener {
         void onLog(String line);
@@ -36,67 +33,135 @@ public class LaunchManager {
         this.versionManager = new VersionManager(context);
     }
 
+    /**
+     * PROFESSIONAL METHOD: 3-Layer JRE Acquisition (ZIP Based)
+     * 1. Check Internal Storage (Fastest)
+     * 2. Extract ZIP from APK Assets (Offline & Reliable)
+     * 3. Download ZIP from Internet (Last Resort)
+     */
     private String ensureJREExists(LaunchListener listener) throws Exception {
         File filesDir = ctx.getFilesDir();
         File jreDir = new File(filesDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
 
+        // --- LAYER 1: Check Internal Storage ---
         if (javaBin.exists() && javaBin.canExecute() && javaBin.length() > 1000) {
-            Log.d(TAG, "✅ JRE already installed.");
-            return javaBin.getAbsolutePath();
-        }
+            Log.d(TAG, "✅ Layer 1: JRE found in internal storage.");
+            return javaBin.getAbsolutePath();        }
 
-        Log.d(TAG, "⬇️ JRE missing. Starting download...");
-        listener.onLog("📦 Downloading Java Runtime...");
-        File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
-        boolean success = false;
-        Exception lastError = null;
-
-        // Try Link 1
+        // --- LAYER 2: Extract ZIP from APK Assets ---
+        Log.d(TAG, "⬇️ Layer 2: Checking APK Assets for jre-17.zip...");
+        InputStream inputStream = null;
         try {
-            if (tempZip.exists()) tempZip.delete();
-            listener.onLog("🔗 Trying Source 1...");
-            downloadFileWithProgress(JRE_URL_1, tempZip, listener);
-            if (tempZip.length() > 1000) success = true;
-        } catch (Exception e) {
-            lastError = e;
-            Log.w(TAG, "Source 1 failed", e);
-        }
-
-        // If Link 1 fails, Try Link 2
-        if (!success) {
+            AssetManager assets = ctx.getAssets();
+            
+            // Directly try to open the ZIP file from assets
             try {
-                if (tempZip.exists()) tempZip.delete();
-                listener.onLog("🔗 Trying Source 2 (Fallback)...");
-                downloadFileWithProgress(JRE_URL_2, tempZip, listener);
-                if (tempZip.length() > 1000) success = true;
-            } catch (Exception e) {
-                lastError = e;
-                Log.w(TAG, "Source 2 failed", e);
+                inputStream = assets.open("components/jre-17.zip");
+                Log.d(TAG, "📦 Found jre-17.zip in Assets. Extracting...");
+                listener.onLog("📦 Installing Java Runtime (from App)...");
+                
+                // Clean old extraction if corrupted
+                if (jreDir.exists()) deleteRecursive(jreDir);
+                jreDir.mkdirs();
+
+                // Extract ZIP directly from InputStream
+                unzip(inputStream, jreDir);
+                
+                // Verify extraction
+                if (javaBin.exists()) {
+                    javaBin.setExecutable(true, true);
+                    fixNativePermissions(new File(jreDir, "lib"));
+                    Log.d(TAG, "✅ Layer 2: JRE extracted successfully from ZIP.");
+                    return javaBin.getAbsolutePath();
+                } else {
+                    throw new Exception("Extraction failed: bin/java missing after unzip.");
+                }
+            } catch (FileNotFoundException e) {
+                // If file not found in assets, proceed to Layer 3
+                Log.w(TAG, "⚠️ jre-17.zip not found in Assets. Proceeding to Layer 3.");
+            } finally {
+                if (inputStream != null) inputStream.close();
             }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Layer 2 Failed", e);
+            // Continue to Layer 3 if Layer 2 fails unexpectedly
         }
 
-        if (!success) {
-            throw new Exception("All download sources failed. Last Error: " + lastError.getMessage());
-        }
-
-        listener.onLog("📂 Extracting Java Runtime...");
-        unzip(tempZip, jreDir);
-        tempZip.delete();
+        // --- LAYER 3: Download ZIP from Internet (Fallback) ---
+        Log.d(TAG, "⬇️ Layer 3: Downloading ZIP from Internet...");
+        listener.onLog("🌐 Assets missing. Downloading Java Runtime...");
         
-        if (!javaBin.exists()) {
-            throw new Exception("Extraction failed: bin/java not found.");
+        File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
+        if (tempZip.exists()) tempZip.delete();
+
+        try {            downloadFileWithProgress(JRE_BACKUP_URL, tempZip, listener);
+            
+            if (tempZip.length() < 1000) {
+                throw new Exception("Downloaded file is too small/corrupted.");
+            }
+            
+            listener.onLog("📂 Extracting downloaded Java ZIP...");
+            if (jreDir.exists()) deleteRecursive(jreDir);
+            jreDir.mkdirs();
+            
+            unzip(new FileInputStream(tempZip), jreDir);
+            tempZip.delete();
+            
+            if (!javaBin.exists()) {
+                throw new Exception("Extraction failed after download.");
+            }
+            
+            javaBin.setExecutable(true, true);
+            fixNativePermissions(new File(jreDir, "lib"));
+            
+            Log.d(TAG, "✅ Layer 3: JRE downloaded and installed.");
+            return javaBin.getAbsolutePath();
+
+        } catch (Exception e) {
+            throw new Exception("All methods failed.\n1. Not in Storage\n2. Not in Assets (jre-17.zip)\n3. Download Failed: " + e.getMessage());
         }
-
-        javaBin.setExecutable(true, true);
-        fixNativePermissions(new File(jreDir, "lib"));
-
-        Log.d(TAG, "✅ JRE Installed Successfully at: " + javaBin.getAbsolutePath());
-        return javaBin.getAbsolutePath();
     }
 
+    // --- Helper: Delete Folder Recursively ---
+    private void deleteRecursive(File file) {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) deleteRecursive(child);
+            }
+        }
+        file.delete();
+    }
+
+    // --- Helper: Unzip InputStream to Directory ---
+    private void unzip(InputStream inputStream, File destDir) throws IOException {
+        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                File outFile = new File(destDir, entry.getName());
+                
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                } else {
+                    outFile.getParentFile().mkdirs();                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                        byte[] buffer = new byte[8192];
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                }
+                zis.closeEntry();
+            }
+        }
+    }
+
+    // --- Helper: Download File with Progress ---
     private void downloadFileWithProgress(String urlString, File dest, LaunchListener listener) throws IOException {
-        URL url = new URL(urlString);        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setConnectTimeout(20000); 
         conn.connect();
@@ -130,31 +195,7 @@ public class LaunchManager {
             conn.disconnect();
         }
     }
-
-    private void unzip(File zipFile, File destDir) throws IOException {
-        if (!destDir.exists()) destDir.mkdirs();
-        
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                File outFile = new File(destDir, entry.getName());
-                
-                if (entry.isDirectory()) {
-                    outFile.mkdirs();
-                } else {
-                    outFile.getParentFile().mkdirs();
-                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                        byte[] buffer = new byte[8192];
-                        int len;                        while ((len = zis.read(buffer)) > 0) {
-                            fos.write(buffer, 0, len);
-                        }
-                    }
-                }
-                zis.closeEntry();
-            }
-        }
-    }
-
+    // --- Helper: Set Permissions for Native Libraries ---
     private void fixNativePermissions(File libDir) {
         if (!libDir.exists()) return;
         File[] files = libDir.listFiles();
@@ -165,6 +206,7 @@ public class LaunchManager {
         }
     }
 
+    // --- Main Launch Logic ---
     public void launchGame(String versionId, String username, String uuid,
                            String accessToken, LaunchListener listener) {
         new Thread(() -> {
@@ -175,7 +217,7 @@ public class LaunchManager {
                 try {
                     javaPath = ensureJREExists(listener);
                 } catch (Exception e) {
-                    listener.onLaunchError("❌ Failed to setup Java:\n" + e.getMessage());
+                    listener.onLaunchError("❌ Java Setup Failed:\n" + e.getMessage() + "\n\nFix: Ensure 'jre-17.zip' exists in app/src/main/assets/components/");
                     return;
                 }
 
@@ -194,13 +236,13 @@ public class LaunchManager {
                             listener.onLog("✅ Natives ready! Starting Game...");
                             startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                         }
-                        @Override public void onError(String e) {                             listener.onLaunchError("❌ Natives download failed: " + e); 
+                        @Override public void onError(String e) { 
+                            listener.onLaunchError("❌ Natives download failed: " + e); 
                         }
                     });
                 } else {
                     startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                 }
-
             } catch (Exception e) {
                 Log.e(TAG, "Critical Launch Error", e);
                 listener.onLaunchError("❌ Critical Error: " + e.getMessage());
@@ -208,6 +250,7 @@ public class LaunchManager {
         }).start();
     }
 
+    // --- Start Minecraft Process ---
     private void startMinecraftProcess(String javaPath, String versionId, String username, 
                                        String uuid, String accessToken, LaunchListener listener) {
         try {
@@ -243,13 +286,13 @@ public class LaunchManager {
             
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
-            pb.redirectErrorStream(true);            gameProcess = pb.start();
+            pb.redirectErrorStream(true);
+            gameProcess = pb.start();
 
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
                     String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (listener != null) listener.onLog(line);
+                    while ((line = reader.readLine()) != null) {                        if (listener != null) listener.onLog(line);
                     }
                 } catch (Exception e) { Log.e(TAG, "Output error", e); }
             }).start();
