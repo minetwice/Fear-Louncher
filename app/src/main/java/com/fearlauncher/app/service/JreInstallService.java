@@ -11,7 +11,7 @@ import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.fearlauncher.app.MainActivity;
-import com.fearlauncher.app.R;
+import com.fearlauncher.app.R; // Ensure R is imported
 import java.io.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -43,8 +43,8 @@ public class JreInstallService extends Service {
             return START_NOT_STICKY;
         }
 
-        // Start Foreground Notification immediately
-        startForeground(NOTIFICATION_ID, createNotification("Starting Installation...", 0, false));
+        // ✅ FIX 1: Use .build() here
+        startForeground(NOTIFICATION_ID, createNotification("Starting Installation...", 0, false).build());
 
         new Thread(() -> installJRE()).start();
         return START_STICKY;    }
@@ -68,21 +68,18 @@ public class JreInstallService extends Service {
         File javaBin = new File(jreDir, "bin/java");
 
         try {
-            // If already exists, skip
             if (javaBin.exists() && javaBin.canExecute()) {
                 updateNotification("✅ JRE Already Installed", 100, true);
                 stopSelf();
                 return;
             }
 
-            // 1. Copy ZIP from Assets to Cache (Stable & Fast)
             updateNotification("📦 Preparing Installer...", 5, false);
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
             copyAssetToCache("components/jre-17.zip", tempZip);
 
             if (isCancelled) { cleanup(tempZip); return; }
 
-            // 2. Extract ZIP
             updateNotification("📂 Extracting Java Runtime...", 50, false);
             if (jreDir.exists()) deleteRecursive(jreDir);
             jreDir.mkdirs();
@@ -91,18 +88,15 @@ public class JreInstallService extends Service {
 
             if (isCancelled) { cleanup(tempZip); return; }
 
-            // 3. Set Permissions
             updateNotification("⚙️ Setting Permissions...", 90, false);
             javaBin.setExecutable(true, true);
             fixNativePermissions(new File(jreDir, "lib"));
 
-            // 4. Finish            updateNotification("✅ Java Runtime Installed!", 100, true);
+            updateNotification("✅ Java Runtime Installed!", 100, true);
             cleanup(tempZip);
             
-            // Launch MainActivity after success
             Intent launchIntent = new Intent(this, MainActivity.class);
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            startActivity(launchIntent);
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);            startActivity(launchIntent);
 
         } catch (Exception e) {
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
@@ -145,13 +139,13 @@ public class JreInstallService extends Service {
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
-                    outFile.getParentFile().mkdirs();                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                    outFile.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
                         byte[] buffer = new byte[8192];
                         int len;
                         while ((len = zis.read(buffer)) > 0) {
                             fos.write(buffer, 0, len);
-                        }
-                    }
+                        }                    }
                 }
                 zis.closeEntry();
                 fileCount++;
@@ -185,21 +179,22 @@ public class JreInstallService extends Service {
         if (tempZip.exists()) tempZip.delete();
     }
 
+    // ✅ FIX 2: Use android.R.drawable.ic_menu_download as fallback icon
     private NotificationCompat.Builder createNotification(String text, int progress, boolean isDone) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FearLauncher")
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) 
+            .setSmallIcon(android.R.drawable.ic_menu_download) // Fallback Icon
             .setOngoing(!isDone)
             .setPriority(NotificationCompat.PRIORITY_LOW);
 
         if (!isDone) {
-            builder.setProgress(100, progress, false);            
+            builder.setProgress(100, progress, false);
+            
             Intent cancelIntent = new Intent(this, JreInstallService.class);
             cancelIntent.setAction("CANCEL");
             PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
-            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
-        } else {
+            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);        } else {
             builder.setProgress(0, 0, false);
         }
         return builder;
