@@ -16,9 +16,12 @@ public class LaunchManager {
     private final VersionManager versionManager;
     private Process gameProcess;
 
-    // ✅ LATEST WORKING LINK (PojavLauncher v3.10.1 Release Asset)
-    // Ye link direct release page se liya gaya hai aur abhi active hai.
-    private static final String JRE_URL = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-android-arm64.zip";
+    // ✅ UPDATED WORKING LINKS
+    // Link 1: New Pojav Structure (Try this first)
+    private static final String JRE_URL_1 = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/v3.10.1/jre-17-android-arm64.zip";
+    
+    // Link 2: Fallback to older version if new one fails
+    private static final String JRE_URL_2 = "https://github.com/PojavLauncherTeam/PojavLauncher/releases/download/build-tools/jre-android-arm64.zip";
 
     public interface LaunchListener {
         void onLog(String line);
@@ -44,18 +47,37 @@ public class LaunchManager {
         }
 
         Log.d(TAG, "⬇️ JRE missing. Starting download...");
-        listener.onLog("📦 Downloading Java Runtime (approx 150MB)...");
-
+        listener.onLog("📦 Downloading Java Runtime...");
         File tempZip = new File(ctx.getCacheDir(), "jre_download_temp.zip");
-        if (tempZip.exists()) tempZip.delete();
+        boolean success = false;
+        Exception lastError = null;
+
+        // Try Link 1
         try {
-            downloadFileWithProgress(JRE_URL, tempZip, listener);
+            if (tempZip.exists()) tempZip.delete();
+            listener.onLog("🔗 Trying Source 1...");
+            downloadFileWithProgress(JRE_URL_1, tempZip, listener);
+            if (tempZip.length() > 1000) success = true;
         } catch (Exception e) {
-            throw new Exception("Download failed: " + e.getMessage());
+            lastError = e;
+            Log.w(TAG, "Source 1 failed", e);
         }
 
-        if (!tempZip.exists() || tempZip.length() < 1000) {
-            throw new Exception("Downloaded file is empty or corrupted.");
+        // If Link 1 fails, Try Link 2
+        if (!success) {
+            try {
+                if (tempZip.exists()) tempZip.delete();
+                listener.onLog("🔗 Trying Source 2 (Fallback)...");
+                downloadFileWithProgress(JRE_URL_2, tempZip, listener);
+                if (tempZip.length() > 1000) success = true;
+            } catch (Exception e) {
+                lastError = e;
+                Log.w(TAG, "Source 2 failed", e);
+            }
+        }
+
+        if (!success) {
+            throw new Exception("All download sources failed. Last Error: " + lastError.getMessage());
         }
 
         listener.onLog("📂 Extracting Java Runtime...");
@@ -74,15 +96,14 @@ public class LaunchManager {
     }
 
     private void downloadFileWithProgress(String urlString, File dest, LaunchListener listener) throws IOException {
-        URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        URL url = new URL(urlString);        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setConnectTimeout(20000); 
         conn.connect();
 
         int responseCode = conn.getResponseCode();
         if (responseCode != 200) {
-            throw new IOException("HTTP Error: " + responseCode + " (Link may be broken)");
+            throw new IOException("HTTP Error: " + responseCode);
         }
 
         int fileLength = conn.getContentLength();
@@ -97,6 +118,7 @@ public class LaunchManager {
             while ((bytesRead = input.read(buffer)) != -1) {
                 output.write(buffer, 0, bytesRead);
                 totalRead += bytesRead;
+
                 if (fileLength > 0) {
                     int progress = (int) (totalRead * 100 / fileLength);
                     if (progress % 5 == 0) {
@@ -123,8 +145,7 @@ public class LaunchManager {
                     outFile.getParentFile().mkdirs();
                     try (FileOutputStream fos = new FileOutputStream(outFile)) {
                         byte[] buffer = new byte[8192];
-                        int len;
-                        while ((len = zis.read(buffer)) > 0) {
+                        int len;                        while ((len = zis.read(buffer)) > 0) {
                             fos.write(buffer, 0, len);
                         }
                     }
@@ -145,7 +166,8 @@ public class LaunchManager {
     }
 
     public void launchGame(String versionId, String username, String uuid,
-                           String accessToken, LaunchListener listener) {        new Thread(() -> {
+                           String accessToken, LaunchListener listener) {
+        new Thread(() -> {
             try {
                 listener.onLog("🚀 Initializing FearLauncher...");
 
@@ -172,8 +194,7 @@ public class LaunchManager {
                             listener.onLog("✅ Natives ready! Starting Game...");
                             startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                         }
-                        @Override public void onError(String e) { 
-                            listener.onLaunchError("❌ Natives download failed: " + e); 
+                        @Override public void onError(String e) {                             listener.onLaunchError("❌ Natives download failed: " + e); 
                         }
                     });
                 } else {
@@ -194,7 +215,8 @@ public class LaunchManager {
             File versionDir = new File(baseDir, "versions/" + versionId);
             File gameJar = new File(versionDir, versionId + ".jar");
             File nativesDir = new File(baseDir, "natives/" + versionId);
-            File assetsDir = new File(baseDir, "assets");            File instanceDir = new File(baseDir, "instances/" + versionId);
+            File assetsDir = new File(baseDir, "assets");
+            File instanceDir = new File(baseDir, "instances/" + versionId);
 
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
@@ -221,8 +243,7 @@ public class LaunchManager {
             
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
-            pb.redirectErrorStream(true);
-            gameProcess = pb.start();
+            pb.redirectErrorStream(true);            gameProcess = pb.start();
 
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
@@ -243,7 +264,8 @@ public class LaunchManager {
         } catch (Exception e) {
             Log.e(TAG, "Process Start Failed", e);
             if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
-        }    }
+        }
+    }
 
     public void stopGame() {
         if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
