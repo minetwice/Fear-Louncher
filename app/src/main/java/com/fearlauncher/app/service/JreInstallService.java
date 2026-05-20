@@ -11,7 +11,6 @@ import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.fearlauncher.app.MainActivity;
-import com.fearlauncher.app.R; // Ensure R is imported
 import java.io.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -43,12 +42,12 @@ public class JreInstallService extends Service {
             return START_NOT_STICKY;
         }
 
-        // ✅ FIX 1: Use .build() here
+        // ✅ FIX: Use .build() and valid icon
         startForeground(NOTIFICATION_ID, createNotification("Starting Installation...", 0, false).build());
 
         new Thread(() -> installJRE()).start();
-        return START_STICKY;    }
-
+        return START_STICKY;
+    }
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -96,8 +95,8 @@ public class JreInstallService extends Service {
             cleanup(tempZip);
             
             Intent launchIntent = new Intent(this, MainActivity.class);
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);            startActivity(launchIntent);
-
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(launchIntent);
         } catch (Exception e) {
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
             e.printStackTrace();
@@ -145,8 +144,8 @@ public class JreInstallService extends Service {
                         int len;
                         while ((len = zis.read(buffer)) > 0) {
                             fos.write(buffer, 0, len);
-                        }                    }
-                }
+                        }
+                    }                }
                 zis.closeEntry();
                 fileCount++;
                 
@@ -179,12 +178,12 @@ public class JreInstallService extends Service {
         if (tempZip.exists()) tempZip.delete();
     }
 
-    // ✅ FIX 2: Use android.R.drawable.ic_menu_download as fallback icon
+    // ✅ FIX: Use 'stat_sys_download' which is available in all API levels
     private NotificationCompat.Builder createNotification(String text, int progress, boolean isDone) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FearLauncher")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_download) // Fallback Icon
+            .setSmallIcon(android.R.drawable.stat_sys_download) // ✅ Working Icon
             .setOngoing(!isDone)
             .setPriority(NotificationCompat.PRIORITY_LOW);
 
@@ -194,8 +193,8 @@ public class JreInstallService extends Service {
             Intent cancelIntent = new Intent(this, JreInstallService.class);
             cancelIntent.setAction("CANCEL");
             PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
-            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);        } else {
-            builder.setProgress(0, 0, false);
+            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
+        } else {            builder.setProgress(0, 0, false);
         }
         return builder;
     }
