@@ -1,0 +1,213 @@
+package com.fearlauncher.app.service;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+import android.os.IBinder;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+import com.fearlauncher.app.MainActivity; // Replace with your main activity package if different
+import com.fearlauncher.app.R;
+import java.io.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+public class JreInstallService extends Service {
+
+    public static final String CHANNEL_ID = "FearLauncher_JRE_Channel";
+    public static final int NOTIFICATION_ID = 101;
+    
+    private boolean isCancelled = false;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && "CANCEL".equals(intent.getAction())) {
+            isCancelled = true;
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
+        new Thread(() -> installJRE()).start();
+        return START_STICKY;
+    }
+
+    private void createNotificationChannel() {        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "JRE Installation",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Installing Java Runtime for Minecraft");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
+    }
+
+    private void installJRE() {
+        File filesDir = getFilesDir();
+        File jreDir = new File(filesDir, "jre-17");
+        File javaBin = new File(jreDir, "bin/java");
+
+        // If already exists, skip
+        if (javaBin.exists() && javaBin.canExecute()) {
+            sendNotification("✅ JRE Already Installed", 100, true);
+            stopSelf();
+            return;
+        }
+
+        try {
+            // 1. Copy ZIP from Assets to Cache (Faster & Stable)
+            sendNotification("📦 Preparing Installer...", 5, false);
+            File tempZip = new File(getCacheDir(), "jre-installer.zip");
+            copyAssetToCache("components/jre-17.zip", tempZip);
+
+            if (isCancelled) { cleanup(tempZip); return; }
+
+            // 2. Extract ZIP
+            sendNotification("📂 Extracting Java Runtime...", 50, false);
+            if (jreDir.exists()) deleteRecursive(jreDir);
+            jreDir.mkdirs();
+            
+            unzip(tempZip, jreDir);
+
+            if (isCancelled) { cleanup(tempZip); return; }
+
+            // 3. Set Permissions
+            sendNotification("⚙️ Setting Permissions...", 90, false);
+            javaBin.setExecutable(true, true);
+            fixNativePermissions(new File(jreDir, "lib"));
+
+            // 4. Finish
+            sendNotification("✅ Java Runtime Installed!", 100, true);
+            cleanup(tempZip);
+                        // Optional: Start Main Activity or Broadcast result
+            Intent launchIntent = new Intent(this, MainActivity.class);
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(launchIntent);
+
+        } catch (Exception e) {
+            sendNotification("❌ Installation Failed: " + e.getMessage(), 0, true);
+            e.printStackTrace();
+        } finally {
+            stopSelf();
+        }
+    }
+
+    private void copyAssetToCache(String assetPath, File dest) throws IOException {
+        try (InputStream in = getAssets().open(assetPath);
+             FileOutputStream out = new FileOutputStream(dest)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            long total = in.available(); // Approximate size
+            long copied = 0;
+            
+            while ((read = in.read(buffer)) != -1) {
+                if (isCancelled) throw new IOException("Cancelled");
+                out.write(buffer, 0, read);
+                copied += read;
+                
+                if (total > 0) {
+                    int progress = 5 + (int)((copied * 45) / total); // 5% to 50%
+                    updateNotificationProgress(progress);
+                }
+            }
+        }
+    }
+
+    private void unzip(File zipFile, File destDir) throws IOException {
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
+            ZipEntry entry;
+            long totalEntries = 0; // Just for estimation logic if needed, skipping for simplicity
+            int fileCount = 0;
+            
+            while ((entry = zis.getNextEntry()) != null) {
+                if (isCancelled) throw new IOException("Cancelled");
+                
+                File outFile = new File(destDir, entry.getName());
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                } else {
+                    outFile.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                        byte[] buffer = new byte[8192];                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                }
+                zis.closeEntry();
+                fileCount++;
+                
+                // Simple progress estimation for extraction (50% to 90%)
+                if (fileCount % 50 == 0) {
+                     updateNotificationProgress(50 + Math.min(40, fileCount / 10));
+                }
+            }
+        }
+    }
+
+    private void fixNativePermissions(File libDir) {
+        if (!libDir.exists()) return;
+        File[] files = libDir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) fixNativePermissions(f);
+            else if (f.getName().endsWith(".so")) f.setExecutable(true, true);
+        }
+    }
+
+    private void deleteRecursive(File file) {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) for (File child : children) deleteRecursive(child);
+        }
+        file.delete();
+    }
+
+    private void cleanup(File tempZip) {
+        if (tempZip.exists()) tempZip.delete();
+    }
+
+    private void sendNotification(String text, int progress, boolean isDone) {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("FearLauncher")
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // Ensure you have an icon
+            .setOngoing(!isDone)
+            .setPriority(NotificationCompat.PRIORITY_LOW);
+
+        if (!isDone) {
+            builder.setProgress(100, progress, false);
+                        // Cancel Action
+            Intent cancelIntent = new Intent(this, JreInstallService.class);
+            cancelIntent.setAction("CANCEL");
+            PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
+            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
+        } else {
+            builder.setProgress(0, 0, false);
+        }
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) manager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    private void updateNotificationProgress(int progress) {
+        sendNotification("Installing JRE...", progress, false);
+    }
+}
