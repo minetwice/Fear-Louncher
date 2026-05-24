@@ -82,9 +82,9 @@ public class JreInstallService extends Service {
 
             if (isCancelled) { cleanup(tempZip); return; }
 
-            updateNotification("⚙️ Fixing Permissions...", 90, false);
+            updateNotification("⚙️ Fixing Permissions (Critical)...", 90, false);
             
-            // Handle nested folder issue (e.g., jre-17/jre-17/bin/java)
+            // Handle nested folder issue
             File firstSubDir = new File(jreDir, "jre-17");
             if (firstSubDir.exists() && firstSubDir.isDirectory()) {
                 moveFiles(firstSubDir, jreDir);
@@ -92,13 +92,22 @@ public class JreInstallService extends Service {
             }
 
             if (!javaBin.exists()) {
-                throw new Exception("bin/java not found after extraction. Check ZIP structure.");
+                throw new Exception("bin/java not found after extraction.");
             }
 
-            // Force Permissions using chmod command
-            Runtime.getRuntime().exec("chmod -R 755 " + jreDir.getAbsolutePath()).waitFor();            
-            // Also use Java API as backup
+            // ✅ CRITICAL FIX: Force Permissions via Shell Command
+            // Try chmod 777 to ensure no permission issues            Process chmodProc = Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 777 " + jreDir.getAbsolutePath()});
+            chmodProc.waitFor();
+            
+            // Also set executable via Java API
             javaBin.setExecutable(true, false);
+            
+            // Verify if it worked
+            if (!javaBin.canExecute()) {
+                 Log.e("JreService", "WARNING: java bin is still not executable after chmod!");
+                 // Try one more time with specific path
+                 Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod 755 " + javaBin.getAbsolutePath()}).waitFor();
+            }
             
             fixNativePermissions(new File(jreDir, "lib"));
 
@@ -136,8 +145,7 @@ public class JreInstallService extends Service {
         if (!src.renameTo(dest)) {
             try (InputStream in = new FileInputStream(src);
                  OutputStream out = new FileOutputStream(dest)) {
-                byte[] buf = new byte[1024];
-                int len;
+                byte[] buf = new byte[1024];                int len;
                 while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
             }
             src.delete();
@@ -145,7 +153,8 @@ public class JreInstallService extends Service {
     }
 
     private void copyAssetToCache(String assetPath, File dest) throws IOException {
-        try (InputStream in = getAssets().open(assetPath);             FileOutputStream out = new FileOutputStream(dest)) {
+        try (InputStream in = getAssets().open(assetPath);
+             FileOutputStream out = new FileOutputStream(dest)) {
             byte[] buffer = new byte[8192];
             int read;
             long total = in.available(); 
@@ -185,8 +194,7 @@ public class JreInstallService extends Service {
                         }
                     }
                 }
-                zis.closeEntry();
-                fileCount++;
+                zis.closeEntry();                fileCount++;
                 
                 if (fileCount % 50 == 0) {
                      updateNotificationProgress(50 + Math.min(40, fileCount / 10));
@@ -194,6 +202,7 @@ public class JreInstallService extends Service {
             }
         }
     }
+
     private void fixNativePermissions(File libDir) {
         if (!libDir.exists()) return;
         File[] files = libDir.listFiles();
@@ -203,7 +212,7 @@ public class JreInstallService extends Service {
             else if (f.getName().endsWith(".so")) {
                 f.setExecutable(true, false);
                 try {
-                    Runtime.getRuntime().exec("chmod 755 " + f.getAbsolutePath()).waitFor();
+                    Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod 755 " + f.getAbsolutePath()}).waitFor();
                 } catch (Exception ignored) {}
             }
         }
@@ -234,8 +243,7 @@ public class JreInstallService extends Service {
             
             Intent cancelIntent = new Intent(this, JreInstallService.class);
             cancelIntent.setAction("CANCEL");
-            PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
-            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
+            PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
         } else {
             builder.setProgress(0, 0, false);
         }
@@ -243,7 +251,8 @@ public class JreInstallService extends Service {
     }
 
     private void updateNotification(String text, int progress, boolean isDone) {
-        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);        if (manager != null) manager.notify(NOTIFICATION_ID, createNotification(text, progress, isDone).build());
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) manager.notify(NOTIFICATION_ID, createNotification(text, progress, isDone).build());
     }
 
     private void updateNotificationProgress(int progress) {
