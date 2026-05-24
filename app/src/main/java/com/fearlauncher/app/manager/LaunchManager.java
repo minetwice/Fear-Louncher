@@ -26,21 +26,21 @@ public class LaunchManager {
     }
 
     /**
-     * Checks for JRE in both FilesDir and CacheDir (Fallback used by Service)
+     * Checks for JRE in both CacheDir (Primary) and FilesDir (Fallback)
      */
     public String getJavaPath() throws Exception {
-        // 1. Check Primary Location (FilesDir)
+        // 1. Check CacheDir First (Where Service installs it now to avoid Permission Denied)
+        File cacheJreBin = new File(ctx.getCacheDir(), "jre-17/bin/java");
+        if (cacheJreBin.exists() && cacheJreBin.canExecute()) {
+            Log.d(TAG, "✅ JRE found in CacheDir: " + cacheJreBin.getAbsolutePath());
+            return cacheJreBin.getAbsolutePath();
+        }
+
+        // 2. Check FilesDir as Fallback
         File filesJreBin = new File(ctx.getFilesDir(), "jre-17/bin/java");
         if (filesJreBin.exists() && filesJreBin.canExecute()) {
             Log.d(TAG, "✅ JRE found in FilesDir: " + filesJreBin.getAbsolutePath());
             return filesJreBin.getAbsolutePath();
-        }
-
-        // 2. Check Fallback Location (CacheDir - used if chmod failed in FilesDir)
-        File cacheJreBin = new File(ctx.getCacheDir(), "jre-17-exec/bin/java");
-        if (cacheJreBin.exists() && cacheJreBin.canExecute()) {
-            Log.d(TAG, "✅ JRE found in CacheDir (Fallback): " + cacheJreBin.getAbsolutePath());
-            return cacheJreBin.getAbsolutePath();
         }
 
         // 3. If not found anywhere, throw exception to trigger Installation Service
