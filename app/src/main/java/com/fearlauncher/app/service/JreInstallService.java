@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Log; // ✅ Added Log Import
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.fearlauncher.app.MainActivity;
@@ -19,6 +20,7 @@ public class JreInstallService extends Service {
 
     public static final String CHANNEL_ID = "FearLauncher_JRE_Channel";
     public static final int NOTIFICATION_ID = 101;
+    private static final String TAG = "JreInstallService";
     
     private boolean isCancelled = false;
 
@@ -46,8 +48,8 @@ public class JreInstallService extends Service {
         new Thread(() -> installJRE()).start();
         return START_STICKY;
     }
-
-    private void createNotificationChannel() {        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "JRE Installation",
@@ -94,17 +96,17 @@ public class JreInstallService extends Service {
             if (!javaBin.exists()) {
                 throw new Exception("bin/java not found after extraction.");
             }
-
             // ✅ CRITICAL FIX: Force Permissions via Shell Command
-            // Try chmod 777 to ensure no permission issues            Process chmodProc = Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 777 " + jreDir.getAbsolutePath()});
-            chmodProc.waitFor();
+            // Use ProcessBuilder or Runtime.exec correctly
+            Process proc = Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 777 " + jreDir.getAbsolutePath()});
+            proc.waitFor(); // ✅ Fixed variable name
             
             // Also set executable via Java API
             javaBin.setExecutable(true, false);
             
             // Verify if it worked
             if (!javaBin.canExecute()) {
-                 Log.e("JreService", "WARNING: java bin is still not executable after chmod!");
+                 Log.e(TAG, "WARNING: java bin is still not executable after chmod!"); // ✅ Fixed Log usage
                  // Try one more time with specific path
                  Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod 755 " + javaBin.getAbsolutePath()}).waitFor();
             }
@@ -120,7 +122,7 @@ public class JreInstallService extends Service {
 
         } catch (Exception e) {
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
-            e.printStackTrace();
+            Log.e(TAG, "Installation Error", e);
         } finally {
             stopSelf();
         }
@@ -143,9 +145,9 @@ public class JreInstallService extends Service {
 
     private void renameFile(File src, File dest) throws IOException {
         if (!src.renameTo(dest)) {
-            try (InputStream in = new FileInputStream(src);
-                 OutputStream out = new FileOutputStream(dest)) {
-                byte[] buf = new byte[1024];                int len;
+            try (InputStream in = new FileInputStream(src);                 OutputStream out = new FileOutputStream(dest)) {
+                byte[] buf = new byte[1024];
+                int len;
                 while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
             }
             src.delete();
@@ -192,9 +194,9 @@ public class JreInstallService extends Service {
                         while ((len = zis.read(buffer)) > 0) {
                             fos.write(buffer, 0, len);
                         }
-                    }
-                }
-                zis.closeEntry();                fileCount++;
+                    }                }
+                zis.closeEntry();
+                fileCount++;
                 
                 if (fileCount % 50 == 0) {
                      updateNotificationProgress(50 + Math.min(40, fileCount / 10));
@@ -241,9 +243,9 @@ public class JreInstallService extends Service {
         if (!isDone) {
             builder.setProgress(100, progress, false);
             
-            Intent cancelIntent = new Intent(this, JreInstallService.class);
-            cancelIntent.setAction("CANCEL");
-            PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
+            Intent cancelIntent = new Intent(this, JreInstallService.class);            cancelIntent.setAction("CANCEL");
+            PendingIntent pendingCancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
+            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", pendingCancel);
         } else {
             builder.setProgress(0, 0, false);
         }
