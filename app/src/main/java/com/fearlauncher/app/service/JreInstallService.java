@@ -44,9 +44,9 @@ public class JreInstallService extends Service {
     }
 
     private void installJRE() {
-        // ✅ USE GETFILES DIR WHICH IS PRIVATE AND EXECUTABLE
-        File filesDir = getFilesDir();
-        File jreDir = new File(filesDir, "jre-17");
+        // ✅ USE CACHE DIR INSTEAD OF FILES DIR FOR BETTER PERMISSIONS
+        File cacheDir = getCacheDir();
+        File jreDir = new File(cacheDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
         try {
             updateNotification("📦 Preparing...", 5, false);
@@ -63,7 +63,7 @@ public class JreInstallService extends Service {
             unzip(tempZip, jreDir);
             if (isCancelled) { cleanup(tempZip); return; }
 
-            // ✅ FIX NESTED FOLDERS (Common Issue)
+            // ✅ FIX NESTED FOLDERS
             File nested = new File(jreDir, "jre-17");
             if (nested.exists() && nested.isDirectory()) {
                 Log.d(TAG, "Fixing nested folder structure...");
@@ -72,58 +72,31 @@ public class JreInstallService extends Service {
             }
 
             if (!javaBin.exists()) {
-                throw new Exception("Critical Error: bin/java not found. ZIP might be corrupted.");
+                throw new Exception("Critical Error: bin/java not found.");
             }
 
-            // ✅ THE MAGIC FIX FOR PERMISSION DENIED (Error 13)
+            // ✅ THE MAGIC FIX: Use Shell to Force Permissions
             updateNotification("⚙️ Fixing Permissions...", 90, false);
             
-            // 1. Use Shell Command with Quoted Path to handle spaces/special chars
-            String chmodCmd = "chmod -R 755 '" + jreDir.getAbsolutePath() + "'";
-            Log.d(TAG, "Running: " + chmodCmd);
+            // Run chmod via shell
+            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 755 '" + jreDir.getAbsolutePath() + "'"});
+            p.waitFor();
             
-            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
-            int exitCode = p.waitFor();
-            
-            if (exitCode != 0) {
-                Log.e(TAG, "Chmod failed with code: " + exitCode);
-                // Try alternative chmod without quotes if path has no spaces
-                if (!jreDir.getAbsolutePath().contains(" ")) {
-                     Runtime.getRuntime().exec("chmod -R 755 " + jreDir.getAbsolutePath()).waitFor();
-                }
-            }
+            // Also set via Java API
+            javaBin.setExecutable(true, false);
 
-            // 2. Force Java API Permission
-            boolean execSet = javaBin.setExecutable(true, false);
-            Log.d(TAG, "Java setExecutable result: " + execSet);
-            // 3. Verify Execution Capability
+            // ✅ VERIFY IF IT WORKED
             if (!javaBin.canExecute()) {
-                Log.e(TAG, "WARNING: File still not executable! Trying last resort...");
-                // Last resort: Copy to cache dir which is always executable
-                File cacheJre = new File(getCacheDir(), "jre-17-exec");
-                if (cacheJre.exists()) deleteRecursive(cacheJre);
-                
-                // Move entire JRE to Cache Dir (More permissive on some Android versions)
-                moveFiles(jreDir, cacheJre);
-                jreDir.delete();
-                
-                // Update paths to point to Cache Dir
-                jreDir = cacheJre;
-                javaBin = new File(jreDir, "bin/java");
-                
-                // Re-apply chmod on Cache Dir
-                Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 755 '" + jreDir.getAbsolutePath() + "'"}).waitFor();
-                javaBin.setExecutable(true, false);
+                Log.e(TAG, "ERROR: File still not executable! Android is blocking it.");
+                throw new Exception("Permission Denied. Android blocked execution.");
             }
             
-            Log.d(TAG, "Final Path: " + javaBin.getAbsolutePath());
-            Log.d(TAG, "Can Execute: " + javaBin.canExecute());
+            Log.d(TAG, "SUCCESS: Java is ready at " + javaBin.getAbsolutePath());
 
             updateNotification("✅ Installed!", 100, true);
             cleanup(tempZip);
             
-            Intent i = new Intent(this, MainActivity.class);
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            Intent i = new Intent(this, MainActivity.class);            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
 
         } catch (Exception e) {
@@ -145,7 +118,8 @@ public class JreInstallService extends Service {
         }
     }
 
-    private void unzip(File zip, File dir) throws IOException {        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zip))) {
+    private void unzip(File zip, File dir) throws IOException {
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zip))) {
             ZipEntry e;
             while ((e = zis.getNextEntry()) != null) {
                 if (isCancelled) throw new IOException("Cancelled");
@@ -171,11 +145,9 @@ public class JreInstallService extends Service {
         for (File f : files) {
             File nf = new File(dest, f.getName());
             if (f.isDirectory()) { 
-                nf.mkdirs(); 
-                moveFiles(f, nf); 
+                nf.mkdirs();                 moveFiles(f, nf); 
                 f.delete(); 
             } else { 
-                // Use copy-delete for cross-partition moves
                 try (InputStream in = new FileInputStream(f); OutputStream out = new FileOutputStream(nf)) {
                     byte[] buf = new byte[1024]; int len;
                     while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
@@ -194,6 +166,7 @@ public class JreInstallService extends Service {
     }
     
     private void cleanup(File f) { if (f.exists()) f.delete(); }
+
     private NotificationCompat.Builder createNotification(String t, int p, boolean done) {
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FearLauncher").setContentText(t)
