@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator; // ✅ Added Missing Import
 import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -44,7 +45,6 @@ public class MainActivity extends AppCompatActivity {
         versionManager = new VersionManager(this);
         launchManager = new LaunchManager(this);
 
-        // ✅ CHECK STORAGE PERMISSION FIRST
         checkStoragePermission();
 
         try {            setContentView(R.layout.activity_main);
@@ -95,9 +95,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+
-            if (!Environment.isExternalStorageManager()) {                new AlertDialog.Builder(this)
-                    .setTitle("Storage Permission Required")
+            if (!Environment.isExternalStorageManager()) {
+                new AlertDialog.Builder(this)                    .setTitle("Storage Permission Required")
                     .setMessage("FearLauncher needs access to storage to save game files in a visible folder.")
                     .setPositiveButton("Allow", (d, w) -> {
                         Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -109,7 +108,6 @@ public class MainActivity extends AppCompatActivity {
                     .show();
             }
         } else {
-            // Android 10 and below
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
@@ -117,7 +115,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         
-        // Notification Permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -134,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "✅ Storage access granted", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "⚠️ Storage permission denied. App may not work correctly.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "⚠️ Storage permission denied.", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -145,10 +142,10 @@ public class MainActivity extends AppCompatActivity {
             new AlertDialog.Builder(this)
                 .setTitle("⚠️ No Version Installed")
                 .setMessage("Please download a Minecraft version first.")
-                .setPositiveButton("Go to Versions", (d, w) -> {                    startActivity(new Intent(this, VersionsActivity.class));
+                .setPositiveButton("Go to Versions", (d, w) -> {
+                    startActivity(new Intent(this, VersionsActivity.class));
                     overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-                }).setNegativeButton("Cancel", null).show();
-            return;
+                }).setNegativeButton("Cancel", null).show();            return;
         }
         launchGame(installedVersion);
     }
@@ -194,10 +191,10 @@ public class MainActivity extends AppCompatActivity {
                 .show();
         }
     }
+
     private void startJreInstallationService() {
         Intent serviceIntent = new Intent(this, JreInstallService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {            startForegroundService(serviceIntent);
         } else {
             startService(serviceIntent);
         }
