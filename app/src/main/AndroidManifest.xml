@@ -2,12 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ✅ ONLY THESE PERMISSIONS NEEDED -->
+    <!-- ✅ PERMISSIONS -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> <!-- For Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    
+    <!-- ✅ FULL STORAGE ACCESS FOR PUBLIC FOLDER VISIBILITY -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
 
     <application
         android:allowBackup="true"
@@ -17,7 +22,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FearLouncher.Epic"
         android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="false" 
+        android:requestLegacyExternalStorage="true" 
         android:largeHeap="true"
         tools:targetApi="34">
 
@@ -50,7 +55,6 @@
             android:theme="@style/Theme.FearLouncher.Epic"
             android:configChanges="orientation|keyboardHidden|screenSize"/>
 
-        <!-- ✅ JRE INSTALL SERVICE -->
         <service
             android:name=".service.JreInstallService"
             android:enabled="true"
