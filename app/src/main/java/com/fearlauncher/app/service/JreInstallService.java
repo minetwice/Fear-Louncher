@@ -44,11 +44,14 @@ public class JreInstallService extends Service {
     }
 
     private void installJRE() {
+        // ✅ USE GETFILES DIR WHICH IS PRIVATE AND EXECUTABLE
         File filesDir = getFilesDir();
         File jreDir = new File(filesDir, "jre-17");
         File javaBin = new File(jreDir, "bin/java");
         try {
             updateNotification("📦 Preparing...", 5, false);
+            
+            // Clean previous
             if (jreDir.exists()) deleteRecursive(jreDir);
             
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
@@ -60,17 +63,61 @@ public class JreInstallService extends Service {
             unzip(tempZip, jreDir);
             if (isCancelled) { cleanup(tempZip); return; }
 
-            // ✅ FIX NESTED FOLDERS
+            // ✅ FIX NESTED FOLDERS (Common Issue)
             File nested = new File(jreDir, "jre-17");
-            if (nested.exists()) { moveFiles(nested, jreDir); nested.delete(); }
+            if (nested.exists() && nested.isDirectory()) {
+                Log.d(TAG, "Fixing nested folder structure...");
+                moveFiles(nested, jreDir);
+                nested.delete();
+            }
 
-            if (!javaBin.exists()) throw new Exception("bin/java missing.");
+            if (!javaBin.exists()) {
+                throw new Exception("Critical Error: bin/java not found. ZIP might be corrupted.");
+            }
 
-            // ✅ FORCE PERMISSIONS (The Magic Fix for Error 13)
+            // ✅ THE MAGIC FIX FOR PERMISSION DENIED (Error 13)
             updateNotification("⚙️ Fixing Permissions...", 90, false);
-            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 755 " + jreDir.getAbsolutePath()});
-            p.waitFor();
-            javaBin.setExecutable(true, false);
+            
+            // 1. Use Shell Command with Quoted Path to handle spaces/special chars
+            String chmodCmd = "chmod -R 755 '" + jreDir.getAbsolutePath() + "'";
+            Log.d(TAG, "Running: " + chmodCmd);
+            
+            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
+            int exitCode = p.waitFor();
+            
+            if (exitCode != 0) {
+                Log.e(TAG, "Chmod failed with code: " + exitCode);
+                // Try alternative chmod without quotes if path has no spaces
+                if (!jreDir.getAbsolutePath().contains(" ")) {
+                     Runtime.getRuntime().exec("chmod -R 755 " + jreDir.getAbsolutePath()).waitFor();
+                }
+            }
+
+            // 2. Force Java API Permission
+            boolean execSet = javaBin.setExecutable(true, false);
+            Log.d(TAG, "Java setExecutable result: " + execSet);
+            // 3. Verify Execution Capability
+            if (!javaBin.canExecute()) {
+                Log.e(TAG, "WARNING: File still not executable! Trying last resort...");
+                // Last resort: Copy to cache dir which is always executable
+                File cacheJre = new File(getCacheDir(), "jre-17-exec");
+                if (cacheJre.exists()) deleteRecursive(cacheJre);
+                
+                // Move entire JRE to Cache Dir (More permissive on some Android versions)
+                moveFiles(jreDir, cacheJre);
+                jreDir.delete();
+                
+                // Update paths to point to Cache Dir
+                jreDir = cacheJre;
+                javaBin = new File(jreDir, "bin/java");
+                
+                // Re-apply chmod on Cache Dir
+                Runtime.getRuntime().exec(new String[]{"sh", "-c", "chmod -R 755 '" + jreDir.getAbsolutePath() + "'"}).waitFor();
+                javaBin.setExecutable(true, false);
+            }
+            
+            Log.d(TAG, "Final Path: " + javaBin.getAbsolutePath());
+            Log.d(TAG, "Can Execute: " + javaBin.canExecute());
 
             updateNotification("✅ Installed!", 100, true);
             cleanup(tempZip);
@@ -80,9 +127,11 @@ public class JreInstallService extends Service {
             startActivity(i);
 
         } catch (Exception e) {
-            Log.e(TAG, "Error", e);
+            Log.e(TAG, "Installation Failed", e);
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
-        } finally { stopSelf(); }
+        } finally { 
+            stopSelf(); 
+        }
     }
 
     private void copyAssetToCache(String path, File dest) throws IOException {
@@ -115,19 +164,36 @@ public class JreInstallService extends Service {
     }
 
     private void moveFiles(File src, File dest) throws IOException {
-        for (File f : src.listFiles()) {
+        if (!src.exists()) return;
+        File[] files = src.listFiles();
+        if (files == null) return;
+        
+        for (File f : files) {
             File nf = new File(dest, f.getName());
-            if (f.isDirectory()) { nf.mkdirs(); moveFiles(f, nf); f.delete(); }
-            else { f.renameTo(nf); }
+            if (f.isDirectory()) { 
+                nf.mkdirs(); 
+                moveFiles(f, nf); 
+                f.delete(); 
+            } else { 
+                // Use copy-delete for cross-partition moves
+                try (InputStream in = new FileInputStream(f); OutputStream out = new FileOutputStream(nf)) {
+                    byte[] buf = new byte[1024]; int len;
+                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                }
+                f.delete(); 
+            }
         }
     }
 
     private void deleteRecursive(File f) {
-        if (f.isDirectory()) for (File c : f.listFiles()) deleteRecursive(c);
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null) for (File c : children) deleteRecursive(c);
+        }
         f.delete();
     }
+    
     private void cleanup(File f) { if (f.exists()) f.delete(); }
-
     private NotificationCompat.Builder createNotification(String t, int p, boolean done) {
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FearLauncher").setContentText(t)
