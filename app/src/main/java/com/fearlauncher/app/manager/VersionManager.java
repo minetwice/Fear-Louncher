@@ -2,7 +2,6 @@ package com.fearlauncher.app.manager;
 
 import android.content.Context;
 import android.os.Build;
-import android.os.Environment;
 import android.util.Log;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -47,17 +46,9 @@ public class VersionManager {
             .build();
         setupStorage();
     }
-    private void setupStorage() {
-        // ✅ USE PUBLIC DIRECTORY SO IT SHOWS IN FILES APP
-        // Path: /storage/emulated/0/FearLauncher
-        File publicDir = new File(Environment.getExternalStorageDirectory(), "FearLauncher");
-        
-        if (!publicDir.exists()) {
-            boolean created = publicDir.mkdirs();
-            Log.d(TAG, "Created Public Dir: " + created);
-        }
-        
-        baseDir = publicDir;
+
+    private void setupStorage() {        // ✅ USE INTERNAL STORAGE SO DATA IS DELETED ON UNINSTALL
+        baseDir = ctx.getFilesDir();
         
         // Ensure subdirectories exist
         new File(baseDir, "assets/objects").mkdirs();
@@ -66,7 +57,7 @@ public class VersionManager {
         new File(baseDir, "libraries").mkdirs();
         new File(baseDir, "natives").mkdirs();
         
-        Log.d(TAG, "📂 Using Public Storage: " + baseDir.getAbsolutePath());
+        Log.d(TAG, "📂 Using Internal Storage: " + baseDir.getAbsolutePath());
     }
 
     public void downloadVersion(String versionId, String jsonUrl, Listener listener) {
@@ -96,7 +87,8 @@ public class VersionManager {
                     String clientUrl = downloads.getAsJsonObject("client").get("url").getAsString();
                     File gameJar = new File(versionDir, versionId + ".jar");
                     listener.onStatus("⬇️ Client.jar...");
-                    downloadFile(clientUrl, gameJar, listener, 5, 15, "client.jar");                }
+                    downloadFile(clientUrl, gameJar, listener, 5, 15, "client.jar");
+                }
 
                 // 3. Libraries
                 JsonArray libs = vJson.getAsJsonArray("libraries");
@@ -104,8 +96,7 @@ public class VersionManager {
                     int libCount = libs.size();
                     for (int i = 0; i < libCount; i++) {
                         JsonObject lib = libs.get(i).getAsJsonObject();
-                        if (!lib.has("downloads")) continue;
-                        JsonObject dl = lib.getAsJsonObject("downloads").getAsJsonObject("artifact");
+                        if (!lib.has("downloads")) continue;                        JsonObject dl = lib.getAsJsonObject("downloads").getAsJsonObject("artifact");
                         String url = dl.get("url").getAsString();
                         String path = dl.get("path").getAsString();
                         File dest = new File(librariesDir, path);
@@ -145,6 +136,7 @@ public class VersionManager {
             }
         }).start();
     }
+
     private void downloadAssetsParallel(File indexFile, Listener listener) throws Exception {
         if (!indexFile.exists()) return;
         Gson gson = new Gson();
@@ -153,8 +145,7 @@ public class VersionManager {
         if (objects == null) return;
 
         File objectsDir = new File(baseDir, "assets/objects");
-        int total = objects.size();
-        AtomicInteger downloaded = new AtomicInteger(0);
+        int total = objects.size();        AtomicInteger downloaded = new AtomicInteger(0);
         AtomicInteger skipped = new AtomicInteger(0);
         CountDownLatch latch = new CountDownLatch(total);
 
@@ -194,6 +185,7 @@ public class VersionManager {
         int done = downloaded.get() + skipped.get();
         listener.onStatus("📥 Assets: " + done + "/" + total);
     }
+
     public void downloadFirstLaunchFiles(String versionId, FirstLaunchListener listener) {
         new Thread(() -> {
             try {
@@ -202,8 +194,7 @@ public class VersionManager {
                 
                 if (!jsonFile.exists()) { listener.onError("version.json missing"); return; }
 
-                Gson gson = new Gson();
-                JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
+                Gson gson = new Gson();                JsonObject vJson = gson.fromJson(new java.io.FileReader(jsonFile), JsonObject.class);
                 JsonArray libs = vJson.getAsJsonArray("libraries");
                 
                 if (libs != null) {
@@ -243,7 +234,8 @@ public class VersionManager {
                             }
                             downloaded++;
                         }
-                    }                }
+                    }
+                }
 
                 new File(baseDir, "instances/" + versionId + "/.first_launch_complete").createNewFile();
                 listener.onComplete();
@@ -251,8 +243,7 @@ public class VersionManager {
             } catch (Exception e) {
                 Log.e(TAG, "First launch failed", e);
                 listener.onError(e.getMessage());
-            }
-        }).start();
+            }        }).start();
     }
 
     private void downloadFileWithSpeed(String url, File dest, FirstLaunchListener listener, 
@@ -292,7 +283,8 @@ public class VersionManager {
         Request req = new Request.Builder().url(url).addHeader("User-Agent", "FearLauncher/2.0").build();
         Response res = http.newCall(req).execute();
         if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
-        long total = res.body().contentLength();        long downloaded = 0;
+        long total = res.body().contentLength();
+        long downloaded = 0;
         try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
             byte[] buf = new byte[16384]; int len;
             while ((len = is.read(buf)) != -1) {
@@ -300,8 +292,7 @@ public class VersionManager {
                 downloaded += len;
                 if (total > 0 && listener != null) {
                     int p = startP + (int)((float)downloaded / total * (endP - startP));
-                    listener.onProgress(p, type + ": " + (downloaded/1024) + "KB");
-                }
+                    listener.onProgress(p, type + ": " + (downloaded/1024) + "KB");                }
             }
         }
     }
