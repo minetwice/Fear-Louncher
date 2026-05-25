@@ -3,13 +3,10 @@ package com.fearlauncher.app;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.Settings;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator; // ✅ Added Missing Import
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -36,7 +33,6 @@ public class MainActivity extends AppCompatActivity {
     private VersionManager versionManager;
     
     private static final int NOTIF_PERMISSION_CODE = 102;
-    private static final int STORAGE_PERMISSION_CODE = 103;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,12 +41,13 @@ public class MainActivity extends AppCompatActivity {
         versionManager = new VersionManager(this);
         launchManager = new LaunchManager(this);
 
-        checkStoragePermission();
+        // Only request Notification Permission
+        checkPermissions();
 
-        try {            setContentView(R.layout.activity_main);
+        try {
+            setContentView(R.layout.activity_main);
 
-            bgAnimated = findViewById(R.id.bgAnimated);
-            btnMenu = findViewById(R.id.btnMenu);
+            bgAnimated = findViewById(R.id.bgAnimated);            btnMenu = findViewById(R.id.btnMenu);
             btnHome = findViewById(R.id.btnHome);
             btnVersions = findViewById(R.id.btnVersions);
             btnPlay = findViewById(R.id.btnPlay);
@@ -93,47 +90,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void checkStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                new AlertDialog.Builder(this)                    .setTitle("Storage Permission Required")
-                    .setMessage("FearLauncher needs access to storage to save game files in a visible folder.")
-                    .setPositiveButton("Allow", (d, w) -> {
-                        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                        Uri uri = Uri.fromParts("package", getPackageName(), null);
-                        intent.setData(uri);
-                        startActivity(intent);
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, STORAGE_PERMISSION_CODE);
-            }
-        }
-        
+    private void checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIF_PERMISSION_CODE);
-            }
-        }
+            }        }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == STORAGE_PERMISSION_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "✅ Storage access granted", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "⚠️ Storage permission denied.", Toast.LENGTH_LONG).show();
-            }
-        }
     }
 
     private void attemptLaunch() {
@@ -145,7 +113,8 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("Go to Versions", (d, w) -> {
                     startActivity(new Intent(this, VersionsActivity.class));
                     overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-                }).setNegativeButton("Cancel", null).show();            return;
+                }).setNegativeButton("Cancel", null).show();
+            return;
         }
         launchGame(installedVersion);
     }
@@ -176,8 +145,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override public void onLaunchError(String message) { 
                     runOnUiThread(() -> new AlertDialog.Builder(MainActivity.this)
                         .setTitle("❌ Launch Failed")
-                        .setMessage(message)
-                        .setPositiveButton("OK", null).show()); 
+                        .setMessage(message)                        .setPositiveButton("OK", null).show()); 
                 }
                 @Override public void onExit(int exitCode) {}
             });
@@ -194,7 +162,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void startJreInstallationService() {
         Intent serviceIntent = new Intent(this, JreInstallService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {            startForegroundService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
         } else {
             startService(serviceIntent);
         }
