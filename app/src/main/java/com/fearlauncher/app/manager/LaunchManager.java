@@ -4,7 +4,9 @@ import android.content.Context;
 import android.util.Log;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class LaunchManager {
     private static final String TAG = "FearLauncher_LM";
@@ -26,15 +28,14 @@ public class LaunchManager {
     }
 
     public String getJavaPath() throws Exception {
-        // Use the JRE installed in /data/local/tmp/
-        File localJreBin = new File("/data/local/tmp/fearlauncher_jre/bin/java");
-        Log.d(TAG, "Checking Java binary at: " + localJreBin.getAbsolutePath());
-        Log.d(TAG, "Java binary exists: " + localJreBin.exists());
-        Log.d(TAG, "Java binary canExecute: " + localJreBin.canExecute());
+        File internalJreBin = new File(ctx.getFilesDir(), "jre/bin/java");
+        Log.d(TAG, "Checking Java binary at: " + internalJreBin.getAbsolutePath());
+        Log.d(TAG, "Java binary exists: " + internalJreBin.exists());
+        Log.d(TAG, "Java binary canExecute: " + internalJreBin.canExecute());
 
-        if (localJreBin.exists() && localJreBin.canExecute()) {
-            Log.d(TAG, "✅ JRE found at: " + localJreBin.getAbsolutePath());
-            return localJreBin.getAbsolutePath();
+        if (internalJreBin.exists() && internalJreBin.canExecute()) {
+            Log.d(TAG, "✅ JRE found at: " + internalJreBin.getAbsolutePath());
+            return internalJreBin.getAbsolutePath();
         }
         throw new Exception("JRE_NOT_FOUND");
     }
@@ -98,12 +99,22 @@ public class LaunchManager {
 
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
+
+            // Set library path explicitly
+            cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
+
+            // Memory settings
             cmd.add("-Xmx2G");
             cmd.add("-Xms1G");
-            cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
+
+            // Classpath
             cmd.add("-cp");
             cmd.add(gameJar.getAbsolutePath());
+
+            // Main class
             cmd.add("net.minecraft.client.main.Main");
+
+            // Minecraft arguments
             cmd.add("--username");
             cmd.add(username);
             cmd.add("--version");
@@ -127,11 +138,23 @@ public class LaunchManager {
             Log.d(TAG, "Command: " + String.join(" ", cmd));
             Log.d(TAG, "Working directory: " + instanceDir.getAbsolutePath());
 
+            // Set environment variables
+            Map<String, String> env = new HashMap<>();
+            env.put("LD_LIBRARY_PATH", nativesDir.getAbsolutePath());
+            env.put("PATH", new File(ctx.getFilesDir(), "jre/bin").getAbsolutePath());
+
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
 
+            // Set environment
+            Map<String, String> processEnv = pb.environment();
+            processEnv.putAll(env);
+
             gameProcess = pb.start();
+
+            // Log process info
+            Log.d(TAG, "Process started with PID: " + gameProcess.pid());
 
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
