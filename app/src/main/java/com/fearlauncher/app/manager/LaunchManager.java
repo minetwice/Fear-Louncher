@@ -26,14 +26,15 @@ public class LaunchManager {
     }
 
     public String getJavaPath() throws Exception {
-        File filesJreBin = new File(ctx.getFilesDir(), "jre/bin/java");
-        Log.d(TAG, "Checking Java binary at: " + filesJreBin.getAbsolutePath());
-        Log.d(TAG, "Java binary exists: " + filesJreBin.exists());
-        Log.d(TAG, "Java binary canExecute: " + filesJreBin.canExecute());
+        // Use the JRE installed in /data/local/tmp/
+        File localJreBin = new File("/data/local/tmp/fearlauncher_jre/bin/java");
+        Log.d(TAG, "Checking Java binary at: " + localJreBin.getAbsolutePath());
+        Log.d(TAG, "Java binary exists: " + localJreBin.exists());
+        Log.d(TAG, "Java binary canExecute: " + localJreBin.canExecute());
 
-        if (filesJreBin.exists() && filesJreBin.canExecute()) {
-            Log.d(TAG, "✅ JRE found in FilesDir: " + filesJreBin.getAbsolutePath());
-            return filesJreBin.getAbsolutePath();
+        if (localJreBin.exists() && localJreBin.canExecute()) {
+            Log.d(TAG, "✅ JRE found at: " + localJreBin.getAbsolutePath());
+            return localJreBin.getAbsolutePath();
         }
         throw new Exception("JRE_NOT_FOUND");
     }
