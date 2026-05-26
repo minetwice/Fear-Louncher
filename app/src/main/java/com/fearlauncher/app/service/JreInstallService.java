@@ -4,7 +4,6 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
@@ -13,6 +12,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.fearlauncher.app.MainActivity;
 import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -28,8 +29,8 @@ public class JreInstallService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        // Use /data/local/tmp/ for world-executable permissions
-        this.jreDir = new File("/data/local/tmp/fearlauncher_jre");
+        // Use internal storage for JRE (most reliable)
+        this.jreDir = new File(getFilesDir(), "jre");
         this.javaBin = new File(this.jreDir, "bin/java");
     }
 
@@ -62,12 +63,26 @@ public class JreInstallService extends Service {
 
     private void installJRE() {
         try {
-            updateNotification("📦 Preparing...", 5, false);
+            updateNotification("🔍 Checking JRE...", 5, false);
+
+            // Check if JRE already exists and is valid
+            if (jreDir.exists() && javaBin.exists() && javaBin.canExecute()) {
+                Log.d(TAG, "✅ JRE already installed at: " + javaBin.getAbsolutePath());
+                updateNotification("✅ JRE already installed!", 100, true);
+                Intent i = new Intent(this, MainActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
+                stopSelf();
+                return;
+            }
+
+            // Clean up old JRE if it exists
             if (jreDir.exists()) {
                 deleteRecursive(jreDir);
             }
-            jreDir.mkdirs(); // Ensure directory exists
+            jreDir.mkdirs();
 
+            // Extract JRE from assets
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
             copyAssetToCache("components/jre-17.zip", tempZip);
 
@@ -89,10 +104,11 @@ public class JreInstallService extends Service {
                 throw new Exception("bin/java not found.");
             }
 
-            // Set executable permissions recursively for all files in jre/
+            // CRITICAL: Set executable permissions for ALL files
             updateNotification("⚙️ Fixing Permissions...", 90, false);
             setExecutableRecursive(jreDir);
 
+            // Double-check permissions
             if (!javaBin.canExecute()) {
                 throw new Exception("Failed to set executable permission for java binary.");
             }
@@ -112,7 +128,7 @@ public class JreInstallService extends Service {
         }
     }
 
-    // Recursively set executable permissions for all files in a directory
+    // Recursively set executable permissions for all files
     private void setExecutableRecursive(File file) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
