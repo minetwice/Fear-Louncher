@@ -47,7 +47,7 @@ public class JreInstallService extends Service {
         // ✅ USE FILES DIR (Internal Storage)
         File filesDir = getFilesDir();
         
-        // ✅ FIX: Ensure no extra spaces in path construction        File jreDir = new File(filesDir, "jre-17"); 
+        // ✅ FIX: Declare jreDir variable properly        File jreDir = new File(filesDir, "jre-17"); 
         File javaBin = new File(jreDir, "bin/java");
 
         try {
