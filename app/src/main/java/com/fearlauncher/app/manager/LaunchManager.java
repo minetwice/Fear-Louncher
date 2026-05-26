@@ -27,17 +27,19 @@ public class LaunchManager {
 
     /**
      * Checks for JRE in CacheDir (Primary) and FilesDir (Fallback)
+     * NOTE: Folder name is now "jre17" to avoid any hyphen/space issues.
      */
     public String getJavaPath() throws Exception {
         // ✅ CHECK CACHE DIR FIRST (Where Service installs it now)
-        File cacheJreBin = new File(ctx.getCacheDir(), "jre-17/bin/java");
+        // Using "jre17" to match the service
+        File cacheJreBin = new File(ctx.getCacheDir(), "jre17/bin/java");
         if (cacheJreBin.exists() && cacheJreBin.canExecute()) {
             Log.d(TAG, "✅ JRE found in CacheDir: " + cacheJreBin.getAbsolutePath());
             return cacheJreBin.getAbsolutePath();
         }
 
-        // Check FilesDir as fallback
-        File filesJreBin = new File(ctx.getFilesDir(), "jre-17/bin/java");
+        // Check FilesDir as fallback (also check for jre17)
+        File filesJreBin = new File(ctx.getFilesDir(), "jre17/bin/java");
         if (filesJreBin.exists() && filesJreBin.canExecute()) {
             Log.d(TAG, "✅ JRE found in FilesDir: " + filesJreBin.getAbsolutePath());
             return filesJreBin.getAbsolutePath();
@@ -45,9 +47,9 @@ public class LaunchManager {
 
         throw new Exception("JRE_NOT_FOUND");
     }
-
     public void launchGame(String versionId, String username, String uuid,
-                           String accessToken, LaunchListener listener) {        new Thread(() -> {
+                           String accessToken, LaunchListener listener) {
+        new Thread(() -> {
             try {
                 listener.onLog("🚀 Initializing FearLauncher...");
 
@@ -94,9 +96,9 @@ public class LaunchManager {
         try {
             File baseDir = versionManager.getBaseDir();
             File versionDir = new File(baseDir, "versions/" + versionId);
-            File gameJar = new File(versionDir, versionId + ".jar");
-            File nativesDir = new File(baseDir, "natives/" + versionId);
-            File assetsDir = new File(baseDir, "assets");            File instanceDir = new File(baseDir, "instances/" + versionId);
+            File gameJar = new File(versionDir, versionId + ".jar");            File nativesDir = new File(baseDir, "natives/" + versionId);
+            File assetsDir = new File(baseDir, "assets");
+            File instanceDir = new File(baseDir, "instances/" + versionId);
 
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
@@ -143,9 +145,9 @@ public class LaunchManager {
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Process Start Failed", e);
-            if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
-        }    }
+            Log.e(TAG, "Process Start Failed", e);            if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
+        }
+    }
 
     public void stopGame() {
         if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
