@@ -1,19 +1,16 @@
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         google()
         mavenCentral()
-        gradlePluginPortal()
     }
 }
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } // Agar koi JitPack dependency use karni ho
     }
 }
-
-rootProject.name = "KoraxLauncher"
+rootProject.name = "Fear-Louncher"
 include ':app'
