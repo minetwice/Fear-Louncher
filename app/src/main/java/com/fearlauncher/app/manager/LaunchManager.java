@@ -25,29 +25,27 @@ public class LaunchManager {
         this.versionManager = new VersionManager(context);
     }
 
-    /**
-     * Checks for JRE in FilesDir (Permanent)
-     */
     public String getJavaPath() throws Exception {
-        // ✅ CHECK FILES DIR (Permanent Storage)
         File filesJreBin = new File(ctx.getFilesDir(), "jre/bin/java");
+        Log.d(TAG, "Checking Java binary at: " + filesJreBin.getAbsolutePath());
+        Log.d(TAG, "Java binary exists: " + filesJreBin.exists());
+        Log.d(TAG, "Java binary canExecute: " + filesJreBin.canExecute());
+
         if (filesJreBin.exists() && filesJreBin.canExecute()) {
             Log.d(TAG, "✅ JRE found in FilesDir: " + filesJreBin.getAbsolutePath());
             return filesJreBin.getAbsolutePath();
         }
-
         throw new Exception("JRE_NOT_FOUND");
     }
 
-    public void launchGame(String versionId, String username, String uuid,
-                           String accessToken, LaunchListener listener) {
+    public void launchGame(String versionId, String username, String uuid, String accessToken, LaunchListener listener) {
         new Thread(() -> {
             try {
                 listener.onLog("🚀 Initializing FearLauncher...");
-
                 String javaPath;
                 try {
-                    javaPath = getJavaPath();                } catch (Exception e) {
+                    javaPath = getJavaPath();
+                } catch (Exception e) {
                     listener.onLaunchError("❌ Java Runtime Missing.\nPlease install it from the Home Screen.");
                     return;
                 }
@@ -60,21 +58,23 @@ public class LaunchManager {
                 if (!versionManager.isFirstLaunchComplete(versionId)) {
                     listener.onLog("📦 First launch: Downloading natives...");
                     versionManager.downloadFirstLaunchFiles(versionId, new VersionManager.FirstLaunchListener() {
-                        @Override public void onProgress(int p, String s, long speed) {
+                        @Override
+                        public void onProgress(int p, String s, long speed) {
                             listener.onLog("⬇️ " + s + " " + p + "%");
                         }
-                        @Override public void onComplete() { 
+                        @Override
+                        public void onComplete() {
                             listener.onLog("✅ Natives ready! Starting Game...");
                             startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                         }
-                        @Override public void onError(String e) { 
-                            listener.onLaunchError("❌ Natives download failed: " + e); 
+                        @Override
+                        public void onError(String e) {
+                            listener.onLaunchError("❌ Natives download failed: " + e);
                         }
                     });
                 } else {
                     startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                 }
-
             } catch (Exception e) {
                 Log.e(TAG, "Critical Launch Error", e);
                 listener.onLaunchError("❌ Critical Error: " + e.getMessage());
@@ -82,8 +82,7 @@ public class LaunchManager {
         }).start();
     }
 
-    private void startMinecraftProcess(String javaPath, String versionId, String username, 
-                                       String uuid, String accessToken, LaunchListener listener) {
+    private void startMinecraftProcess(String javaPath, String versionId, String username, String uuid, String accessToken, LaunchListener listener) {
         try {
             File baseDir = versionManager.getBaseDir();
             File versionDir = new File(baseDir, "versions/" + versionId);
@@ -92,68 +91,82 @@ public class LaunchManager {
             File assetsDir = new File(baseDir, "assets");
             File instanceDir = new File(baseDir, "instances/" + versionId);
 
-            // ✅ CRITICAL: Ensure Assets Directory Exists
-            if (!assetsDir.exists()) assetsDir.mkdirs();
+            if (!assetsDir.exists()) {
+                assetsDir.mkdirs();
+            }
 
             List<String> cmd = new ArrayList<>();
-            cmd.add(javaPath);            
-            // Memory Settings
-            cmd.add("-Xmx2G"); 
+            cmd.add(javaPath);
+            cmd.add("-Xmx2G");
             cmd.add("-Xms1G");
-            
-            // Library Path
             cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
-            
-            // Classpath
             cmd.add("-cp");
             cmd.add(gameJar.getAbsolutePath());
-            
-            // Main Class
             cmd.add("net.minecraft.client.main.Main");
-            
-            // ✅ ARGUMENTS REQUIRED FOR MOJANG SCREEN & ASSETS
-            cmd.add("--username"); cmd.add(username);
-            cmd.add("--version"); cmd.add(versionId);
-            cmd.add("--gameDir"); cmd.add(instanceDir.getAbsolutePath());
-            cmd.add("--assetsDir"); cmd.add(assetsDir.getAbsolutePath()); // Points to global assets
-            cmd.add("--assetIndex"); cmd.add(versionId); // Uses version ID as asset index key
-            cmd.add("--uuid"); cmd.add(uuid != null ? uuid : "0");
-            cmd.add("--accessToken"); cmd.add(accessToken != null ? accessToken : "0");
-            cmd.add("--userType"); cmd.add("mojang");
-            cmd.add("--versionType"); cmd.add("FearLauncher");
+            cmd.add("--username");
+            cmd.add(username);
+            cmd.add("--version");
+            cmd.add(versionId);
+            cmd.add("--gameDir");
+            cmd.add(instanceDir.getAbsolutePath());
+            cmd.add("--assetsDir");
+            cmd.add(assetsDir.getAbsolutePath());
+            cmd.add("--assetIndex");
+            cmd.add(versionId);
+            cmd.add("--uuid");
+            cmd.add(uuid != null ? uuid : "0");
+            cmd.add("--accessToken");
+            cmd.add(accessToken != null ? accessToken : "0");
+            cmd.add("--userType");
+            cmd.add("mojang");
+            cmd.add("--versionType");
+            cmd.add("FearLauncher");
 
             Log.d(TAG, "Starting Process with Java: " + javaPath);
             Log.d(TAG, "Command: " + String.join(" ", cmd));
-            
+            Log.d(TAG, "Working directory: " + instanceDir.getAbsolutePath());
+
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
+
             gameProcess = pb.start();
 
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        Log.d("MinecraftLog", line); // Log everything for debugging
-                        if (listener != null) listener.onLog(line);
+                        Log.d("MinecraftLog", line);
+                        if (listener != null) {
+                            listener.onLog(line);
+                        }
                     }
-                } catch (Exception e) { Log.e(TAG, "Output error", e); }
+                } catch (Exception e) {
+                    Log.e(TAG, "Output error", e);
+                }
             }).start();
 
             int exitCode = gameProcess.waitFor();
             if (listener != null) {
                 listener.onExit(exitCode);
-                if (exitCode == 0) listener.onLaunchSuccess();
-                else listener.onLaunchError("Game exited with code: " + exitCode + "\nCheck logs for details.");
+                if (exitCode == 0) {
+                    listener.onLaunchSuccess();
+                } else {
+                    listener.onLaunchError("Game exited with code: " + exitCode + "\nCheck logs for details.");
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Process Start Failed", e);
-            if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
+            if (listener != null) {
+                listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
+            }
         }
     }
 
     public void stopGame() {
-        if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
+        if (gameProcess != null && gameProcess.isAlive()) {
+            gameProcess.destroy();
+        }
     }
 
     public boolean isLaunchReady(String versionId) {
