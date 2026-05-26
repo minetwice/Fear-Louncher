@@ -28,8 +28,8 @@ public class JreInstallService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        File filesDir = getFilesDir();
-        this.jreDir = new File(filesDir, "jre");
+        // Use /data/local/tmp/ for world-executable permissions
+        this.jreDir = new File("/data/local/tmp/fearlauncher_jre");
         this.javaBin = new File(this.jreDir, "bin/java");
     }
 
@@ -66,6 +66,8 @@ public class JreInstallService extends Service {
             if (jreDir.exists()) {
                 deleteRecursive(jreDir);
             }
+            jreDir.mkdirs(); // Ensure directory exists
+
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
             copyAssetToCache("components/jre-17.zip", tempZip);
 
@@ -75,7 +77,6 @@ public class JreInstallService extends Service {
             }
 
             updateNotification("📂 Extracting...", 50, false);
-            jreDir.mkdirs();
             unzip(tempZip, jreDir);
 
             if (isCancelled) {
@@ -88,12 +89,9 @@ public class JreInstallService extends Service {
                 throw new Exception("bin/java not found.");
             }
 
-            // Fix: Set executable permissions recursively for all files in jre/bin
+            // Set executable permissions recursively for all files in jre/
             updateNotification("⚙️ Fixing Permissions...", 90, false);
-            File binDir = new File(jreDir, "bin");
-            if (binDir.exists()) {
-                setExecutableRecursive(binDir);
-            }
+            setExecutableRecursive(jreDir);
 
             if (!javaBin.canExecute()) {
                 throw new Exception("Failed to set executable permission for java binary.");
@@ -114,7 +112,7 @@ public class JreInstallService extends Service {
         }
     }
 
-    // New helper method to set executable permissions recursively
+    // Recursively set executable permissions for all files in a directory
     private void setExecutableRecursive(File file) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
