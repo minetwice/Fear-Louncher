@@ -153,8 +153,8 @@ public class LaunchManager {
 
             gameProcess = pb.start();
 
-            // Log process info
-            Log.d(TAG, "Process started with PID: " + gameProcess.pid());
+            // Fixed: Removed pid() call which doesn't exist in Android
+            Log.d(TAG, "Process started successfully");
 
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
