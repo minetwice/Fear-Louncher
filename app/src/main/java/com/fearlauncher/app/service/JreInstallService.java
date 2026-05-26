@@ -27,8 +27,9 @@ public class JreInstallService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        this.jreDir = new File("/data/local/tmp/fearlauncher_jre");
-        this.javaBin = new File(this.jreDir, "jre/bin/java");
+        // Use app's internal storage for better compatibility
+        this.jreDir = new File(getFilesDir(), "jre");
+        this.javaBin = new File(this.jreDir, "bin/java");
     }
 
     @Nullable
@@ -99,31 +100,30 @@ public class JreInstallService extends Service {
                 return;
             }
 
+            // Handle nested folder structure if exists
+            File nestedJre = new File(jreDir, "jre");
+            if (nestedJre.exists()) {
+                moveFiles(nestedJre, jreDir);
+                nestedJre.delete();
+            }
+
             // Verify java binary exists
             if (!javaBin.exists()) {
-                throw new FileNotFoundException("jre/bin/java not found in extracted JRE");
+                throw new FileNotFoundException("bin/java not found in extracted JRE");
             }
 
-            // Set executable permissions
+            // Set executable permissions - CRITICAL FIX
             updateNotification("⚙️ Setting Permissions...", 90, false);
-            setExecutableRecursive(new File(jreDir, "jre"));
+            setExecutableRecursive(jreDir);
 
-            // Verify permissions
-            if (!javaBin.canExecute()) {
-                try {
-                    // Try chmod as fallback
-                    Process chmodProcess = Runtime.getRuntime().exec(
-                        new String[]{"chmod", "755", javaBin.getAbsolutePath()}
-                    );
-                    chmodProcess.waitFor();
-                } catch (Exception e) {
-                    Log.w(TAG, "chmod failed, trying setExecutable", e);
-                }
-
-                // Final attempt
-                javaBin.setExecutable(true, false);
+            // Additional permission setting for Android
+            try {
+                Runtime.getRuntime().exec("chmod -R 755 " + jreDir.getAbsolutePath()).waitFor();
+            } catch (Exception e) {
+                Log.w(TAG, "chmod command failed", e);
             }
 
+            // Final verification
             if (!javaBin.canExecute()) {
                 throw new SecurityException("Failed to set executable permission for java binary");
             }
@@ -138,6 +138,28 @@ public class JreInstallService extends Service {
             updateNotification("❌ JRE Install Failed: " + e.getMessage(), 0, true);
         } finally {
             stopSelf();
+        }
+    }
+
+    private void moveFiles(File src, File dest) throws IOException {
+        if (src.listFiles() == null) return;
+        for (File f : src.listFiles()) {
+            File nf = new File(dest, f.getName());
+            if (f.isDirectory()) {
+                nf.mkdirs();
+                moveFiles(f, nf);
+                f.delete();
+            } else {
+                try (InputStream in = new FileInputStream(f);
+                     OutputStream out = new FileOutputStream(nf)) {
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = in.read(buf)) > 0) {
+                        out.write(buf, 0, len);
+                    }
+                }
+                f.delete();
+            }
         }
     }
 
