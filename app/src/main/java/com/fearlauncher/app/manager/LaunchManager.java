@@ -28,7 +28,8 @@ public class LaunchManager {
     }
 
     public String getJavaPath() throws Exception {
-        File jreBin = new File("/data/local/tmp/fearlauncher_jre/jre/bin/java");
+        // Use the same path as JreInstallService
+        File jreBin = new File(ctx.getFilesDir(), "jre/bin/java");
 
         Log.d(TAG, "Java path: " + jreBin.getAbsolutePath());
         Log.d(TAG, "Exists: " + jreBin.exists());
@@ -93,19 +94,25 @@ public class LaunchManager {
             File assetsDir = new File(baseDir, "assets");
             File instanceDir = new File(baseDir, "instances/" + versionId);
 
-            if (!assetsDir.exists()) {
-                assetsDir.mkdirs();
-            }
+            // Ensure directories exist
+            if (!assetsDir.exists()) assetsDir.mkdirs();
+            if (!nativesDir.exists()) nativesDir.mkdirs();
+            if (!instanceDir.exists()) instanceDir.mkdirs();
 
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
 
+            // JVM arguments
             cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
             cmd.add("-Xmx2G");
             cmd.add("-Xms1G");
             cmd.add("-cp");
             cmd.add(gameJar.getAbsolutePath());
+
+            // Main class
             cmd.add("net.minecraft.client.main.Main");
+
+            // Minecraft arguments
             cmd.add("--username");
             cmd.add(username);
             cmd.add("--version");
@@ -127,20 +134,23 @@ public class LaunchManager {
 
             Log.d(TAG, "Starting Process with Java: " + javaPath);
             Log.d(TAG, "Command: " + String.join(" ", cmd));
+            Log.d(TAG, "Working directory: " + instanceDir.getAbsolutePath());
 
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
 
+            // Set environment variables - CRITICAL FIX
             Map<String, String> env = pb.environment();
             env.put("LD_LIBRARY_PATH", nativesDir.getAbsolutePath());
-            env.put("PATH", "/data/local/tmp/fearlauncher_jre/jre/bin");
-            env.put("JAVA_HOME", "/data/local/tmp/fearlauncher_jre/jre");
+            env.put("PATH", new File(ctx.getFilesDir(), "jre/bin").getAbsolutePath());
+            env.put("JAVA_HOME", new File(ctx.getFilesDir(), "jre").getAbsolutePath());
 
             gameProcess = pb.start();
 
             Log.d(TAG, "Process started successfully");
 
+            // Read process output
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
                     String line;
@@ -155,6 +165,7 @@ public class LaunchManager {
                 }
             }).start();
 
+            // Wait for process to finish
             int exitCode = gameProcess.waitFor();
             if (listener != null) {
                 listener.onExit(exitCode);
