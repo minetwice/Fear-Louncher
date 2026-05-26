@@ -2,19 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Required permissions -->
+    <!-- Required Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
+        android:name=".FearLauncherApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Fear-Louncher"
@@ -24,11 +22,11 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
-        <!-- Main Activity -->
+        <!-- Main Activity (Portrait) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout"
+            android:configChanges="orientation|keyboardHidden|screenSize"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -36,24 +34,26 @@
             </intent-filter>
         </activity>
 
-        <!-- Game Activity -->
+        <!-- Game Activity (Landscape) -->
         <activity
             android:name=".GameActivity"
             android:exported="false"
-            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout"
+            android:configChanges="orientation|keyboardHidden|screenSize"
             android:screenOrientation="sensorLandscape" />
 
-        <!-- Versions Activity -->
+        <!-- Version Selector Activity -->
         <activity
-            android:name=".VersionsActivity"
+            android:name=".VersionSelectorActivity"
             android:exported="false"
-            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout" />
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="portrait" />
 
         <!-- Settings Activity -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false"
-            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout" />
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="portrait" />
 
         <!-- JRE Install Service -->
         <service
@@ -61,9 +61,5 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- For Android 9+ -->
-        <uses-library android:name="org.apache.http.legacy" android:required="false" />
-
     </application>
-
 </manifest>
