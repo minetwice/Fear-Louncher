@@ -21,38 +21,41 @@ public class JreInstallService extends Service {
     public static final int NOTIFICATION_ID = 101;
     private static final String TAG = "JreService";
     private boolean isCancelled = false;
-
-    // ✅ USE FILES DIR FOR PERMANENT STORAGE
     private File jreDir;
     private File javaBin;
 
     @Override
-    public void onCreate() { 
-        super.onCreate(); 
-        createNotificationChannel(); 
-        
-        // Initialize paths in FilesDir (Permanent)
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
         File filesDir = getFilesDir();
-        this.jreDir = new File(filesDir, "jre"); 
+        this.jreDir = new File(filesDir, "jre");
         this.javaBin = new File(this.jreDir, "bin/java");
     }
 
-    @Nullable 
-    @Override 
-    public IBinder onBind(Intent intent) { return null; }
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && "CANCEL".equals(intent.getAction())) {
-            isCancelled = true; stopSelf(); return START_NOT_STICKY;
+            isCancelled = true;
+            stopSelf();
+            return START_NOT_STICKY;
         }
         startForeground(NOTIFICATION_ID, createNotification("Starting...", 0, false).build());
-        new Thread(() -> installJRE()).start();        return START_STICKY;
+        new Thread(() -> installJRE()).start();
+        return START_STICKY;
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "JRE Install", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID, "JRE Install", NotificationManager.IMPORTANCE_LOW
+            );
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
     }
@@ -60,52 +63,70 @@ public class JreInstallService extends Service {
     private void installJRE() {
         try {
             updateNotification("📦 Preparing...", 5, false);
-            
-            if (jreDir.exists()) deleteRecursive(jreDir);
-            
+            if (jreDir.exists()) {
+                deleteRecursive(jreDir);
+            }
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
             copyAssetToCache("components/jre-17.zip", tempZip);
-            if (isCancelled) { cleanup(tempZip); return; }
+
+            if (isCancelled) {
+                cleanup(tempZip);
+                return;
+            }
 
             updateNotification("📂 Extracting...", 50, false);
             jreDir.mkdirs();
             unzip(tempZip, jreDir);
-            if (isCancelled) { cleanup(tempZip); return; }
 
-            // Fix Nested Folders
+            if (isCancelled) {
+                cleanup(tempZip);
+                return;
+            }
+
             fixNestedFolders(jreDir);
-
             if (!javaBin.exists()) {
                 throw new Exception("bin/java not found.");
             }
 
-            // Fix Permissions
+            // Fix: Set executable permissions recursively for all files in jre/bin
             updateNotification("⚙️ Fixing Permissions...", 90, false);
-            String path = jreDir.getAbsolutePath().trim();
-            String chmodCmd = "chmod -R 755 \"" + path + "\"";
-            
-            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
-            p.waitFor();
-            javaBin.setExecutable(true, false);
+            File binDir = new File(jreDir, "bin");
+            if (binDir.exists()) {
+                setExecutableRecursive(binDir);
+            }
 
             if (!javaBin.canExecute()) {
-                throw new Exception("Permission Denied.");
+                throw new Exception("Failed to set executable permission for java binary.");
             }
-            
-            Log.d(TAG, "SUCCESS: Java installed permanently at " + javaBin.getAbsolutePath());
 
+            Log.d(TAG, "SUCCESS: Java installed at " + javaBin.getAbsolutePath());
             updateNotification("✅ Installed!", 100, true);
             cleanup(tempZip);
-                        Intent i = new Intent(this, MainActivity.class);
+
+            Intent i = new Intent(this, MainActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
-
         } catch (Exception e) {
             Log.e(TAG, "Failed", e);
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
-        } finally { 
-            stopSelf(); 
+        } finally {
+            stopSelf();
         }
+    }
+
+    // New helper method to set executable permissions recursively
+    private void setExecutableRecursive(File file) {
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File child : files) {
+                    setExecutableRecursive(child);
+                }
+            }
+        }
+        file.setExecutable(true, false);
+        file.setReadable(true, false);
+        file.setWritable(false, false);
     }
 
     private void fixNestedFolders(File dir) throws IOException {
@@ -121,12 +142,18 @@ public class JreInstallService extends Service {
     }
 
     private void copyAssetToCache(String path, File dest) throws IOException {
-        try (InputStream in = getAssets().open(path); FileOutputStream out = new FileOutputStream(dest)) {
-            byte[] b = new byte[8192]; int r; long total = in.available(), copied = 0;
+        try (InputStream in = getAssets().open(path);
+             FileOutputStream out = new FileOutputStream(dest)) {
+            byte[] b = new byte[8192];
+            int r;
+            long total = in.available(), copied = 0;
             while ((r = in.read(b)) != -1) {
                 if (isCancelled) throw new IOException("Cancelled");
-                out.write(b, 0, r); copied += r;
-                if (total > 0) updateNotificationProgress(5 + (int)((copied * 45) / total));
+                out.write(b, 0, r);
+                copied += r;
+                if (total > 0) {
+                    updateNotificationProgress(5 + (int)((copied * 45) / total));
+                }
             }
         }
     }
@@ -137,15 +164,20 @@ public class JreInstallService extends Service {
             while ((e = zis.getNextEntry()) != null) {
                 if (isCancelled) throw new IOException("Cancelled");
                 File f = new File(dir, e.getName());
-                if (e.isDirectory()) f.mkdirs();
-                else {
+                if (e.isDirectory()) {
+                    f.mkdirs();
+                } else {
                     f.getParentFile().mkdirs();
                     try (FileOutputStream fos = new FileOutputStream(f)) {
-                        byte[] b = new byte[8192]; int l;
-                        while ((l = zis.read(b)) > 0) fos.write(b, 0, l);
+                        byte[] b = new byte[8192];
+                        int l;
+                        while ((l = zis.read(b)) > 0) {
+                            fos.write(b, 0, l);
+                        }
                     }
                 }
-                zis.closeEntry();            }
+                zis.closeEntry();
+            }
         }
     }
 
@@ -153,13 +185,20 @@ public class JreInstallService extends Service {
         if (src.listFiles() == null) return;
         for (File f : src.listFiles()) {
             File nf = new File(dest, f.getName());
-            if (f.isDirectory()) { nf.mkdirs(); moveFiles(f, nf); f.delete(); }
-            else { 
-                try (InputStream in = new FileInputStream(f); OutputStream out = new FileOutputStream(nf)) {
-                    byte[] buf = new byte[1024]; int len;
-                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+            if (f.isDirectory()) {
+                nf.mkdirs();
+                moveFiles(f, nf);
+                f.delete();
+            } else {
+                try (InputStream in = new FileInputStream(f);
+                     OutputStream out = new FileOutputStream(nf)) {
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = in.read(buf)) > 0) {
+                        out.write(buf, 0, len);
+                    }
                 }
-                f.delete(); 
+                f.delete();
             }
         }
     }
@@ -167,22 +206,34 @@ public class JreInstallService extends Service {
     private void deleteRecursive(File f) {
         if (f.isDirectory()) {
             File[] c = f.listFiles();
-            if (c != null) for (File child : c) deleteRecursive(child);
+            if (c != null) {
+                for (File child : c) {
+                    deleteRecursive(child);
+                }
+            }
         }
         f.delete();
     }
-    
-    private void cleanup(File f) { if (f.exists()) f.delete(); }
+
+    private void cleanup(File f) {
+        if (f.exists()) f.delete();
+    }
 
     private NotificationCompat.Builder createNotification(String t, int p, boolean done) {
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("FearLauncher").setContentText(t)
-            .setSmallIcon(android.R.drawable.stat_sys_download).setOngoing(!done);
+            .setContentTitle("FearLauncher")
+            .setContentText(t)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(!done);
         if (!done) {
             b.setProgress(100, p, false);
-            Intent ci = new Intent(this, JreInstallService.class); ci.setAction("CANCEL");
-            b.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", 
-                PendingIntent.getService(this, 0, ci, PendingIntent.FLAG_IMMUTABLE));
+            Intent ci = new Intent(this, JreInstallService.class);
+            ci.setAction("CANCEL");
+            b.addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Cancel",
+                PendingIntent.getService(this, 0, ci, PendingIntent.FLAG_IMMUTABLE)
+            );
         }
         return b;
     }
@@ -190,5 +241,8 @@ public class JreInstallService extends Service {
     private void updateNotification(String t, int p, boolean d) {
         getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, createNotification(t, p, d).build());
     }
-    private void updateNotificationProgress(int p) { updateNotification("Installing...", p, false); }
+
+    private void updateNotificationProgress(int p) {
+        updateNotification("Installing...", p, false);
+    }
 }
