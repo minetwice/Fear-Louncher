@@ -17,7 +17,7 @@ public class LaunchManager {
         void onLaunchSuccess();
         void onLaunchError(String message);
         void onExit(int exitCode);
-        void onJREProgress(int percent); // Required by interface
+        void onJREProgress(int percent);
     }
 
     public LaunchManager(Context context) {
@@ -26,50 +26,44 @@ public class LaunchManager {
     }
 
     /**
-     * Checks for JRE in both CacheDir (Primary) and FilesDir (Fallback)
+     * Checks for JRE in CacheDir (Primary) and FilesDir (Fallback)
      */
     public String getJavaPath() throws Exception {
-        // 1. Check CacheDir First (Where Service installs it now to avoid Permission Denied)
+        // ✅ CHECK CACHE DIR FIRST (Where Service installs it now)
         File cacheJreBin = new File(ctx.getCacheDir(), "jre-17/bin/java");
         if (cacheJreBin.exists() && cacheJreBin.canExecute()) {
             Log.d(TAG, "✅ JRE found in CacheDir: " + cacheJreBin.getAbsolutePath());
             return cacheJreBin.getAbsolutePath();
         }
 
-        // 2. Check FilesDir as Fallback
+        // Check FilesDir as fallback
         File filesJreBin = new File(ctx.getFilesDir(), "jre-17/bin/java");
         if (filesJreBin.exists() && filesJreBin.canExecute()) {
             Log.d(TAG, "✅ JRE found in FilesDir: " + filesJreBin.getAbsolutePath());
             return filesJreBin.getAbsolutePath();
         }
 
-        // 3. If not found anywhere, throw exception to trigger Installation Service
         throw new Exception("JRE_NOT_FOUND");
     }
 
-    public void launchGame(String versionId, String username, String uuid,                           String accessToken, LaunchListener listener) {
-        new Thread(() -> {
+    public void launchGame(String versionId, String username, String uuid,
+                           String accessToken, LaunchListener listener) {        new Thread(() -> {
             try {
                 listener.onLog("🚀 Initializing FearLauncher...");
 
-                // ✅ STEP 1: Get Java Path (Check if installed)
                 String javaPath;
                 try {
                     javaPath = getJavaPath();
                 } catch (Exception e) {
-                    // If JRE is missing, we don't launch here. 
-                    // The Activity should catch this and start JreInstallService.
                     listener.onLaunchError("❌ Java Runtime Missing.\nPlease install it from the Home Screen.");
                     return;
                 }
 
-                // ✅ STEP 2: Check Minecraft Version
                 if (!versionManager.isVersionInstalled(versionId)) {
                     listener.onLaunchError("❌ Minecraft version '" + versionId + "' not installed.");
                     return;
                 }
 
-                // ✅ STEP 3: Download Natives if First Launch
                 if (!versionManager.isFirstLaunchComplete(versionId)) {
                     listener.onLog("📦 First launch: Downloading natives...");
                     versionManager.downloadFirstLaunchFiles(versionId, new VersionManager.FirstLaunchListener() {
@@ -85,7 +79,6 @@ public class LaunchManager {
                         }
                     });
                 } else {
-                    // Subsequent Launch
                     startMinecraftProcess(javaPath, versionId, username, uuid, accessToken, listener);
                 }
 
@@ -96,19 +89,18 @@ public class LaunchManager {
         }).start();
     }
 
-    private void startMinecraftProcess(String javaPath, String versionId, String username,                                        String uuid, String accessToken, LaunchListener listener) {
+    private void startMinecraftProcess(String javaPath, String versionId, String username, 
+                                       String uuid, String accessToken, LaunchListener listener) {
         try {
             File baseDir = versionManager.getBaseDir();
             File versionDir = new File(baseDir, "versions/" + versionId);
             File gameJar = new File(versionDir, versionId + ".jar");
             File nativesDir = new File(baseDir, "natives/" + versionId);
-            File assetsDir = new File(baseDir, "assets");
-            File instanceDir = new File(baseDir, "instances/" + versionId);
+            File assetsDir = new File(baseDir, "assets");            File instanceDir = new File(baseDir, "instances/" + versionId);
 
-            // Build Command
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
-            cmd.add("-Xmx2G"); // Adjust RAM as needed
+            cmd.add("-Xmx2G");
             cmd.add("-Xms1G");
             cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
             cmd.add("-Dminecraft.client.jar=" + gameJar.getAbsolutePath());
@@ -132,11 +124,8 @@ public class LaunchManager {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
-            
-            // Start Process
             gameProcess = pb.start();
 
-            // Read Output
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(gameProcess.getInputStream()))) {
                     String line;
@@ -145,7 +134,7 @@ public class LaunchManager {
                     }
                 } catch (Exception e) { Log.e(TAG, "Output error", e); }
             }).start();
-            // Wait for Exit
+
             int exitCode = gameProcess.waitFor();
             if (listener != null) {
                 listener.onExit(exitCode);
@@ -156,14 +145,10 @@ public class LaunchManager {
         } catch (Exception e) {
             Log.e(TAG, "Process Start Failed", e);
             if (listener != null) listener.onLaunchError("❌ Failed to start game: " + e.getMessage());
-        }
-    }
+        }    }
 
     public void stopGame() {
-        if (gameProcess != null && gameProcess.isAlive()) {
-            gameProcess.destroy();
-            Log.d(TAG, "🛑 Game process stopped.");
-        }
+        if (gameProcess != null && gameProcess.isAlive()) gameProcess.destroy();
     }
 
     public boolean isLaunchReady(String versionId) {
