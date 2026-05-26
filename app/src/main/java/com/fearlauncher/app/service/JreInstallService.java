@@ -46,8 +46,10 @@ public class JreInstallService extends Service {
     private void installJRE() {
         // ✅ USE CACHE DIR (Permissions are looser here than /data/data)
         File cacheDir = getCacheDir();
-        File jreDir = new File(cacheDir, "jre-17"); 
+        
+        // ✅ FIX: NO SPACES IN FOLDER NAME. Use "jre17" instead of "jre-17" just to be safe.        File jreDir = new File(cacheDir, "jre17"); 
         File javaBin = new File(jreDir, "bin/java");
+
         try {
             updateNotification("📦 Preparing...", 5, false);
             
@@ -62,12 +64,18 @@ public class JreInstallService extends Service {
             unzip(tempZip, jreDir);
             if (isCancelled) { cleanup(tempZip); return; }
 
-            // ✅ FIX NESTED FOLDERS
-            File nested = new File(jreDir, "jre-17");
-            if (nested.exists() && nested.isDirectory()) {
-                Log.d(TAG, "Fixing nested folder...");
-                moveFiles(nested, jreDir);
-                nested.delete();
+            // ✅ FIX NESTED FOLDERS (Check for both jre-17 and jre17)
+            File nested1 = new File(jreDir, "jre-17");
+            File nested2 = new File(jreDir, "jre17");
+            
+            if (nested1.exists() && nested1.isDirectory()) {
+                Log.d(TAG, "Fixing nested folder (jre-17)...");
+                moveFiles(nested1, jreDir);
+                nested1.delete();
+            } else if (nested2.exists() && nested2.isDirectory()) {
+                Log.d(TAG, "Fixing nested folder (jre17)...");
+                moveFiles(nested2, jreDir);
+                nested2.delete();
             }
 
             if (!javaBin.exists()) {
@@ -77,26 +85,35 @@ public class JreInstallService extends Service {
             // ✅ THE MAGIC FIX FOR ERROR 13
             updateNotification("⚙️ Fixing Permissions...", 90, false);
             
+            // Get absolute path. Ensure no trailing spaces.
+            String path = jreDir.getAbsolutePath().trim();
+            
             // Use double quotes for path to handle any potential issues
-            String chmodCmd = "chmod -R 755 \"" + jreDir.getAbsolutePath() + "\"";
+            String chmodCmd = "chmod -R 755 \"" + path + "\"";
             
             Log.d(TAG, "Running: " + chmodCmd);
             
             Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
-            p.waitFor();
+            int exitCode = p.waitFor();
             
+            if (exitCode != 0) {                Log.e(TAG, "Chmod failed with code: " + exitCode);
+            }
+            
+            // Also set executable via Java API
             javaBin.setExecutable(true, false);
 
+            // ✅ VERIFY EXECUTION
             if (!javaBin.canExecute()) {
-                Log.e(TAG, "CRITICAL: Still not executable!");
-                throw new Exception("Permission Denied by Android System.");
+                Log.e(TAG, "CRITICAL: Still not executable! Android SELinux might be blocking it.");
+                throw new Exception("Permission Denied by Android System (SELinux).");
             }
             
             Log.d(TAG, "SUCCESS: Java ready at " + javaBin.getAbsolutePath());
 
             updateNotification("✅ Installed!", 100, true);
             cleanup(tempZip);
-                        Intent i = new Intent(this, MainActivity.class);
+            
+            Intent i = new Intent(this, MainActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
 
@@ -128,8 +145,7 @@ public class JreInstallService extends Service {
                 if (e.isDirectory()) f.mkdirs();
                 else {
                     f.getParentFile().mkdirs();
-                    try (FileOutputStream fos = new FileOutputStream(f)) {
-                        byte[] b = new byte[8192]; int l;
+                    try (FileOutputStream fos = new FileOutputStream(f)) {                        byte[] b = new byte[8192]; int l;
                         while ((l = zis.read(b)) > 0) fos.write(b, 0, l);
                     }
                 }
@@ -145,7 +161,8 @@ public class JreInstallService extends Service {
             if (f.isDirectory()) { nf.mkdirs(); moveFiles(f, nf); f.delete(); }
             else { 
                 try (InputStream in = new FileInputStream(f); OutputStream out = new FileOutputStream(nf)) {
-                    byte[] buf = new byte[1024]; int len;                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                    byte[] buf = new byte[1024]; int len;
+                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
                 }
                 f.delete(); 
             }
@@ -177,6 +194,5 @@ public class JreInstallService extends Service {
 
     private void updateNotification(String t, int p, boolean d) {
         getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, createNotification(t, p, d).build());
-    }
-    private void updateNotificationProgress(int p) { updateNotification("Installing...", p, false); }
+    }    private void updateNotificationProgress(int p) { updateNotification("Installing...", p, false); }
 }
