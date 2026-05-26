@@ -2,153 +2,95 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/rootLayout"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="false">
+    android:background="@color/colorBackground"
+    tools:context=".MainActivity">
 
-    <com.fearlauncher.app.view.AnimatedBackgroundView
-        android:id="@+id/bgAnimated"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
-    <LinearLayout
-        android:id="@+id/topBar"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        android:gravity="center_vertical"
-        android:background="#15000000"
-        android:elevation="4dp">
-
-        <ImageButton
-            android:id="@+id/btnMenu"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/ic_menu"
-            android:background="@drawable/btn_glass"
-            android:contentDescription="Menu"
-            android:tint="@color/text"
-            android:stateListAnimator="@animator/btn_bubble"/>
-
-        <TextView
-            android:id="@+id/appTitle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="FEAR LAUNCHER"
-            android:textColor="@color/text"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.15"
-            android:gravity="center"
-            android:layout_marginStart="8dp"/>
-
-        <View
-            android:layout_width="48dp"
-            android:layout_height="48dp"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/dashboardContent"
+    <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center"
         android:orientation="vertical"
-        android:padding="32dp"
-        android:layout_marginTop="60dp"
-        android:layout_marginBottom="80dp">
+        android:padding="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Toolbar -->
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            android:elevation="4dp"
+            android:theme="@style/AppTheme.AppBarOverlay"
+            app:popupTheme="@style/AppTheme.PopupOverlay"/>
+
+        <!-- Main Content -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <!-- Play Button -->
+            <Button
+                android:id="@+id/play_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                android:text="@string/play"
+                android:textAllCaps="false"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_chainStyle="packed"/>
+
+            <!-- Versions Button -->
+            <Button
+                android:id="@+id/versions_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                android:text="@string/versions"
+                android:textAllCaps="false"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/play_button"/>
+
+            <!-- Settings Button -->
+            <Button
+                android:id="@+id/settings_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                android:text="@string/settings"
+                android:textAllCaps="false"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/versions_button"/>
+
+            <!-- Install JRE Button -->
+            <Button
+                android:id="@+id/install_jre_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                android:text="@string/install_jre"
+                android:textAllCaps="false"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/settings_button"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Bottom Navigation -->
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottom_navigation"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="⛏️"
-            android:textSize="72sp"
-            android:layout_marginBottom="24dp"
-            android:alpha="0.9"/>
+            android:background="?android:attr/windowBackground"
+            app:itemIconTint="@drawable/bottom_nav_colors"
+            app:itemTextColor="@drawable/bottom_nav_colors"
+            app:menu="@menu/bottom_nav_menu" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Welcome to FearLauncher"
-            android:textColor="@color/text"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="8dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Tap Play to launch • Versions to download"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            android:gravity="center"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/bottomNav"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_gravity="bottom"
-        android:background="#15000000"
-        android:elevation="8dp"
-        android:paddingHorizontal="12dp">
-
-        <com.fearlauncher.app.view.GlassButton
-            android:id="@+id/btnHome"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            app:icon="@drawable/ic_home"
-            app:label="Home"
-            app:thin="true"
-            android:stateListAnimator="@animator/btn_bubble"/>
-
-        <com.fearlauncher.app.view.GlassButton
-            android:id="@+id/btnPlay"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            app:icon="@drawable/ic_play"
-            app:label="Play"
-            app:thin="true"
-            android:stateListAnimator="@animator/btn_bubble"/>
-
-        <com.fearlauncher.app.view.GlassButton
-            android:id="@+id/btnVersions"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            app:icon="@drawable/ic_version"
-            app:label="Versions"
-            app:thin="true"
-            android:stateListAnimator="@animator/btn_bubble"/>
-
-        <com.fearlauncher.app.view.GlassButton
-            android:id="@+id/btnSettings"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            app:icon="@android:drawable/ic_menu_preferences"
-            app:label="Settings"
-            app:thin="true"
-            android:stateListAnimator="@animator/btn_bubble"/>
-    </LinearLayout>
-
-    <include
-        android:id="@+id/sidePanel"
-        layout="@layout/panel_side_menu"
-        android:layout_width="280dp"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        android:visibility="gone"/>
-
+    </androidx.appcompat.widget.LinearLayoutCompat>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
