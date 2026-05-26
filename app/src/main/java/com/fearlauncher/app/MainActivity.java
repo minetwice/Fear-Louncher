@@ -1,192 +1,112 @@
 package com.fearlauncher.app;
 
-import android.Manifest;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
+import android.view.MenuItem;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
-import android.widget.ImageButton;
+import android.widget.Button;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import com.fearlauncher.app.manager.LaunchManager;
-import com.fearlauncher.app.manager.VersionManager;
-import com.fearlauncher.app.service.JreInstallService;
-import com.fearlauncher.app.view.AnimatedBackgroundView;
-import com.fearlauncher.app.view.GlassButton;
-import java.io.File;
+import androidx.appcompat.widget.Toolbar;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
-
-    private AnimatedBackgroundView bgAnimated;
-    private ImageButton btnMenu;
-    private GlassButton btnHome, btnVersions, btnPlay, btnSettings;
-    private View sidePanel;
-    private boolean panelOpen = false;
-
-    private LaunchManager launchManager;
-    private VersionManager versionManager;
-    
-    private static final int NOTIF_PERMISSION_CODE = 102;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        versionManager = new VersionManager(this);
-        launchManager = new LaunchManager(this);
+        // Setup Toolbar
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setTitle(R.string.app_name);
 
-        // Only request Notification Permission
-        checkPermissions();
+        // Setup Bottom Navigation
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav.setOnNavigationItemSelectedListener(navListener);
 
-        try {
-            setContentView(R.layout.activity_main);
+        // Setup Buttons
+        Button playButton = findViewById(R.id.play_button);
+        Button versionsButton = findViewById(R.id.versions_button);
+        Button settingsButton = findViewById(R.id.settings_button);
+        Button installJreButton = findViewById(R.id.install_jre_button);
 
-            bgAnimated = findViewById(R.id.bgAnimated);            btnMenu = findViewById(R.id.btnMenu);
-            btnHome = findViewById(R.id.btnHome);
-            btnVersions = findViewById(R.id.btnVersions);
-            btnPlay = findViewById(R.id.btnPlay);
-            btnSettings = findViewById(R.id.btnSettings);
-            sidePanel = findViewById(R.id.sidePanel);
-
-            if (btnMenu != null) btnMenu.setOnClickListener(v -> toggleSidePanel());
-            if (btnHome != null) btnHome.setOnClickListener(v -> animateClick(v));
-            
-            if (btnVersions != null) btnVersions.setOnClickListener(v -> {
-                animateClick(v);
-                startActivity(new Intent(this, VersionsActivity.class));
-                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-            });
-            
-            if (btnSettings != null) btnSettings.setOnClickListener(v -> {
-                animateClick(v);
-                startActivity(new Intent(this, SettingsActivity.class));
-                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-            });
-            
-            if (btnPlay != null) {
-                btnPlay.setOnClickListener(v -> {
-                    animateClick(v);
-                    attemptLaunch();
-                });
-            }
-
-            View btnOpenVersions = findViewById(R.id.btnOpenVersions);
-            if (btnOpenVersions != null) btnOpenVersions.setOnClickListener(v -> {
-                animateClick(v);
-                toggleSidePanel();
-                startActivity(new Intent(this, VersionsActivity.class));
-                overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "UI Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
+        playButton.setOnClickListener(v -> launchGame());
+        versionsButton.setOnClickListener(v -> startActivity(new Intent(this, VersionSelectorActivity.class)));
+        settingsButton.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+        installJreButton.setOnClickListener(v -> installJRE());
     }
 
-    private void checkPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIF_PERMISSION_CODE);
-            }        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    }
-
-    private void attemptLaunch() {
-        String installedVersion = getFirstInstalledVersion();
-        if (installedVersion == null) {
-            new AlertDialog.Builder(this)
-                .setTitle("⚠️ No Version Installed")
-                .setMessage("Please download a Minecraft version first.")
-                .setPositiveButton("Go to Versions", (d, w) -> {
-                    startActivity(new Intent(this, VersionsActivity.class));
-                    overridePendingTransition(R.anim.bubble_enter, R.anim.bubble_exit);
-                }).setNegativeButton("Cancel", null).show();
-            return;
-        }
-        launchGame(installedVersion);
-    }
-
-    private String getFirstInstalledVersion() {
-        File baseDir = versionManager.getBaseDir();
-        if (baseDir == null) return null;
-        File versionsDir = new File(baseDir, "versions");
-        File[] versionFolders = versionsDir.listFiles(File::isDirectory);
-        if (versionFolders != null) {
-            for (File f : versionFolders) {
-                if (new File(f, ".installed").exists()) return f.getName();
-            }
-        }
-        return null;
-    }
-
-    private void launchGame(String versionId) {
-        try {
-            String javaPath = launchManager.getJavaPath();
-            
-            launchManager.launchGame(versionId, "FearPlayer", "0", "0", new LaunchManager.LaunchListener() {
-                @Override public void onJREProgress(int percent) {}
-                @Override public void onLog(String line) {}
-                @Override public void onLaunchSuccess() { 
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "🎮 Game launched!", Toast.LENGTH_LONG).show()); 
+    private BottomNavigationView.OnNavigationItemSelectedListener navListener =
+        new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(MenuItem item) {
+                switch (item.getItemId()) {
+                    case R.id.nav_home:
+                        // Already in home
+                        return true;
+                    case R.id.nav_versions:
+                        startActivity(new Intent(MainActivity.this, VersionSelectorActivity.class));
+                        return true;
+                    case R.id.nav_settings:
+                        startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                        return true;
                 }
-                @Override public void onLaunchError(String message) { 
-                    runOnUiThread(() -> new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("❌ Launch Failed")
-                        .setMessage(message)                        .setPositiveButton("OK", null).show()); 
-                }
-                @Override public void onExit(int exitCode) {}
-            });
+                return false;
+            }
+        };
 
+    private void launchGame() {
+        // Check if JRE is installed
+        try {
+            new LaunchManager(this).getJavaPath();
+            // Check if version is installed
+            if (new VersionManager(this).isVersionInstalled("1.21.11")) {
+                Toast.makeText(this, R.string.launching, Toast.LENGTH_SHORT).show();
+                new LaunchManager(this).launchGame(
+                    "1.21.11",
+                    "PlayerName", // Replace with actual username
+                    "uuid",       // Replace with actual UUID
+                    "token",      // Replace with actual token
+                    new LaunchManager.LaunchListener() {
+                        @Override
+                        public void onLog(String line) {
+                            // Handle logs
+                        }
+
+                        @Override
+                        public void onLaunchSuccess() {
+                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Game Launched!", Toast.LENGTH_SHORT).show());
+                        }
+
+                        @Override
+                        public void onLaunchError(String message) {
+                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Error: " + message, Toast.LENGTH_LONG).show());
+                        }
+
+                        @Override
+                        public void onExit(int exitCode) {
+                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Game Exited", Toast.LENGTH_SHORT).show());
+                        }
+
+                        @Override
+                        public void onJREProgress(int percent) {
+                            // Handle progress
+                        }
+                    }
+                );
+            } else {
+                Toast.makeText(this, "Please install a version first", Toast.LENGTH_SHORT).show();
+            }
         } catch (Exception e) {
-            new AlertDialog.Builder(this)
-                .setTitle("📦 Java Runtime Missing")
-                .setMessage("To play Minecraft, we need to install Java Runtime Environment.")
-                .setPositiveButton("Install Now", (d, w) -> startJreInstallationService())
-                .setNegativeButton("Cancel", null)
-                .show();
+            Toast.makeText(this, "JRE not installed. Please install JRE first.", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void startJreInstallationService() {
-        Intent serviceIntent = new Intent(this, JreInstallService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
-        }
-        Toast.makeText(this, "📲 Installation started. Check notifications.", Toast.LENGTH_SHORT).show();
-    }
-
-    private void toggleSidePanel() {
-        if (sidePanel == null) return;
-        panelOpen = !panelOpen;
-        sidePanel.setVisibility(panelOpen ? View.VISIBLE : View.GONE);
-        sidePanel.animate().translationX(panelOpen ? 0 : -sidePanel.getWidth())
-                .setDuration(300).setInterpolator(new DecelerateInterpolator()).start();
-    }
-
-    private void animateClick(View v) {
-        if (v == null) return;
-        v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(100)
-                .withEndAction(() -> v.animate().scaleX(1f).scaleY(1f).setDuration(100).start()).start();
-    }
-
-    @Override 
-    protected void onResume() {
-        super.onResume();
-        if (bgAnimated != null) bgAnimated.invalidate();
+    private void installJRE() {
+        Intent intent = new Intent(this, JreInstallService.class);
+        startService(intent);
+        Toast.makeText(this, "Installing JRE...", Toast.LENGTH_SHORT).show();
     }
 }
