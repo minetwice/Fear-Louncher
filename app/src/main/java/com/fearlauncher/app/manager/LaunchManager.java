@@ -28,14 +28,14 @@ public class LaunchManager {
     }
 
     public String getJavaPath() throws Exception {
-        File internalJreBin = new File(ctx.getFilesDir(), "jre/bin/java");
-        Log.d(TAG, "Checking Java binary at: " + internalJreBin.getAbsolutePath());
-        Log.d(TAG, "Java binary exists: " + internalJreBin.exists());
-        Log.d(TAG, "Java binary canExecute: " + internalJreBin.canExecute());
+        File jreBin = new File("/data/local/tmp/fearlauncher_jre/jre/bin/java");
 
-        if (internalJreBin.exists() && internalJreBin.canExecute()) {
-            Log.d(TAG, "✅ JRE found at: " + internalJreBin.getAbsolutePath());
-            return internalJreBin.getAbsolutePath();
+        Log.d(TAG, "Java path: " + jreBin.getAbsolutePath());
+        Log.d(TAG, "Exists: " + jreBin.exists());
+        Log.d(TAG, "Can execute: " + jreBin.canExecute());
+
+        if (jreBin.exists() && jreBin.canExecute()) {
+            return jreBin.getAbsolutePath();
         }
         throw new Exception("JRE_NOT_FOUND");
     }
@@ -100,21 +100,12 @@ public class LaunchManager {
             List<String> cmd = new ArrayList<>();
             cmd.add(javaPath);
 
-            // Set library path explicitly
             cmd.add("-Djava.library.path=" + nativesDir.getAbsolutePath());
-
-            // Memory settings
             cmd.add("-Xmx2G");
             cmd.add("-Xms1G");
-
-            // Classpath
             cmd.add("-cp");
             cmd.add(gameJar.getAbsolutePath());
-
-            // Main class
             cmd.add("net.minecraft.client.main.Main");
-
-            // Minecraft arguments
             cmd.add("--username");
             cmd.add(username);
             cmd.add("--version");
@@ -136,24 +127,18 @@ public class LaunchManager {
 
             Log.d(TAG, "Starting Process with Java: " + javaPath);
             Log.d(TAG, "Command: " + String.join(" ", cmd));
-            Log.d(TAG, "Working directory: " + instanceDir.getAbsolutePath());
-
-            // Set environment variables
-            Map<String, String> env = new HashMap<>();
-            env.put("LD_LIBRARY_PATH", nativesDir.getAbsolutePath());
-            env.put("PATH", new File(ctx.getFilesDir(), "jre/bin").getAbsolutePath());
 
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(instanceDir);
             pb.redirectErrorStream(true);
 
-            // Set environment
-            Map<String, String> processEnv = pb.environment();
-            processEnv.putAll(env);
+            Map<String, String> env = pb.environment();
+            env.put("LD_LIBRARY_PATH", nativesDir.getAbsolutePath());
+            env.put("PATH", "/data/local/tmp/fearlauncher_jre/jre/bin");
+            env.put("JAVA_HOME", "/data/local/tmp/fearlauncher_jre/jre");
 
             gameProcess = pb.start();
 
-            // Fixed: Removed pid() call which doesn't exist in Android
             Log.d(TAG, "Process started successfully");
 
             new Thread(() -> {
@@ -176,7 +161,7 @@ public class LaunchManager {
                 if (exitCode == 0) {
                     listener.onLaunchSuccess();
                 } else {
-                    listener.onLaunchError("Game exited with code: " + exitCode + "\nCheck logs for details.");
+                    listener.onLaunchError("Game exited with code: " + exitCode);
                 }
             }
         } catch (Exception e) {
