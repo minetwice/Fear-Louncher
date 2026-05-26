@@ -44,10 +44,12 @@ public class JreInstallService extends Service {
     }
 
     private void installJRE() {
-        // ✅ USE FILES DIR (Internal Storage) so it deletes on uninstall
+        // ✅ USE FILES DIR (Internal Storage)
         File filesDir = getFilesDir();
-        File jreDir = new File(filesDir, "jre-17");
+        
+        // ✅ FIX: Ensure no extra spaces in path construction        File jreDir = new File(filesDir, "jre-17"); 
         File javaBin = new File(jreDir, "bin/java");
+
         try {
             updateNotification("📦 Preparing...", 5, false);
             
@@ -65,31 +67,47 @@ public class JreInstallService extends Service {
             // ✅ FIX NESTED FOLDERS
             File nested = new File(jreDir, "jre-17");
             if (nested.exists() && nested.isDirectory()) {
+                Log.d(TAG, "Fixing nested folder structure...");
                 moveFiles(nested, jreDir);
                 nested.delete();
             }
 
             if (!javaBin.exists()) {
-                throw new Exception("bin/java not found.");
+                throw new Exception("bin/java not found after extraction.");
             }
 
-            // ✅ THE MAGIC FIX FOR ERROR 13
+            // ✅ THE MAGIC FIX FOR ERROR 13 & SPACES
             updateNotification("⚙️ Fixing Permissions...", 90, false);
             
-            // Use single quotes around path to handle spaces/special chars
-            String chmodCmd = "chmod -R 755 '" + jreDir.getAbsolutePath() + "'";
-            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
-            p.waitFor();
+            // Get absolute path and ensure it's trimmed
+            String jrePath = jreDir.getAbsolutePath().trim();
             
+            // Use single quotes to handle any potential spaces or special chars in the path
+            // Command: sh -c "chmod -R 755 '/path/to/jre'"
+            String chmodCmd = "chmod -R 755 '" + jrePath + "'";
+            
+            Log.d(TAG, "Running chmod: " + chmodCmd);
+            
+            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
+            int exitCode = p.waitFor();
+            
+            if (exitCode != 0) {
+                Log.e(TAG, "Chmod failed with exit code: " + exitCode);
+                // Try fallback without quotes if path has no spaces
+                if (!jrePath.contains(" ")) {
+                     Runtime.getRuntime().exec("chmod -R 755 " + jrePath).waitFor();
+                }            }
+            
+            // Also set executable via Java API as backup
             javaBin.setExecutable(true, false);
 
+            // ✅ VERIFY EXECUTION
             if (!javaBin.canExecute()) {
-                Log.e(TAG, "WARNING: Still not executable. Trying alternative...");
-                // Alternative: Try executing via shell wrapper if direct exec fails
-                // But for now, we assume chmod worked. If not, device might be restricted.
+                Log.e(TAG, "CRITICAL: File still not executable! Android security blocking it.");
+                throw new Exception("Permission Denied. Your device may restrict binary execution in app data.");
             }
             
-            Log.d(TAG, "SUCCESS: Java ready at " + javaBin.getAbsolutePath());
+            Log.d(TAG, "SUCCESS: Java is ready at " + javaBin.getAbsolutePath());
 
             updateNotification("✅ Installed!", 100, true);
             cleanup(tempZip);
@@ -97,6 +115,7 @@ public class JreInstallService extends Service {
             Intent i = new Intent(this, MainActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
+
         } catch (Exception e) {
             Log.e(TAG, "Installation Failed", e);
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
@@ -126,8 +145,7 @@ public class JreInstallService extends Service {
                 else {
                     f.getParentFile().mkdirs();
                     try (FileOutputStream fos = new FileOutputStream(f)) {
-                        byte[] b = new byte[8192]; int l;
-                        while ((l = zis.read(b)) > 0) fos.write(b, 0, l);
+                        byte[] b = new byte[8192]; int l;                        while ((l = zis.read(b)) > 0) fos.write(b, 0, l);
                     }
                 }
                 zis.closeEntry();
@@ -145,7 +163,8 @@ public class JreInstallService extends Service {
             if (f.isDirectory()) { 
                 nf.mkdirs(); 
                 moveFiles(f, nf); 
-                f.delete();             } else { 
+                f.delete(); 
+            } else { 
                 try (InputStream in = new FileInputStream(f); OutputStream out = new FileOutputStream(nf)) {
                     byte[] buf = new byte[1024]; int len;
                     while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
@@ -175,8 +194,7 @@ public class JreInstallService extends Service {
             b.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", 
                 PendingIntent.getService(this, 0, ci, PendingIntent.FLAG_IMMUTABLE));
         }
-        return b;
-    }
+        return b;    }
 
     private void updateNotification(String t, int p, boolean d) {
         getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, createNotification(t, p, d).build());
