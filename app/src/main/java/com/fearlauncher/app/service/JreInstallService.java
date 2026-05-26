@@ -22,7 +22,7 @@ public class JreInstallService extends Service {
     private static final String TAG = "JreService";
     private boolean isCancelled = false;
 
-    // ✅ DEFINE PATHS HERE TO AVOID MISSING VARIABLE ERRORS
+    // ✅ USE FILES DIR FOR PERMANENT STORAGE
     private File jreDir;
     private File javaBin;
 
@@ -31,9 +31,9 @@ public class JreInstallService extends Service {
         super.onCreate(); 
         createNotificationChannel(); 
         
-        // Initialize paths immediately
-        File cacheDir = getCacheDir();
-        this.jreDir = new File(cacheDir, "jre"); // Simple name "jre"
+        // Initialize paths in FilesDir (Permanent)
+        File filesDir = getFilesDir();
+        this.jreDir = new File(filesDir, "jre"); 
         this.javaBin = new File(this.jreDir, "bin/java");
     }
 
@@ -72,36 +72,31 @@ public class JreInstallService extends Service {
             unzip(tempZip, jreDir);
             if (isCancelled) { cleanup(tempZip); return; }
 
-            // ✅ FIX NESTED FOLDERS (Check for common names)
+            // Fix Nested Folders
             fixNestedFolders(jreDir);
 
             if (!javaBin.exists()) {
                 throw new Exception("bin/java not found.");
             }
 
-            // ✅ THE MAGIC FIX FOR ERROR 13
+            // Fix Permissions
             updateNotification("⚙️ Fixing Permissions...", 90, false);
-            
             String path = jreDir.getAbsolutePath().trim();
             String chmodCmd = "chmod -R 755 \"" + path + "\"";
             
-            Log.d(TAG, "Running: " + chmodCmd);
-            
             Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", chmodCmd});
             p.waitFor();
-            
             javaBin.setExecutable(true, false);
 
             if (!javaBin.canExecute()) {
-                Log.e(TAG, "CRITICAL: Still not executable!");
-                throw new Exception("Permission Denied by Android System.");
+                throw new Exception("Permission Denied.");
             }
-                        Log.d(TAG, "SUCCESS: Java ready at " + javaBin.getAbsolutePath());
+            
+            Log.d(TAG, "SUCCESS: Java installed permanently at " + javaBin.getAbsolutePath());
 
             updateNotification("✅ Installed!", 100, true);
             cleanup(tempZip);
-            
-            Intent i = new Intent(this, MainActivity.class);
+                        Intent i = new Intent(this, MainActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
 
@@ -114,15 +109,13 @@ public class JreInstallService extends Service {
     }
 
     private void fixNestedFolders(File dir) throws IOException {
-        // Check for nested folders like 'jre' or 'jre-17' inside the target dir
         String[] possibleNames = {"jre", "jre-17", "jre17"};
         for (String name : possibleNames) {
             File nested = new File(dir, name);
             if (nested.exists() && nested.isDirectory()) {
-                Log.d(TAG, "Moving contents from nested: " + name);
                 moveFiles(nested, dir);
                 nested.delete();
-                break; // Only fix one level of nesting
+                break;
             }
         }
     }
@@ -145,14 +138,14 @@ public class JreInstallService extends Service {
                 if (isCancelled) throw new IOException("Cancelled");
                 File f = new File(dir, e.getName());
                 if (e.isDirectory()) f.mkdirs();
-                else {                    f.getParentFile().mkdirs();
+                else {
+                    f.getParentFile().mkdirs();
                     try (FileOutputStream fos = new FileOutputStream(f)) {
                         byte[] b = new byte[8192]; int l;
                         while ((l = zis.read(b)) > 0) fos.write(b, 0, l);
                     }
                 }
-                zis.closeEntry();
-            }
+                zis.closeEntry();            }
         }
     }
 
@@ -194,7 +187,8 @@ public class JreInstallService extends Service {
         return b;
     }
 
-    private void updateNotification(String t, int p, boolean d) {        getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, createNotification(t, p, d).build());
+    private void updateNotification(String t, int p, boolean d) {
+        getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, createNotification(t, p, d).build());
     }
     private void updateNotificationProgress(int p) { updateNotification("Installing...", p, false); }
 }
