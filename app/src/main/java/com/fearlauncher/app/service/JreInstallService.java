@@ -12,8 +12,6 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.fearlauncher.app.MainActivity;
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -29,9 +27,8 @@ public class JreInstallService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        // Use internal storage for JRE (most reliable)
-        this.jreDir = new File(getFilesDir(), "jre");
-        this.javaBin = new File(this.jreDir, "bin/java");
+        this.jreDir = new File("/data/local/tmp/fearlauncher_jre");
+        this.javaBin = new File(this.jreDir, "jre/bin/java");
     }
 
     @Nullable
@@ -65,9 +62,8 @@ public class JreInstallService extends Service {
         try {
             updateNotification("🔍 Checking JRE...", 5, false);
 
-            // Check if JRE already exists and is valid
             if (jreDir.exists() && javaBin.exists() && javaBin.canExecute()) {
-                Log.d(TAG, "✅ JRE already installed at: " + javaBin.getAbsolutePath());
+                Log.d(TAG, "✅ JRE already installed");
                 updateNotification("✅ JRE already installed!", 100, true);
                 Intent i = new Intent(this, MainActivity.class);
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -76,13 +72,11 @@ public class JreInstallService extends Service {
                 return;
             }
 
-            // Clean up old JRE if it exists
             if (jreDir.exists()) {
                 deleteRecursive(jreDir);
             }
             jreDir.mkdirs();
 
-            // Extract JRE from assets
             File tempZip = new File(getCacheDir(), "jre-installer.zip");
             copyAssetToCache("components/jre-17.zip", tempZip);
 
@@ -99,36 +93,41 @@ public class JreInstallService extends Service {
                 return;
             }
 
-            fixNestedFolders(jreDir);
             if (!javaBin.exists()) {
-                throw new Exception("bin/java not found.");
+                throw new Exception("jre/bin/java not found in extracted JRE.");
             }
 
-            // CRITICAL: Set executable permissions for ALL files
             updateNotification("⚙️ Fixing Permissions...", 90, false);
-            setExecutableRecursive(jreDir);
+            setExecutableRecursive(new File(jreDir, "jre"));
 
-            // Double-check permissions
             if (!javaBin.canExecute()) {
-                throw new Exception("Failed to set executable permission for java binary.");
+                try {
+                    Runtime.getRuntime().exec("chmod -R 755 " + jreDir.getAbsolutePath()).waitFor();
+                } catch (Exception e) {
+                    Log.e(TAG, "chmod failed", e);
+                }
+                javaBin.setExecutable(true, false);
+            }
+
+            if (!javaBin.canExecute()) {
+                throw new Exception("Failed to set executable permission. Device may need root.");
             }
 
             Log.d(TAG, "SUCCESS: Java installed at " + javaBin.getAbsolutePath());
-            updateNotification("✅ Installed!", 100, true);
+            updateNotification("✅ JRE Ready!", 100, true);
             cleanup(tempZip);
 
             Intent i = new Intent(this, MainActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
         } catch (Exception e) {
-            Log.e(TAG, "Failed", e);
+            Log.e(TAG, "JRE Install Failed", e);
             updateNotification("❌ Failed: " + e.getMessage(), 0, true);
         } finally {
             stopSelf();
         }
     }
 
-    // Recursively set executable permissions for all files
     private void setExecutableRecursive(File file) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
@@ -141,18 +140,6 @@ public class JreInstallService extends Service {
         file.setExecutable(true, false);
         file.setReadable(true, false);
         file.setWritable(false, false);
-    }
-
-    private void fixNestedFolders(File dir) throws IOException {
-        String[] possibleNames = {"jre", "jre-17", "jre17"};
-        for (String name : possibleNames) {
-            File nested = new File(dir, name);
-            if (nested.exists() && nested.isDirectory()) {
-                moveFiles(nested, dir);
-                nested.delete();
-                break;
-            }
-        }
     }
 
     private void copyAssetToCache(String path, File dest) throws IOException {
@@ -191,28 +178,6 @@ public class JreInstallService extends Service {
                     }
                 }
                 zis.closeEntry();
-            }
-        }
-    }
-
-    private void moveFiles(File src, File dest) throws IOException {
-        if (src.listFiles() == null) return;
-        for (File f : src.listFiles()) {
-            File nf = new File(dest, f.getName());
-            if (f.isDirectory()) {
-                nf.mkdirs();
-                moveFiles(f, nf);
-                f.delete();
-            } else {
-                try (InputStream in = new FileInputStream(f);
-                     OutputStream out = new FileOutputStream(nf)) {
-                    byte[] buf = new byte[1024];
-                    int len;
-                    while ((len = in.read(buf)) > 0) {
-                        out.write(buf, 0, len);
-                    }
-                }
-                f.delete();
             }
         }
     }
