@@ -2,6 +2,7 @@ package com.fearlauncher.app;
 
 import android.os.Bundle;
 import android.util.Log;
+import com.fearlauncher.app.adapter.VersionPagerAdapter;
 import android.widget.ImageButton;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
