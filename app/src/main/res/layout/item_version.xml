@@ -86,5 +86,17 @@
             android:textColor="@color/text_muted"
             android:textSize="10sp"
             android:visibility="gone"/>
+
+        <!-- Replace this: -->
+<SomeView
+    android:label="@string/some_string"
+    android:thin="true"
+    android:background="@animator/btn_bubble" />
+
+<!-- With this: -->
+<SomeView
+    android:text="@string/some_string"
+    android:layout_height="wrap_content"
+    android:background="@drawable/btn_glass" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>
