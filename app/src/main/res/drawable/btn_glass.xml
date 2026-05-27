@@ -1,45 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    
-    <!-- Selected: Red border + glass shine -->
-    <item android:state_selected="true">
-        <layer-list>
-            <item>
-                <shape android:shape="rectangle">
-                    <corners android:radius="24dp"/>
-                    <solid android:color="@color/glass_base"/>
-                </shape>
-            </item>
-            <item android:left="2dp" android:right="2dp" android:top="2dp" android:bottom="2dp">
-                <shape android:shape="rectangle">
-                    <corners android:radius="24dp"/>
-                    <stroke android:width="2dp" android:color="@color/primary"/>
-                </shape>
-            </item>
-            <!-- ✅ FIXED: '40%' → '40dp' -->
-            <item android:bottom="40dp">
-                <shape android:shape="rectangle">
-                    <corners android:radius="24dp"/>
-                    <gradient android:angle="90" android:startColor="@color/glass_shine" android:endColor="#00FFFFFF"/>
-                </shape>
-            </item>
-        </layer-list>
-    </item>
-    
-    <!-- Pressed -->
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <corners android:radius="24dp"/>
-            <solid android:color="@color/btn_pressed"/>
+            <solid android:color="@color/glass_pressed" />
+            <corners android:radius="8dp" />
+            <stroke android:width="1dp" android:color="@color/glass_border" />
         </shape>
     </item>
-    
-    <!-- Default -->
     <item>
         <shape android:shape="rectangle">
-            <corners android:radius="24dp"/>
-            <solid android:color="@color/btn_normal"/>
-            <stroke android:width="1dp" android:color="@color/glass_border"/>
+            <solid android:color="@color/glass_base" />
+            <corners android:radius="8dp" />
+            <stroke android:width="1dp" android:color="@color/glass_border" />
         </shape>
     </item>
 </selector>
