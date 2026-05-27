@@ -1,74 +1,45 @@
-package com.fearlauncher.app.adapter;
+package com.fearlauncher.app.adapter; // ✅ CHECK THIS LINE
 
-import android.content.Context;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
-import com.fearlauncher.app.R;
-import com.fearlauncher.app.manager.VersionManager;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.viewpager2.adapter.FragmentStateAdapter;
+import com.fearlauncher.app.fragment.VersionListFragment; // ✅ Ensure this fragment exists too
 import java.util.List;
 
-public class VersionListAdapter extends RecyclerView.Adapter<VersionListAdapter.ViewHolder> {
+public class VersionPagerAdapter extends FragmentStateAdapter {
 
-    private final List<String> versions;
-    private final String type;
-    private final Context context;
+    private final List<String> releases;
+    private final List<String> snapshots;
+    private final List<String> others;
 
-    public VersionListAdapter(List<String> versions, String type, Context context) {
-        this.versions = versions;
-        this.type = type;
-        this.context = context;
+    public VersionPagerAdapter(@NonNull FragmentActivity activity, 
+                               List<String> releases, 
+                               List<String> snapshots, 
+                               List<String> others) {
+        super(activity);
+        this.releases = releases;
+        this.snapshots = snapshots;
+        this.others = others;
     }
 
     @NonNull
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_version_slim, parent, false);
-        return new ViewHolder(view);
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        String versionId = versions.get(position);
-        holder.tvName.setText(versionId);
-        holder.tvType.setText(type);
-
-        // Check if already installed
-        VersionManager vm = new VersionManager(context);
-        boolean isInstalled = vm.isVersionInstalled(versionId);
-
-        if (isInstalled) {
-            holder.btnAction.setText("Play");
-            holder.btnAction.setOnClickListener(v -> 
-                Toast.makeText(context, "Launching " + versionId + "...", Toast.LENGTH_SHORT).show()
-            );
-        } else {
-            holder.btnAction.setText("Download");
-            holder.btnAction.setOnClickListener(v -> 
-                Toast.makeText(context, "Downloading " + versionId + "...", Toast.LENGTH_SHORT).show()
-            );
+    public Fragment createFragment(int position) {
+        switch (position) {
+            case 0:
+                return VersionListFragment.newInstance(releases, "Release");
+            case 1:
+                return VersionListFragment.newInstance(snapshots, "Snapshot");
+            case 2:
+                return VersionListFragment.newInstance(others, "Old/Beta");
+            default:
+                return VersionListFragment.newInstance(releases, "Release");
         }
     }
 
     @Override
     public int getItemCount() {
-        return versions.size();
-    }
-
-    public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvName, tvType;
-        Button btnAction;
-
-        public ViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvName = itemView.findViewById(R.id.versionName);
-            tvType = itemView.findViewById(R.id.versionType);
-            btnAction = itemView.findViewById(R.id.btnAction);
-        }
+        return 3;
     }
 }
