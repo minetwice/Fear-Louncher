@@ -55,8 +55,9 @@
         android:layout_weight="1"
         android:padding="20dp">
 
-        <!-- Header -->
+        <!-- Header Text with ID -->
         <TextView
+            android:id="@+id/header_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="MINECRAFT: JAVA EDITION"
@@ -68,13 +69,13 @@
 
         <!-- Main Content Placeholder (Image/News) -->
         <View
+            android:id="@+id/content_placeholder"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_above="@id/play_container"
             android:layout_below="@id/header_text"
             android:layout_marginVertical="20dp"
             android:background="#1AFFFFFF"/> 
-            <!-- You can add an ImageView here later for news banner -->
 
         <!-- Bottom Play Area -->
         <LinearLayout
@@ -95,8 +96,8 @@
 
             <Button
                 android:id="@+id/btn_play_big"
-                android:layout_width="300dp"
-                android:layout_height="60dp"                android:text="PLAY"
+                android:layout_width="300dp"                android:layout_height="60dp"
+                android:text="PLAY"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
