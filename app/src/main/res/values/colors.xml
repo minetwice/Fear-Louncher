@@ -8,8 +8,40 @@
     <!-- Basic colors -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="gray_light">#E0E0E0</color>
+    <color name="gray_dark">#757575</color>
 
-    <!-- Material colors -->
+    <!-- Background colors -->
+    <color name="colorBackground">#FFFFFF</color>
+    <color name="colorCardBackground">#F5F5F5</color>
+    <color name="colorSurface">#FFFFFF</color>
+
+    <!-- Text colors -->
+    <color name="colorTextPrimary">#212121</color>
+    <color name="colorTextSecondary">#757575</color>
+    <color name="colorTextOnPrimary">#FFFFFF</color>
+
+    <!-- Status bar and app bar colors -->
+    <color name="colorStatusBar">#3700B3</color>
+    <color name="colorAppBar">#6200EE</color>
+
+    <!-- Button colors -->
+    <color name="colorButtonPrimary">#6200EE</color>
+    <color name="colorButtonPrimaryDisabled">#B39DDB</color>
+    <color name="colorButtonSecondary">#03DAC6</color>
+
+    <!-- Error and success colors -->
+    <color name="colorError">#B00020</color>
+    <color name="colorSuccess">#4CAF50</color>
+
+    <!-- Divider color -->
+    <color name="colorDivider">#E0E0E0</color>
+
+    <!-- Material Design colors -->
     <color name="material_blue_500">#2196F3</color>
     <color name="material_blue_700">#1976D2</color>
+    <color name="material_green_500">#4CAF50</color>
+    <color name="material_red_500">#F44336</color>
+    <color name="material_yellow_500">#FFC107</color>
 </resources>
