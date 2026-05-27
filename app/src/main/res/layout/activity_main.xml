@@ -1,53 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_epic_gradient">
+    android:orientation="horizontal"
+    android:background="@drawable/bg_dashboard_gradient">
 
+    <!-- ✅ LEFT SIDEBAR PANEL -->
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
+        android:layout_width="80dp"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center">
+        android:background="@drawable/sidebar_bg"
+        android:paddingTop="20dp"
+        android:gravity="center_horizontal">
 
-        <!-- Title -->
+        <!-- Home Icon -->
+        <ImageButton
+            android:id="@+id/nav_home"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@android:drawable/ic_menu_compass"
+            android:background="@drawable/btn_sidebar_item"
+            android:scaleType="fitCenter"
+            android:tint="#FFFFFF"
+            android:layout_marginBottom="20dp"/>
+
+        <!-- Versions Icon -->
+        <ImageButton
+            android:id="@+id/nav_versions"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:background="@drawable/btn_sidebar_item"
+            android:scaleType="fitCenter"
+            android:tint="#AAAAAA"
+            android:layout_marginBottom="20dp"/>
+
+        <!-- Settings Icon -->
+        <ImageButton
+            android:id="@+id/nav_settings"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@android:drawable/ic_menu_preferences"
+            android:background="@drawable/btn_sidebar_item"
+            android:scaleType="fitCenter"
+            android:tint="#AAAAAA"
+            android:layout_marginBottom="20dp"/>
+
+    </LinearLayout>
+    <!-- ✅ RIGHT DASHBOARD AREA -->
+    <RelativeLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:padding="20dp">
+
+        <!-- Header -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="FearLauncher"
+            android:text="MINECRAFT: JAVA EDITION"
             android:textColor="#FFFFFF"
-            android:textSize="36sp"
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.05"
-            android:layout_marginBottom="40dp"/>
+            android:layout_alignParentTop="true"
+            android:layout_marginTop="10dp"/>
 
-        <!-- Go To Versions Button -->
-        <Button
-            android:id="@+id/btn_versions"
-            android:layout_width="240dp"
-            android:layout_height="56dp"
-            android:text="GO TO VERSIONS"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textAllCaps="true"
-            android:background="@drawable/btn_neon_secondary"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="16dp"/>
+        <!-- Main Content Placeholder (Image/News) -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_above="@id/play_container"
+            android:layout_below="@id/header_text"
+            android:layout_marginVertical="20dp"
+            android:background="#1AFFFFFF"/> 
+            <!-- You can add an ImageView here later for news banner -->
 
-        <!-- Play Last Version Button -->
-        <Button
-            android:id="@+id/btn_play"
-            android:layout_width="240dp"
-            android:layout_height="56dp"
-            android:text="PLAY LAST VERSION"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textAllCaps="true"
-            android:background="@drawable/btn_neon_primary"
-            android:textColor="#000000"/>
+        <!-- Bottom Play Area -->
+        <LinearLayout
+            android:id="@+id/play_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:orientation="vertical"
+            android:gravity="center">
 
-    </LinearLayout>
+            <TextView
+                android:id="@+id/tv_version_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Latest Release: 1.21.1"
+                android:textColor="#AAAAAA"
+                android:layout_marginBottom="10dp"/>
 
-</RelativeLayout>
+            <Button
+                android:id="@+id/btn_play_big"
+                android:layout_width="300dp"
+                android:layout_height="60dp"                android:text="PLAY"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_play_epic"
+                android:elevation="8dp"/>
+                
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ready to launch"
+                android:textColor="#4CAF50"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
+
+    </RelativeLayout>
+
+</LinearLayout>
