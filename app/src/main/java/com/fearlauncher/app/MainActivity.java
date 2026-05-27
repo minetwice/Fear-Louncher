@@ -7,7 +7,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.fearlauncher.app.manager.LaunchManager;
 import com.fearlauncher.app.manager.VersionManager;
-import com.fearlauncher.app.service.JreInstallService; // Ensure this import exists
+import com.fearlauncher.app.service.JreInstallService;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -22,46 +23,42 @@ public class MainActivity extends AppCompatActivity {
         versionManager = new VersionManager(this);
         launchManager = new LaunchManager(this);
 
-        Button versionsButton = findViewById(R.id.versions_button);
-        Button playButton = findViewById(R.id.play_button);
+        Button btnVersions = findViewById(R.id.btn_versions);
+        Button btnPlay = findViewById(R.id.btn_play);
 
-        // Go to Versions Screen
-        if (versionsButton != null) {
-            versionsButton.setOnClickListener(v -> {
-                startActivity(new Intent(this, VersionsActivity.class));
+        // Handle Versions Button
+        if (btnVersions != null) {
+            btnVersions.setOnClickListener(v -> {
+                try {
+                    startActivity(new Intent(this, VersionsActivity.class));
+                } catch (Exception e) {
+                    Toast.makeText(this, "Error opening versions", Toast.LENGTH_SHORT).show();
+                }
             });
         }
 
-        // Play Game Logic
-        if (playButton != null) {
-            playButton.setOnClickListener(v -> attemptLaunch());
+        // Handle Play Button
+        if (btnPlay != null) {
+            btnPlay.setOnClickListener(v -> attemptLaunch());
         }
     }
 
     private void attemptLaunch() {
-        String installedVersion = getFirstInstalledVersion();
+        List<String> installed = versionManager.getInstalledVersions();
         
-        if (installedVersion == null) {
-            Toast.makeText(this, "No version installed! Go to Versions.", Toast.LENGTH_SHORT).show();
+        if (installed.isEmpty()) {
+            Toast.makeText(this, "No version installed! Go to Versions.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        launchGame(installedVersion);
-    }
-
-    private String getFirstInstalledVersion() {
-        java.util.List<String> versions = versionManager.getInstalledVersions();
-        if (!versions.isEmpty()) {
-            return versions.get(0); // Return first found version
-        }
-        return null;
+        String lastVersion = installed.get(0); // Simple logic: take first found
+        launchGame(lastVersion);
     }
 
     private void launchGame(String versionId) {
         try {
             String javaPath = launchManager.getJavaPath();
             
-            // Start Game
             launchManager.launchGame(versionId, "Player", "0", "0", new LaunchManager.LaunchListener() {
                 public void onLog(String l) {}
                 public void onJREProgress(int p) {}
@@ -79,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
             // JRE Missing? Start Service
             new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Java Missing")
-                .setMessage("Install Java Runtime?")
+                .setMessage("Install Java Runtime to play?")
                 .setPositiveButton("Yes", (d,w) -> startJreService())
                 .setNegativeButton("No", null)
                 .show();
@@ -87,12 +84,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startJreService() {
-        Intent i = new Intent(this, JreInstallService.class);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(i);
-        } else {
-            startService(i);
+        try {
+            Intent i = new Intent(this, JreInstallService.class);
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(i);
+            } else {
+                startService(i);
+            }
+            Toast.makeText(this, "Installing Java...", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Failed to start service", Toast.LENGTH_SHORT).show();
         }
-        Toast.makeText(this, "Installing Java...", Toast.LENGTH_SHORT).show();
     }
 }
