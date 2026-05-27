@@ -1,64 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
-    app:cardCornerRadius="16dp"
-    app:cardBackgroundColor="#1AFFFFFF"
-    app:cardElevation="4dp">
+    android:padding="16dp"
+    android:background="@color/colorBackground">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <!-- Instance Icon -->
+    <ImageView
+        android:id="@+id/instance_icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_minecraft"
+        android:contentDescription="@string/app_name"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Instance Name -->
+    <TextView
+        android:id="@+id/instance_name"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical">
+        android:layout_marginStart="16dp"
+        android:text="@string/instance_name"
+        android:textColor="@color/text"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/instance_icon"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Minecraft Icon -->
-        <ImageView
-            android:id="@+id/iconVersion"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@mipmap/ic_launcher"
-            android:scaleType="centerInside"
-            android:background="@drawable/btn_glass"
-            android:padding="8dp"/>
+    <!-- Instance Version -->
+    <TextView
+        android:id="@+id/instance_version"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:text="1.21.11"
+        android:textColor="@color/colorTextSecondary"
+        android:textSize="14sp"
+        app:layout_constraintStart_toEndOf="@id/instance_icon"
+        app:layout_constraintTop_toBottomOf="@id/instance_name" />
 
-        <!-- Info -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginStart="12dp">
+    <!-- Play Button -->
+    <Button
+        android:id="@+id/play_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="@string/play"
+        android:textColor="@color/white"
+        android:background="@drawable/btn_glass"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-            <TextView
-                android:id="@+id/versionName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="1.20.4"
-                android:textColor="@color/text"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
+    <!-- Settings Button -->
+    <ImageButton
+        android:id="@+id/settings_button"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="8dp"
+        android:src="@drawable/ic_settings"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/settings"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/play_button"
+        app:layout_constraintTop_toTopOf="parent" />
 
-            <TextView
-                android:id="@+id/versionStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Ready to launch"
-                android:textColor="@color/primary"
-                android:textSize="13sp"
-                android:layout_marginTop="2dp"/>
-        </LinearLayout>
+    <!-- Delete Button -->
+    <ImageButton
+        android:id="@+id/delete_button"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/ic_delete"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/delete_instance"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/settings_button"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Action Button -->
-        <com.fearlauncher.app.view.GlassButton
-            android:id="@+id/btnAction"
-            android:layout_width="90dp"
-            android:layout_height="40dp"
-            app:label="▶ Launch"
-            app:thin="true"
-            android:stateListAnimator="@animator/btn_bubble"/>
-    </LinearLayout>
-</androidx.cardview.widget.CardView>
+</androidx.constraintlayout.widget.ConstraintLayout>
