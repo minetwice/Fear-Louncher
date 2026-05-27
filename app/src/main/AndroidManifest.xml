@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Required Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
@@ -22,7 +21,6 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
-        <!-- Main Activity (Portrait) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -34,28 +32,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Game Activity (Landscape) -->
-        <activity
-            android:name=".GameActivity"
-            android:exported="false"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="sensorLandscape" />
-
-        <!-- Version Selector Activity -->
-        <activity
-            android:name=".VersionSelectorActivity"
-            android:exported="false"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="portrait" />
-
-        <!-- Settings Activity -->
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="portrait" />
-
-        <!-- JRE Install Service -->
         <service
             android:name=".service.JreInstallService"
             android:exported="false"
