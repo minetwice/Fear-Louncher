@@ -4,20 +4,20 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/bg_gradient">
+    android:background="@drawable/bg_epic_gradient">
 
-    <!-- ✅ HEADER -->
+    <!-- ✅ EPIC HEADER -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:padding="20dp">
 
         <ImageButton
             android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_neon_secondary"
             app:tint="@color/white"
             android:contentDescription="Back"/>
 
@@ -25,34 +25,37 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="Versions Library"
+            android:text="LIBRARY"
             android:textColor="@color/white"
-            android:textSize="20sp"
-            android:textStyle="bold"/>
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"/>
             
         <ImageButton
             android:id="@+id/btnRefresh"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_alignParentEnd="true"
             android:src="@android:drawable/stat_notify_sync_noanim"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_neon_secondary"
             app:tint="@color/white"
             android:contentDescription="Refresh"/>
     </RelativeLayout>
 
-    <!-- ✅ TABS (Release, Snapshot, etc.) -->
+    <!-- ✅ MODERN TABS -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
-        app:tabTextColor="#B3FFFFFF"
-        app:tabSelectedTextColor="@color/primary"
-        app:tabIndicatorColor="@color/primary"
-        app:tabMode="scrollable"/>
+        app:tabTextColor="#80FFFFFF"
+        app:tabSelectedTextColor="#00ADB5"
+        app:tabIndicatorColor="#00ADB5"
+        app:tabIndicatorHeight="3dp"
+        app:tabMode="scrollable"
+        app:tabGravity="center"/>
 
-    <!-- ✅ VERSION LIST (ViewPager) -->
+    <!-- ✅ VERSION LIST -->
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewPager"
         android:layout_width="match_parent"
