@@ -1,53 +1,34 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android' // If using Kotlin
 }
 
 android {
-    namespace 'com.fearlauncher.app'
-    compileSdk 34
+    namespace 'com.fearlauncher.app' // Package name goes here
+    compileSdk 33 // Use 33 instead of 34 for now
 
     defaultConfig {
         applicationId "com.fearlauncher.app"
         minSdk 21
-        targetSdk 34
+        targetSdk 33 // Match compileSdk
         versionCode 1
         versionName "1.0.0"
-
-        vectorDrawables {
-            useSupportLibrary true
-        }
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     buildFeatures {
-        viewBinding true
+        viewBinding true // Enable view binding
     }
+
+    // ... rest of your config ...
 }
 
 dependencies {
-    // Core
+    // Use these specific versions
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.databinding:viewbinding:8.1.0'
+
+    // Other dependencies
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.recyclerview:recyclerview:1.3.1'
-    implementation 'androidx.cardview:cardview:1.0.0'
-
-    // File operations
-    implementation 'commons-io:commons-io:2.11.0'
-
-    // Networking
-    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
-
-    // JSON
-    implementation 'com.google.code.gson:gson:2.10.1'
 }
