@@ -2,111 +2,97 @@ package com.fearlauncher.app;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.MenuItem;
-import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.fearlauncher.app.manager.LaunchManager;
+import com.fearlauncher.app.manager.VersionManager;
+import com.fearlauncher.app.service.JreInstallService; // Ensure this import exists
 
 public class MainActivity extends AppCompatActivity {
+
+    private LaunchManager launchManager;
+    private VersionManager versionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Setup Toolbar
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setTitle(R.string.app_name);
+        versionManager = new VersionManager(this);
+        launchManager = new LaunchManager(this);
 
-        // Setup Bottom Navigation
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        bottomNav.setOnNavigationItemSelectedListener(navListener);
-
-        // Setup Buttons
-        Button playButton = findViewById(R.id.play_button);
         Button versionsButton = findViewById(R.id.versions_button);
-        Button settingsButton = findViewById(R.id.settings_button);
-        Button installJreButton = findViewById(R.id.install_jre_button);
+        Button playButton = findViewById(R.id.play_button);
 
-        playButton.setOnClickListener(v -> launchGame());
-        versionsButton.setOnClickListener(v -> startActivity(new Intent(this, VersionSelectorActivity.class)));
-        settingsButton.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
-        installJreButton.setOnClickListener(v -> installJRE());
-    }
+        // Go to Versions Screen
+        if (versionsButton != null) {
+            versionsButton.setOnClickListener(v -> {
+                startActivity(new Intent(this, VersionsActivity.class));
+            });
+        }
 
-    private BottomNavigationView.OnNavigationItemSelectedListener navListener =
-        new BottomNavigationView.OnNavigationItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(MenuItem item) {
-                switch (item.getItemId()) {
-                    case R.id.nav_home:
-                        // Already in home
-                        return true;
-                    case R.id.nav_versions:
-                        startActivity(new Intent(MainActivity.this, VersionSelectorActivity.class));
-                        return true;
-                    case R.id.nav_settings:
-                        startActivity(new Intent(MainActivity.this, SettingsActivity.class));
-                        return true;
-                }
-                return false;
-            }
-        };
-
-    private void launchGame() {
-        // Check if JRE is installed
-        try {
-            new LaunchManager(this).getJavaPath();
-            // Check if version is installed
-            if (new VersionManager(this).isVersionInstalled("1.21.11")) {
-                Toast.makeText(this, R.string.launching, Toast.LENGTH_SHORT).show();
-                new LaunchManager(this).launchGame(
-                    "1.21.11",
-                    "PlayerName", // Replace with actual username
-                    "uuid",       // Replace with actual UUID
-                    "token",      // Replace with actual token
-                    new LaunchManager.LaunchListener() {
-                        @Override
-                        public void onLog(String line) {
-                            // Handle logs
-                        }
-
-                        @Override
-                        public void onLaunchSuccess() {
-                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Game Launched!", Toast.LENGTH_SHORT).show());
-                        }
-
-                        @Override
-                        public void onLaunchError(String message) {
-                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Error: " + message, Toast.LENGTH_LONG).show());
-                        }
-
-                        @Override
-                        public void onExit(int exitCode) {
-                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Game Exited", Toast.LENGTH_SHORT).show());
-                        }
-
-                        @Override
-                        public void onJREProgress(int percent) {
-                            // Handle progress
-                        }
-                    }
-                );
-            } else {
-                Toast.makeText(this, "Please install a version first", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "JRE not installed. Please install JRE first.", Toast.LENGTH_SHORT).show();
+        // Play Game Logic
+        if (playButton != null) {
+            playButton.setOnClickListener(v -> attemptLaunch());
         }
     }
 
-    private void installJRE() {
-        Intent intent = new Intent(this, JreInstallService.class);
-        startService(intent);
-        Toast.makeText(this, "Installing JRE...", Toast.LENGTH_SHORT).show();
+    private void attemptLaunch() {
+        String installedVersion = getFirstInstalledVersion();
+        
+        if (installedVersion == null) {
+            Toast.makeText(this, "No version installed! Go to Versions.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        launchGame(installedVersion);
+    }
+
+    private String getFirstInstalledVersion() {
+        java.util.List<String> versions = versionManager.getInstalledVersions();
+        if (!versions.isEmpty()) {
+            return versions.get(0); // Return first found version
+        }
+        return null;
+    }
+
+    private void launchGame(String versionId) {
+        try {
+            String javaPath = launchManager.getJavaPath();
+            
+            // Start Game
+            launchManager.launchGame(versionId, "Player", "0", "0", new LaunchManager.LaunchListener() {
+                public void onLog(String l) {}
+                public void onJREProgress(int p) {}
+                public void onLaunchSuccess() { 
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Launched!", Toast.LENGTH_SHORT).show()); 
+                }
+                public void onLaunchError(String m) { 
+                    runOnUiThread(() -> new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Error").setMessage(m).setPositiveButton("OK", null).show()); 
+                }
+                public void onExit(int c) {}
+            });
+
+        } catch (Exception e) {
+            // JRE Missing? Start Service
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Java Missing")
+                .setMessage("Install Java Runtime?")
+                .setPositiveButton("Yes", (d,w) -> startJreService())
+                .setNegativeButton("No", null)
+                .show();
+        }
+    }
+
+    private void startJreService() {
+        Intent i = new Intent(this, JreInstallService.class);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(i);
+        } else {
+            startService(i);
+        }
+        Toast.makeText(this, "Installing Java...", Toast.LENGTH_SHORT).show();
     }
 }
