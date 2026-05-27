@@ -1,60 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp"
-    app:cardBackgroundColor="@color/colorCardBackground">
+    android:backgroundTint="@color/colorCardBackground"
+    android:elevation="4dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
 
-        <!-- Version name -->
-        <TextView
-            android:id="@+id/version_name"
-            android:layout_width="match_parent"
+        <!-- ✅ Icon (Required by R.id.iconVersion) -->
+        <ImageView
+            android:id="@+id/iconVersion"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_launcher_foreground" 
+            android:contentDescription="Version Icon"/>
+
+        <!-- ✅ Name & Status Container -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Minecraft 1.21.11"
-            android:textColor="@color/colorTextPrimary"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
 
-        <!-- Version details -->
-        <TextView
-            android:id="@+id/version_details"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Release version • 1.2GB"
-            android:textColor="@color/colorTextSecondary"
-            android:textSize="14sp" />
+            <!-- ✅ Version Name (Required by R.id.versionName) -->
+            <TextView
+                android:id="@+id/versionName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1.21.11"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"/>
 
-        <!-- Play button -->
+            <!-- ✅ Version Status (Required by R.id.versionStatus) -->
+            <TextView
+                android:id="@+id/versionStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Installed"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"/>
+        </LinearLayout>
+
+        <!-- ✅ Action Button (Required by R.id.btnAction) -->
         <Button
-            android:id="@+id/play_button"
+            android:id="@+id/btnAction"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/play"
+            android:text="Play"
+            android:background="@drawable/btn_glass"
             android:textColor="@color/white"
-            android:background="@drawable/btn_bubble"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp" />
+            android:paddingHorizontal="16dp"/>
 
-        <!-- Additional info -->
-        <TextView
-            android:id="@+id/version_info"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/some_string"
-            android:textColor="@color/colorTextSecondary"
-            android:textSize="12sp" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>
