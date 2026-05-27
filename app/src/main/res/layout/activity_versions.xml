@@ -1,74 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@drawable/bg_gradient">
 
-    <!-- ✅ HEADER BAR -->
-    <LinearLayout
-        android:id="@+id/headerBar"
+    <!-- ✅ HEADER -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical"
-        android:background="#80000000">
+        android:padding="16dp">
 
-        <Button
+        <ImageButton
             android:id="@+id/btnBack"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="← Back"
-            android:textColor="@color/white"
-            android:background="@drawable/btn_glass"
-            android:paddingHorizontal="12dp" />
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@color/white"
+            android:contentDescription="Back"/>
 
         <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Minecraft Versions"
-            android:textColor="@color/white"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-
-        <Button
-            android:id="@+id/btnRefresh"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🔄 Refresh"
+            android:layout_centerInParent="true"
+            android:text="Versions Library"
             android:textColor="@color/white"
-            android:background="@drawable/btn_glass"
-            android:paddingHorizontal="12dp" />
-    </LinearLayout>
+            android:textSize="20sp"
+            android:textStyle="bold"/>
+            
+        <ImageButton
+            android:id="@+id/btnRefresh"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentEnd="true"
+            android:src="@android:drawable/stat_notify_sync_noanim"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@color/white"
+            android:contentDescription="Refresh"/>
+    </RelativeLayout>
 
-    <!-- ✅ SWIPE REFRESH LAYOUT WITH RECYCLER VIEW -->
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeRefresh"
+    <!-- ✅ TABS (Release, Snapshot, etc.) -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/headerBar">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="8dp"
-            android:clipToPadding="false" />
-
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
-    <!-- ✅ EMPTY STATE TEXT -->
-    <TextView
-        android:id="@+id/emptyText"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:text="No Versions Installed\nDownload one from the menu!"
-        android:textColor="@color/text_secondary"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:visibility="gone" />
+        android:background="@android:color/transparent"
+        app:tabTextColor="#B3FFFFFF"
+        app:tabSelectedTextColor="@color/primary"
+        app:tabIndicatorColor="@color/primary"
+        app:tabMode="scrollable"/>
 
-</RelativeLayout>
+    <!-- ✅ VERSION LIST (ViewPager) -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+</LinearLayout>
