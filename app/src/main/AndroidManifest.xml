@@ -24,12 +24,10 @@
 
         <!-- Your activities and services -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:configChanges="orientation|keyboardHidden|screenSize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+    android:name=".VersionsActivity"
+    android:exported="false"
+    android:theme="@style/Theme.FearLouncher.Epic"
+    android:parentActivityName=".MainActivity"/>
             </intent-filter>
         </activity>
 
