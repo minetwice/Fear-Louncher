@@ -14,8 +14,12 @@
     <string name="instance_name">Instance Name</string>
     <string name="launching">Launching Minecraft...</string>
     
+    <!-- ✅ VERSION SELECTOR STRINGS (Fixes Errors) -->
+    <string name="select_version">Select Version</string>
+    <string name="no_versions">No versions installed.</string>
+
     <!-- ✅ GENERIC / FALLBACK STRINGS -->
-    <string name="some_string">Placeholder</string> <!-- For item_version.xml error -->
+    <string name="some_string">Placeholder</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="yes">Yes</string>
