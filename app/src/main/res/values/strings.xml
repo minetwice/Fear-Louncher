@@ -1,8 +1,11 @@
 <resources>
+    <!-- Existing strings -->
     <string name="app_name">Fear-Louncher</string>
+
+    <!-- Add these missing strings -->
+    <string name="instance_name">My Instance</string>
+    <string name="delete_instance">Delete</string>
     <string name="home">Home</string>
     <string name="versions">Versions</string>
     <string name="settings">Settings</string>
-    <string name="install_jre">Install JRE</string>
-    <string name="play">Play</string>
 </resources>
