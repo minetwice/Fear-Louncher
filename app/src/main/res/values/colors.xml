@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ✅ STANDARD ANDROID THEME COLORS (Required by Material Design) -->
-    <color name="colorPrimary">#FF00ADB5</color>       <!-- Cyan Primary -->
-    <color name="colorPrimaryDark">#FF007B83</color>   <!-- Darker Cyan -->
-    <color name="colorAccent">#FFFF4081</color>        <!-- Pink Accent -->
-    <color name="colorTextPrimary">#FFFFFFFF</color>   <!-- White Text -->
+    <!-- ✅ STANDARD ANDROID THEME COLORS -->
+    <color name="colorPrimary">#FF00ADB5</color>
+    <color name="colorPrimaryDark">#FF007B83</color>
+    <color name="colorAccent">#FFFF4081</color>
+    <color name="colorTextPrimary">#FFFFFFFF</color>
+
+    <!-- ✅ BACKGROUND & CARD COLORS (Fixes layout errors) -->
+    <color name="colorBackground">#FF121212</color>       <!-- Dark Background -->
+    <color name="colorCardBackground">#FF1E1E1E</color>   <!-- Card Background -->
+    
+    <!-- ✅ BUTTON COLORS (Fixes btn_bubble.xml errors) -->
+    <color name="btn_normal">#80FFFFFF</color>            <!-- Semi-transparent White -->
+    <color name="btn_pressed">#40FFFFFF</color>           <!-- More Transparent on Press -->
+    <color name="btn_selected">#FF0F3460</color>          <!-- Selected State -->
+
+    <!-- ✅ TEXT COLORS -->
+    <color name="colorTextSecondary">#B3FFFFFF</color>    <!-- Slightly Transparent White -->
+    <color name="text">#FFFFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
 
     <!-- ✅ CUSTOM FEAR LAUNCHER COLORS -->
     <color name="bg_start">#FF1A1A2E</color>
     <color name="bg_end">#FF16213E</color>
-    
     <color name="glass_base">#80FFFFFF</color>
     <color name="glass_pressed">#40FFFFFF</color>
     <color name="glass_border">#FFFFFFFF</color>
-    <color name="btn_selected">#FF0F3460</color>
     <color name="primary">#FF00ADB5</color>
-    
-    <color name="text">#FFFFFFFF</color>
-    <color name="text_secondary">#B3FFFFFF</color>
 
     <!-- ✅ FALLBACK COLORS -->
     <color name="black">#FF000000</color>
