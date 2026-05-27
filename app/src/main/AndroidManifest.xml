@@ -2,39 +2,67 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Your permissions -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- ✅ PERMISSIONS -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
 
     <application
-        android:name=".FearLauncherApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Fear-Louncher"
+        android:label="FearLauncher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme"
+        android:theme="@style/Theme.FearLouncher.Epic"
+        android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"
-        tools:targetApi="31">
+        android:largeHeap="true"
+        tools:targetApi="34">
 
-        <!-- Your activities and services -->
+        <!-- ✅ MAIN ACTIVITY -->
         <activity
-    android:name=".VersionsActivity"
-    android:exported="false"
-    android:theme="@style/Theme.FearLouncher.Epic"
-    android:parentActivityName=".MainActivity"/>
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.FearLouncher.Epic">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <!-- Other components -->
+        <!-- ✅ VERSIONS ACTIVITY -->
+        <activity
+            android:name=".VersionsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FearLouncher.Epic"
+            android:parentActivityName=".MainActivity"/>
+
+        <!-- ✅ SETTINGS ACTIVITY (Optional) -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FearLouncher.Epic"
+            android:parentActivityName=".MainActivity"/>
+
+        <!-- ✅ GAME ACTIVITY (Optional) -->
+        <activity
+            android:name=".GameActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FearLouncher.Epic"
+            android:configChanges="orientation|keyboardHidden|screenSize"/>
+
+        <!-- ✅ JRE INSTALL SERVICE -->
         <service
             android:name=".service.JreInstallService"
+            android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync"/>
+
     </application>
 </manifest>
