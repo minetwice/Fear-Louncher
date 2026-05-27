@@ -2,9 +2,8 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient">
+    android:background="@drawable/bg_epic_gradient">
 
-    <!-- Example Simple Layout for Main Activity -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -12,32 +11,42 @@
         android:orientation="vertical"
         android:gravity="center">
 
+        <!-- Title -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="FearLauncher"
-            android:textColor="@color/white"
-            android:textSize="32sp"
+            android:textColor="#FFFFFF"
+            android:textSize="36sp"
             android:textStyle="bold"
-            android:layout_marginBottom="32dp"/>
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="40dp"/>
 
-        <!-- This ID is required by MainActivity.java line 31 -->
+        <!-- Go To Versions Button -->
         <Button
-            android:id="@+id/versions_button"
-            android:layout_width="200dp"
-            android:layout_height="wrap_content"
-            android:text="Go to Versions"
-            android:background="@drawable/btn_glass"
-            android:textColor="@color/white"
+            android:id="@+id/btn_versions"
+            android:layout_width="240dp"
+            android:layout_height="56dp"
+            android:text="GO TO VERSIONS"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:background="@drawable/btn_neon_secondary"
+            android:textColor="#FFFFFF"
             android:layout_marginBottom="16dp"/>
 
+        <!-- Play Last Version Button -->
         <Button
-            android:id="@+id/play_button"
-            android:layout_width="200dp"
-            android:layout_height="wrap_content"
-            android:text="Play Last Version"
-            android:background="@drawable/btn_glass"
-            android:textColor="@color/white"/>
+            android:id="@+id/btn_play"
+            android:layout_width="240dp"
+            android:layout_height="56dp"
+            android:text="PLAY LAST VERSION"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:background="@drawable/btn_neon_primary"
+            android:textColor="#000000"/>
 
     </LinearLayout>
 
