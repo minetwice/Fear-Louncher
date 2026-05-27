@@ -3,38 +3,23 @@
     <!-- ✅ APP NAME -->
     <string name="app_name">FearLauncher</string>
 
-    <!-- ✅ LAUNCHER STATUS MESSAGES -->
+    <!-- ✅ NAVIGATION & MENU STRINGS -->
+    <string name="home">Home</string>
+    <string name="versions">Versions</string>
+    <string name="settings">Settings</string>
+
+    <!-- ✅ GAME & INSTANCE STRINGS -->
+    <string name="play">Play</string>
+    <string name="delete_instance">Delete Instance</string>
+    <string name="instance_name">Instance Name</string>
     <string name="launching">Launching Minecraft...</string>
-    <string name="installing_java">Installing Java Runtime...</string>
-    <string name="java_installed">Java Runtime Installed Successfully!</string>
-    <string name="java_failed">Failed to install Java Runtime.</string>
     
-    <!-- ✅ VERSION MANAGER STATUS -->
-    <string name="downloading_manifest">Downloading Manifest...</string>
-    <string name="downloading_jar">Downloading Game Jar...</string>
-    <string name="downloading_libs">Downloading Libraries...</string>
-    <string name="downloading_assets">Downloading Assets...</string>
-    <string name="download_complete">Download Complete!</string>
-    <string name="download_failed">Download Failed.</string>
-    
-    <!-- ✅ UI BUTTONS & LABELS -->
-    <string name="btn_play">Play</string>
-    <string name="btn_versions">Versions</string>
-    <string name="btn_settings">Settings</string>
-    <string name="btn_back">Back</string>
-    <string name="btn_refresh">Refresh</string>
-    <string name="btn_install">Install</string>
-    <string name="btn_delete">Delete</string>
-    
-    <!-- ✅ ERROR MESSAGES -->
-    <string name="error_no_version">No Minecraft Version Installed.</string>
-    <string name="error_no_java">Java Runtime Missing.</string>
-    <string name="error_network">Network Error. Check Connection.</string>
-    <string name="error_storage">Storage Permission Denied.</string>
-    
-    <!-- ✅ GENERIC -->
+    <!-- ✅ GENERIC / FALLBACK STRINGS -->
+    <string name="some_string">Placeholder</string> <!-- For item_version.xml error -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <string name="error">Error</string>
+    <string name="success">Success</string>
 </resources>
