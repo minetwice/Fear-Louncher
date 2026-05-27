@@ -2,13 +2,13 @@ package com.fearlauncher.app;
 
 import android.os.Bundle;
 import android.util.Log;
-import com.fearlauncher.app.adapter.VersionPagerAdapter;
 import android.widget.ImageButton;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.fearlauncher.app.adapter.VersionPagerAdapter;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -36,20 +36,14 @@ public class VersionsActivity extends AppCompatActivity {
         ImageButton btnBack = findViewById(R.id.btnBack);
         ImageButton btnRefresh = findViewById(R.id.btnRefresh);
 
-        btnBack.setOnClickListener(v -> finish());
-        btnRefresh.setOnClickListener(v -> fetchVersions());
+        if (btnBack != null) btnBack.setOnClickListener(v -> finish());
+        if (btnRefresh != null) btnRefresh.setOnClickListener(v -> fetchVersions());
 
-        // Setup Tabs
-        setupTabs();
-        
-        // Initial Fetch
         fetchVersions();
     }
 
-    private void setupTabs() {
-        // We will attach adapter after data is fetched
-    }
     private void fetchVersions() {
+        // Show loading state if needed
         new Thread(() -> {
             try {
                 OkHttpClient client = new OkHttpClient();
@@ -58,7 +52,7 @@ public class VersionsActivity extends AppCompatActivity {
                         .build();
                 
                 Response response = client.newCall(request).execute();
-                if (response.isSuccessful()) {
+                if (response.isSuccessful() && response.body() != null) {
                     JSONObject json = new JSONObject(response.body().string());
                     JSONArray versions = json.getJSONArray("versions");
                     
@@ -71,33 +65,34 @@ public class VersionsActivity extends AppCompatActivity {
                         String id = v.getString("id");
                         String type = v.getString("type");
 
-                        if ("release".equals(type)) {
-                            releases.add(id);
-                        } else if ("snapshot".equals(type)) {
-                            snapshots.add(id);
-                        } else {
-                            others.add(id); // Alpha, Beta, Pre-release
-                        }
+                        if ("release".equals(type)) releases.add(id);
+                        else if ("snapshot".equals(type)) snapshots.add(id);
+                        else others.add(id);
                     }
                     
-                    runOnUiThread(() -> updateUI());
+                    runOnUiThread(this::updateUI);
+                } else {
+                    runOnUiThread(() -> Toast.makeText(this, "Failed to fetch versions", Toast.LENGTH_SHORT).show());
                 }
             } catch (Exception e) {
-                Log.e("Versions", "Error fetching versions", e);
+                Log.e("Versions", "Error", e);
+                runOnUiThread(() -> Toast.makeText(this, "Network Error", Toast.LENGTH_SHORT).show());
             }
         }).start();
     }
 
     private void updateUI() {
-        // Create Adapter for ViewPager2
+        if (isFinishing()) return;
+
         VersionPagerAdapter adapter = new VersionPagerAdapter(this, releases, snapshots, others);
         viewPager.setAdapter(adapter);
 
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             switch (position) {
-                case 0: tab.setText("Releases"); break;
-                case 1: tab.setText("Snapshots"); break;
-                case 2: tab.setText("Old/Beta"); break;            }
+                case 0: tab.setText("RELEASES"); break;
+                case 1: tab.setText("SNAPSHOTS"); break;
+                case 2: tab.setText("LEGACY"); break;
+            }
         }).attach();
     }
 }
