@@ -1,87 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/colorBackground"
-    tools:context=".MainActivity">
+    android:background="@drawable/bg_gradient">
 
-    <androidx.appcompat.widget.LinearLayoutCompat
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+    <!-- Example Simple Layout for Main Activity -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:gravity="center">
 
-        <!-- Toolbar -->
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            android:elevation="4dp"
-            android:theme="@style/AppTheme.AppBarOverlay">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/app_name"
-                android:textColor="@color/white"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-        </androidx.appcompat.widget.Toolbar>
-
-        <!-- Main content -->
-        <androidx.core.widget.NestedScrollView
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:fillViewport="true">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingTop="16dp">
-
-                <!-- JRE Install Button -->
-                <Button
-                    android:id="@+id/install_jre_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    android:text="@string/install_jre"
-                    android:textColor="@color/white"
-                    android:background="@drawable/btn_bubble" />
-
-                <!-- Versions Section -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/versions"
-                    android:textColor="@color/colorTextPrimary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <!-- Versions RecyclerView -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/versions_recyclerview"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:clipToPadding="false"
-                    android:paddingBottom="16dp" />
-            </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
-
-        <!-- Bottom Navigation -->
-        <com.google.android.material.bottomnavigation.BottomNavigationView
-            android:id="@+id/bottom_navigation"
-            android:layout_width="match_parent"
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:itemIconTint="@drawable/bottom_nav_colors"
-            app:itemTextColor="@drawable/bottom_nav_colors"
-            app:menu="@menu/bottom_nav_menu" />
-    </androidx.appcompat.widget.LinearLayoutCompat>
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+            android:text="FearLauncher"
+            android:textColor="@color/white"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="32dp"/>
+
+        <!-- This ID is required by MainActivity.java line 31 -->
+        <Button
+            android:id="@+id/versions_button"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Go to Versions"
+            android:background="@drawable/btn_glass"
+            android:textColor="@color/white"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/play_button"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Play Last Version"
+            android:background="@drawable/btn_glass"
+            android:textColor="@color/white"/>
+
+    </LinearLayout>
+
+</RelativeLayout>
