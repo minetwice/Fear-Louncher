@@ -24,30 +24,17 @@ public class VersionManager {
     private final Context ctx;
     private final OkHttpClient http;
     private File baseDir;
-    
     private final ExecutorService downloadExecutor = Executors.newFixedThreadPool(8);
 
-    public interface Listener {
-        void onStatus(String msg);
-        void onProgress(int percent, String status);
-        void onComplete(File instanceDir);
-        void onError(String e);
-    }
-
-    public interface FirstLaunchListener {
-        void onProgress(int percent, String status, long speed);
-        void onComplete();
-        void onError(String e);
-    }
+    public interface Listener { void onStatus(String msg); void onProgress(int percent, String status); void onComplete(File instanceDir); void onError(String e); }
+    public interface FirstLaunchListener { void onProgress(int percent, String status, long speed); void onComplete(); void onError(String e); }
 
     public VersionManager(Context context) {
         this.ctx = context.getApplicationContext();
-        this.http = new OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .build();
+        this.http = new OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build();
         setupStorage();
     }
+
     private void setupStorage() {
         baseDir = ctx.getFilesDir();
         new File(baseDir, "assets/objects").mkdirs();
@@ -58,12 +45,9 @@ public class VersionManager {
         new File(baseDir, "natives").mkdirs();
     }
 
-    // ... [Previous downloadVersion, downloadAssetsParallel, downloadFirstLaunchFiles methods remain SAME as before] ...
-    // (Copy the logic from previous response for these methods to save space, they are correct)
-
     public void downloadVersion(String versionId, String jsonUrl, Listener listener) {
-        // ... (Use the code provided in previous steps) ...
-         new Thread(() -> {
+        // ... (Use previous logic for downloading manifest, jar, libs, assets) ...
+        // Ensure you DO NOT redefine helper methods here. Use the ones at the bottom.         new Thread(() -> {
             try {
                 listener.onStatus("📦 Creating instance...");
                 File instanceDir = new File(baseDir, "instances/" + versionId);
@@ -96,7 +80,8 @@ public class VersionManager {
                         if (!lib.has("downloads")) continue;
                         JsonObject dl = lib.getAsJsonObject("downloads").getAsJsonObject("artifact");
                         if (dl == null) continue;
-                        String url = dl.get("url").getAsString();                        String path = dl.get("path").getAsString();
+                        String url = dl.get("url").getAsString();
+                        String path = dl.get("path").getAsString();
                         File dest = new File(librariesDir, path);
                         if (!dest.exists()) {
                             dest.getParentFile().mkdirs();
@@ -111,8 +96,7 @@ public class VersionManager {
                     String assetId = assetsObj.get("id").getAsString();
                     String assetUrl = assetsObj.get("url").getAsString();
                     File indexesDir = new File(baseDir, "assets/indexes");
-                    if (!indexesDir.exists()) indexesDir.mkdirs();
-                    File indexFile = new File(indexesDir, assetId + ".json");
+                    if (!indexesDir.exists()) indexesDir.mkdirs();                    File indexFile = new File(indexesDir, assetId + ".json");
                     downloadFile(assetUrl, indexFile, listener, 55, 60, "index");
                     downloadAssetsParallel(indexFile, listener);
                 }
@@ -131,7 +115,6 @@ public class VersionManager {
     }
 
     private void downloadAssetsParallel(File indexFile, Listener listener) throws Exception {
-        // ... (Use previous code) ...
          if (!indexFile.exists()) return;
         Gson gson = new Gson();
         JsonObject index = gson.fromJson(new FileReader(indexFile), JsonObject.class);
@@ -145,7 +128,8 @@ public class VersionManager {
         listener.onStatus("📥 Assets: Checking cache...");
         for (Map.Entry<String, JsonElement> entry : objects.entrySet()) {
             JsonObject obj = entry.getValue().getAsJsonObject();
-            String hash = obj.get("hash").getAsString();            String prefix = hash.substring(0, 2);
+            String hash = obj.get("hash").getAsString();
+            String prefix = hash.substring(0, 2);
             File assetFile = new File(objectsDir, prefix + "/" + hash);
             if (assetFile.exists() && assetFile.length() > 0) {
                 skipped.incrementAndGet();
@@ -161,8 +145,7 @@ public class VersionManager {
                     dest.getParentFile().mkdirs();
                     downloadFileQuiet(assetUrl, dest);
                     downloaded.incrementAndGet();
-                } catch (Exception e) { Log.w(TAG, "Asset fail: " + fHash); }
-                finally { latch.countDown(); }
+                } catch (Exception e) { Log.w(TAG, "Asset fail: " + fHash); }                finally { latch.countDown(); }
             });
         }
         latch.await(10, TimeUnit.MINUTES);
@@ -171,7 +154,6 @@ public class VersionManager {
     }
 
     public void downloadFirstLaunchFiles(String versionId, FirstLaunchListener listener) {
-        // ... (Use previous code) ...
         new Thread(() -> {
             try {
                 File versionDir = new File(baseDir, "versions/" + versionId);
@@ -194,13 +176,13 @@ public class VersionManager {
                         JsonObject classifiers = dl.getAsJsonObject("classifiers");
                         if (classifiers == null) continue;
                         String target = classifiers.has("natives-linux") ? "natives-linux" : classifiers.has("natives-windows") ? "natives-windows" : null;
-                        if (target != null && classifiers.has(target)) {                            JsonObject nativeDl = classifiers.getAsJsonObject(target);
+                        if (target != null && classifiers.has(target)) {
+                            JsonObject nativeDl = classifiers.getAsJsonObject(target);
                             String url = nativeDl.get("url").getAsString();
                             String path = nativeDl.get("path").getAsString();
                             File dest = new File(nativesDir, new File(path).getName());
                             if (!dest.exists()) {
-                                long start = System.currentTimeMillis();
-                                downloadFileWithSpeed(url, dest, listener, downloaded * 100 / Math.max(1, totalNatives), 90 + (downloaded * 10 / Math.max(1, totalNatives)), "Native: " + (downloaded+1) + "/" + totalNatives, start);
+                                downloadFileWithSpeed(url, dest, listener, downloaded * 100 / Math.max(1, totalNatives), 90 + (downloaded * 10 / Math.max(1, totalNatives)), "Native: " + (downloaded+1) + "/" + totalNatives, System.currentTimeMillis());
                             }
                             downloaded++;
                         }
@@ -212,9 +194,7 @@ public class VersionManager {
         }).start();
     }
 
-    // ✅ NEW METHOD TO FIX COMPILATION ERROR
-    public List<String> getInstalledVersions() {
-        List<String> versions = new ArrayList<>();
+    public List<String> getInstalledVersions() {        List<String> versions = new ArrayList<>();
         File versionsDir = new File(baseDir, "versions");
         if (versionsDir.exists() && versionsDir.isDirectory()) {
             File[] files = versionsDir.listFiles();
@@ -229,26 +209,23 @@ public class VersionManager {
         return versions;
     }
 
-    // Helper Methods (Same as before)
-    private void downloadFileWithSpeed(String url, File dest, FirstLaunchListener listener, int startP, int endP, String status, long startTime) throws Exception { /* ... */ }
-    private void downloadFile(String url, File dest, Listener listener, int startP, int endP, String type) throws Exception { /* ... */ }
-    private void downloadFileQuiet(String url, File dest) throws Exception { /* ... */ }
-    private void createInstanceFolders(File instanceDir) { /* ... */ }
     public boolean isVersionInstalled(String versionId) { return new File(baseDir, "instances/" + versionId + "/.instance").exists(); }
     public boolean isFirstLaunchComplete(String versionId) { return new File(baseDir, "instances/" + versionId + "/.first_launch_complete").exists(); }
     public File getInstanceDir(String versionId) { return new File(baseDir, "instances/" + versionId); }
     public File getBaseDir() { return baseDir; }
-    
-    // Implement helpers briefly to ensure compilation
+
+    // ✅ HELPER METHODS (DEFINED ONLY ONCE AT THE END)
     private void downloadFileWithSpeed(String url, File dest, FirstLaunchListener listener, int startP, int endP, String status, long startTime) throws Exception {
         if (dest.exists() && dest.length() > 0) return;
         Request req = new Request.Builder().url(url).build();
-        Response res = http.newCall(req).execute();        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+        Response res = http.newCall(req).execute();
+        if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
         try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
             byte[] buf = new byte[8192]; int len;
             while ((len = is.read(buf)) != -1) fos.write(buf, 0, len);
         }
     }
+
     private void downloadFile(String url, File dest, Listener listener, int startP, int endP, String type) throws Exception {
         if (dest.exists() && dest.length() > 0) return;
         Request req = new Request.Builder().url(url).build();
@@ -259,17 +236,18 @@ public class VersionManager {
             while ((len = is.read(buf)) != -1) fos.write(buf, 0, len);
         }
     }
+
     private void downloadFileQuiet(String url, File dest) throws Exception {
         if (dest.exists() && dest.length() > 0) return;
         dest.getParentFile().mkdirs();
         Request req = new Request.Builder().url(url).build();
         Response res = http.newCall(req).execute();
         if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
-        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {
-            byte[] buf = new byte[8192]; int len;
+        try (InputStream is = res.body().byteStream(); FileOutputStream fos = new FileOutputStream(dest)) {            byte[] buf = new byte[8192]; int len;
             while ((len = is.read(buf)) != -1) fos.write(buf, 0, len);
         }
     }
+
     private void createInstanceFolders(File instanceDir) {
         String[] folders = {"mods", "resourcepacks", "config", "saves", "screenshots", "shaderpacks", "logs"};
         for (String f : folders) new File(instanceDir, f).mkdirs();
