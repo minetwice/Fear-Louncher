@@ -1,11 +1,38 @@
 <resources>
-    <!-- Existing strings -->
+    <!-- App name -->
     <string name="app_name">Fear-Louncher</string>
 
-    <!-- Add these missing strings -->
+    <!-- Common actions -->
+    <string name="play">Play</string>
+    <string name="settings">Settings</string>
+    <string name="delete">Delete</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+
+    <!-- Instance related -->
     <string name="instance_name">My Instance</string>
-    <string name="delete_instance">Delete</string>
+    <string name="no_instances">No instances available</string>
+    <string name="create_instance">Create Instance</string>
+    <string name="delete_instance">Delete Instance</string>
+    <string name="instance_settings">Instance Settings</string>
+
+    <!-- Navigation -->
     <string name="home">Home</string>
     <string name="versions">Versions</string>
-    <string name="settings">Settings</string>
+
+    <!-- Game related -->
+    <string name="select_version">Select Version</string>
+    <string name="no_versions">No versions installed</string>
+    <string name="installing_jre">Installing JRE...</string>
+    <string name="jre_required">JRE is required to run the game</string>
+    <string name="launching_game">Launching Game...</string>
+    <string name="game_launched">Game Launched!</string>
+    <string name="game_exited">Game Exited</string>
+
+    <!-- Error messages -->
+    <string name="error">Error</string>
+    <string name="error_jre_missing">Java Runtime Missing. Please install it from the Home Screen.</string>
+    <string name="error_version_missing">Minecraft version not installed</string>
+    <string name="error_launch_failed">Failed to launch game</string>
 </resources>
