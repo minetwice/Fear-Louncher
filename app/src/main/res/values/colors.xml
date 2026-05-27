@@ -11,6 +11,9 @@
     <color name="bg_start">#6200EE</color>
     <color name="bg_end">#3700B3</color>
     <color name="colorBackground">#FFFFFF</color>
+    <color name="colorCardBackground">#F5F5F5</color>
+
+    <!-- Glass button colors -->
     <color name="glass_base">#8AFFFFFF</color>
     <color name="glass_shine">#C0FFFFFF</color>
     <color name="glass_border">#40FFFFFF</color>
@@ -30,8 +33,4 @@
 
     <!-- Status bar -->
     <color name="colorStatusBar">#3700B3</color>
-
-    <!-- Error and success colors -->
-    <color name="colorError">#B00020</color>
-    <color name="colorSuccess">#4CAF50</color>
 </resources>
