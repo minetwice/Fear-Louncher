@@ -1,10 +1,10 @@
-package com.fearlauncher.app.adapter; // ✅ CHECK THIS LINE
+package com.fearlauncher.app.adapter;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
-import com.fearlauncher.app.fragment.VersionListFragment; // ✅ Ensure this fragment exists too
+import com.fearlauncher.app.fragment.VersionListFragment;
 import java.util.List;
 
 public class VersionPagerAdapter extends FragmentStateAdapter {
