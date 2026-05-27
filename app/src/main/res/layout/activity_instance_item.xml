@@ -2,7 +2,6 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
@@ -15,7 +14,7 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <!-- Instance Icon -->
+        <!-- Programmatically created Minecraft icon (using vector) -->
         <ImageView
             android:id="@+id/instance_icon"
             android:layout_width="48dp"
@@ -37,7 +36,6 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent">
 
-            <!-- Instance Name -->
             <TextView
                 android:id="@+id/instance_name"
                 android:layout_width="match_parent"
@@ -45,32 +43,18 @@
                 android:text="@string/instance_name"
                 android:textColor="@color/colorTextPrimary"
                 android:textSize="16sp"
-                android:textStyle="bold"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                android:textStyle="bold" />
 
-            <!-- Instance Version -->
             <TextView
                 android:id="@+id/instance_version"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="1.21.11"
                 android:textColor="@color/colorTextSecondary"
-                android:textSize="14sp"
-                android:layout_marginTop="2dp" />
-
-            <!-- Instance Mods Count -->
-            <TextView
-                android:id="@+id/instance_mods"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="0 mods"
-                android:textColor="@color/colorTextSecondary"
-                android:textSize="12sp"
-                android:layout_marginTop="2dp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
-        <!-- Action Buttons -->
+        <!-- Action Buttons (All vector-based) -->
         <LinearLayout
             android:id="@+id/action_buttons"
             android:layout_width="wrap_content"
@@ -81,7 +65,6 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent">
 
-            <!-- Settings Button -->
             <ImageButton
                 android:id="@+id/settings_button"
                 android:layout_width="40dp"
@@ -91,7 +74,6 @@
                 android:contentDescription="@string/settings"
                 android:padding="8dp" />
 
-            <!-- Play Button -->
             <Button
                 android:id="@+id/play_button"
                 android:layout_width="wrap_content"
@@ -104,7 +86,6 @@
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
-            <!-- Delete Button -->
             <ImageButton
                 android:id="@+id/delete_button"
                 android:layout_width="40dp"
@@ -114,6 +95,5 @@
                 android:contentDescription="@string/delete_instance"
                 android:padding="8dp" />
         </LinearLayout>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>
