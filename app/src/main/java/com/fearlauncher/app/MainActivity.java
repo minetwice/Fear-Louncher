@@ -2,7 +2,6 @@ package com.fearlauncher.app;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -17,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
 
     private LaunchManager launchManager;
     private VersionManager versionManager;
-    private TextView tvVersionName;
+    private TextView tvVersionName, tvStatus;
     private ImageButton navHome, navVersions, navSettings;
 
     @Override
@@ -34,11 +33,10 @@ public class MainActivity extends AppCompatActivity {
         navSettings = findViewById(R.id.nav_settings);
         Button btnPlay = findViewById(R.id.btn_play_big);
         tvVersionName = findViewById(R.id.tv_version_name);
+        tvStatus = findViewById(R.id.tv_status);
 
-        // Setup Sidebar Navigation
+        // Setup Sidebar
         setupSidebar();
-
-        // Update Version Name
         updateVersionDisplay();
 
         // Play Button Logic
@@ -48,20 +46,16 @@ public class MainActivity extends AppCompatActivity {
             attemptLaunch();
         });
     }
-    private void setupSidebar() {
-        // Highlight Home by default
-        navHome.setSelected(true);
+
+    private void setupSidebar() {        navHome.setSelected(true);
         navHome.setColorFilter(getResources().getColor(android.R.color.white));
 
         navVersions.setOnClickListener(v -> {
             resetSidebarSelection();
             navVersions.setSelected(true);
             navVersions.setColorFilter(getResources().getColor(android.R.color.white));
-            
-            // Open Versions Activity
             try {
                 startActivity(new Intent(this, VersionsActivity.class));
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             } catch (Exception e) {
                 Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
@@ -87,18 +81,22 @@ public class MainActivity extends AppCompatActivity {
     private void updateVersionDisplay() {
         List<String> installed = versionManager.getInstalledVersions();
         if (!installed.isEmpty()) {
-            tvVersionName.setText("Installed: " + installed.get(0));
+            tvVersionName.setText(installed.get(0));
+            tvStatus.setText("Ready to play");
+            tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_light));
         } else {
             tvVersionName.setText("No version installed");
+            tvStatus.setText("Please install a version");
+            tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_light));
         }
     }
 
     private void attemptLaunch() {
         List<String> installed = versionManager.getInstalledVersions();
         if (installed.isEmpty()) {
-            Toast.makeText(this, "Please install a version first!", Toast.LENGTH_LONG).show();            return;
-        }
-        launchGame(installed.get(0));
+            Toast.makeText(this, "Please install a version first!", Toast.LENGTH_LONG).show();
+            return;
+        }        launchGame(installed.get(0));
     }
 
     private void launchGame(String versionId) {
