@@ -7,4 +7,11 @@
         android:valueTo="@color/bg_end"
         android:repeatCount="infinite"
         android:repeatMode="reverse"/>
+    <objectAnimator
+        android:propertyName="endColor"
+        android:duration="3000"
+        android:valueFrom="@color/bg_end"
+        android:valueTo="@color/bg_start"
+        android:repeatCount="infinite"
+        android:repeatMode="reverse"/>
 </set>
