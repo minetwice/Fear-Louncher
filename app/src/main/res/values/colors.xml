@@ -4,12 +4,29 @@
     <color name="colorPrimary">#6200EE</color>
     <color name="colorPrimaryDark">#3700B3</color>
     <color name="colorAccent">#03DAC6</color>
+    <color name="primary">#6200EE</color>
+    <color name="primary_dark">#3700B3</color>
 
-    <!-- Basic colors -->
+    <!-- Background colors -->
+    <color name="bg_start">#6200EE</color>
+    <color name="bg_end">#3700B3</color>
+    <color name="colorBackground">#FFFFFF</color>
+
+    <!-- Button colors -->
+    <color name="btn_normal">#6200EE</color>
+    <color name="btn_pressed">#3700B3</color>
+    <color name="btn_selected">#03DAC6</color>
+
+    <!-- Glass button colors -->
+    <color name="glass_base">#8AFFFFFF</color>  <!-- Semi-transparent white -->
+    <color name="glass_shine">#C0FFFFFF</color> <!-- More transparent white -->
+    <color name="glass_border">#40FFFFFF</color> <!-- Border color -->
+
+    <!-- Text colors -->
+    <color name="text">#212121</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 
-    <!-- Material colors -->
-    <color name="material_blue_500">#2196F3</color>
-    <color name="material_blue_700">#1976D2</color>
+    <!-- Status bar -->
+    <color name="colorStatusBar">#3700B3</color>
 </resources>
