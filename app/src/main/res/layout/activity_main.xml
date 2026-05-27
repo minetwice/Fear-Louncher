@@ -53,8 +53,9 @@
         android:layout_height="match_parent"
         android:layout_weight="1">
 
-        <!-- Top Header -->
+        <!-- ✅ HEADER TEXT (This was missing!) -->
         <TextView
+            android:id="@+id/header_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="MINECRAFT: JAVA EDITION"
@@ -64,17 +65,19 @@
             android:layout_alignParentTop="true"
             android:layout_margin="20dp"/>
 
-        <!-- Banner Image Placeholder (Use a real image later) -->
+        <!-- Banner Image Placeholder -->
         <View
+            android:id="@+id/banner_placeholder"
             android:layout_width="match_parent"
             android:layout_height="200dp"
             android:layout_below="@id/header_text"
-            android:layout_margin="20dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
             android:background="#333333"/> 
-            <!-- Replace this View with an ImageView for news banner -->
 
         <!-- Bottom Play Bar -->
         <LinearLayout
+            android:id="@+id/play_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
@@ -93,10 +96,10 @@
             <Button
                 android:id="@+id/btn_play_big"
                 android:layout_width="300dp"
-                android:layout_height="50dp"
-                android:text="PLAY"
+                android:layout_height="50dp"                android:text="PLAY"
                 android:textSize="20sp"
-                android:textStyle="bold"                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
                 android:background="@drawable/btn_play_minecraft"/>
                 
             <TextView
