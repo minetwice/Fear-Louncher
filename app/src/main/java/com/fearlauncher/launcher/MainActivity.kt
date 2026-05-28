@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -32,22 +30,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 // --- DATA CLASSES ---
-data class McVersion(
-    val id: String,
-    val type: String,
-    val url: String?, // Metadata URL
-    val releaseTime: String
-)
-
-data class DownloadState(
-    val isDownloading: Boolean = false,
-    val currentVersion: String = "",
-    val progress: Float = 0f,
-    val statusMessage: String = ""
-)
+data class McVersion(val id: String, val type: String, val url: String?, val releaseTime: String)
+data class DownloadState(val isDownloading: Boolean = false, val currentVersion: String = "", val progress: Float = 0f, val statusMessage: String = "")
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {        super.onCreate(savedInstanceState)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 MainAppNavigator(filesDir)
@@ -56,11 +44,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// --- THEME ---
+// --- THEME COLORS ---
 val DeepBlack = Color(0xFF050505)
 val SurfaceBlack = Color(0xFF121212)
-val CardGray = Color(0xFF1E1E1E)
-val BorderGray = Color(0xFF333333)
+val CardGray = Color(0xFF1E1E1E)val BorderGray = Color(0xFF333333)
 val TextPrimary = Color(0xFFFFFFFF)
 val TextSecondary = Color(0xFFA0A0A0)
 val AccentGreen = Color(0xFF2E7D32)
@@ -69,23 +56,17 @@ val AccentGreen = Color(0xFF2E7D32)
 fun MainAppNavigator(filesDir: File) {
     var activeTab by remember { mutableStateOf("Home") }
     var selectedVersionId by remember { mutableStateOf<String?>(null) }
-    
-    // Fetch Versions from Mojang API
     val scope = rememberCoroutineScope()
     var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-
-    // Download State
     var downloadState by remember { mutableStateOf(DownloadState()) }
 
     LaunchedEffect(Unit) {
         try {
             allVersions = fetchMinecraftVersions()
-            // Set default selected version to latest release
-            val latest = allVersions.find { it.type == "release" }
-            selectedVersionId = latest?.id
+            selectedVersionId = allVersions.find { it.type == "release" }?.id
         } catch (e: Exception) {
-            Log.e("Launcher", "Error fetching versions", e)
+            Log.e("Launcher", "Error", e)
         } finally {
             isLoading = false
         }
@@ -94,7 +75,6 @@ fun MainAppNavigator(filesDir: File) {
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
         Row(modifier = Modifier.fillMaxSize()) {
             Sidebar(activeTab) { activeTab = it }
-
             Column(modifier = Modifier.weight(1f)) {
                 TopBar()
                 Box(modifier = Modifier.weight(1f).padding(24.dp)) {
@@ -112,22 +92,16 @@ fun MainAppNavigator(filesDir: File) {
                                     onVersionSelect = { selectedVersionId = it.id },
                                     onInstallRequest = { version ->
                                         scope.launch {
-                                            performDownload(version, filesDir) { state ->
-                                                downloadState = state
-                                            }
+                                            performDownload(version, filesDir) { state -> downloadState = state }
                                         }
                                     },
                                     downloadState = downloadState
-                                )
-                            }
+                                )                            }
                         }
                         else -> PlaceholderContent("Coming Soon")
                     }
                 }
-
                 PlayBar(selectedVersionId ?: "No Version")
-                
-                // GLOBAL DOWNLOAD STATUS BAR
                 if (downloadState.isDownloading) {
                     DownloadStatusBar(state = downloadState)
                 }
@@ -136,33 +110,27 @@ fun MainAppNavigator(filesDir: File) {
     }
 }
 
-// --- DOWNLOAD LOGIC (CORE) ---
+// --- DOWNLOAD LOGIC ---
 suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
     withContext(Dispatchers.IO) {
         try {
-            // 1. Update State: Starting
             onUpdate(DownloadState(true, version.id, 0f, "Fetching Metadata..."))
-            
-            // 2. Fetch Version Details JSON
             val metaUrl = version.url ?: throw Exception("No URL")
-            val jsonStr = URL(metaUrl).readText()            val json = Json.parseToJsonElement(jsonStr).jsonObject
+            val jsonStr = URL(metaUrl).readText()
+            val json = Json.parseToJsonElement(jsonStr).jsonObject
             
-            // 3. Get Client Jar URL
             val downloads = json["downloads"]?.jsonObject
             val clientObj = downloads?.get("client")?.jsonObject
             val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
             val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
 
-            if (jarUrl == null) throw Exception("Client JAR URL not found")
+            if (jarUrl == null) throw Exception("JAR URL not found")
 
-            // 4. Prepare Directory
             val versionDir = File(filesDir, "versions/${version.id}")
             if (!versionDir.exists()) versionDir.mkdirs()
             val outputFile = File(versionDir, "${version.id}.jar")
 
-            // 5. Download File
             onUpdate(DownloadState(true, version.id, 0f, "Downloading Core..."))
-            
             val connection = URL(jarUrl).openConnection() as HttpURLConnection
             connection.connect()
             val input = connection.inputStream
@@ -175,37 +143,28 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
             while (input.read(buffer).also { bytesRead = it } != -1) {
                 output.write(buffer, 0, bytesRead)
                 totalBytesRead += bytesRead
-                
-                // Update Progress
                 val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
                 val mbRead = totalBytesRead / (1024 * 1024)
-                val totalMb = jarSize / (1024 * 1024)
-                
-                onUpdate(DownloadState(true, version.id, progress, "$mbRead MB / $totalMb MB"))
+                val totalMb = jarSize / (1024 * 1024)                onUpdate(DownloadState(true, version.id, progress, "$mbRead MB / $totalMb MB"))
             }
             
             output.close()
             input.close()
-            
-            // 6. Finish
-            onUpdate(DownloadState(false, version.id, 1f, "Installation Complete"))
-            delay(2000) // Show success for 2 seconds
-            onUpdate(DownloadState()) // Reset
-
+            onUpdate(DownloadState(false, version.id, 1f, "Installed"))
+            delay(2000)
+            onUpdate(DownloadState())
         } catch (e: Exception) {
-            e.printStackTrace()
-            onUpdate(DownloadState(false, version.id, 0f, "Error: ${e.message}"))            delay(3000)
+            onUpdate(DownloadState(false, version.id, 0f, "Error: ${e.message}"))
+            delay(3000)
             onUpdate(DownloadState())
         }
     }
 }
 
-// Helper to fetch main manifest
 suspend fun fetchMinecraftVersions(): List<McVersion> {
     return withContext(Dispatchers.IO) {
         val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
-        val jsonStr = url.readText()
-        val json = Json.parseToJsonElement(jsonStr).jsonObject
+        val json = Json.parseToJsonElement(url.readText()).jsonObject
         val versionsArray = json["versions"]?.jsonArray ?: emptyList()
         
         versionsArray.map {
@@ -216,7 +175,7 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
                 url = obj["url"]?.jsonPrimitive?.content,
                 releaseTime = obj["releaseTime"]?.jsonPrimitive?.content ?: ""
             )
-        }.reversed() // Newest first
+        }.reversed()
     }
 }
 
@@ -235,15 +194,14 @@ fun VersionManagerTab(
 
     val filtered = allVersions.filter {
         val matchesSearch = it.id.contains(searchQuery, ignoreCase = true)
-        val matchesType = if (filterType == "All") true else it.type.equals(filterType, ignoreCase = true)
-        matchesSearch && matchesType
+        val matchesType = if (filterType == "All") true else it.type.equals(filterType, ignoreCase = true)        matchesSearch && matchesType
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search & Filter Header
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Library", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            TextField(                value = searchQuery,
+            TextField(
+                value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Search...", color = TextSecondary, fontSize = 12.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp)) },
@@ -259,7 +217,6 @@ fun VersionManagerTab(
         }
         Spacer(Modifier.height(12.dp))
         
-        // Filter Chips
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Release", "Snapshot").forEach { type ->
                 FilterChip(
@@ -275,7 +232,6 @@ fun VersionManagerTab(
         }
         Spacer(Modifier.height(12.dp))
 
-        // List
         Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {
             LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
                 items(filtered) { version ->
@@ -287,12 +243,12 @@ fun VersionManagerTab(
                         onInstall = { onInstallRequest(version) }
                     )
                 }
-            }
-        }
+            }        }
     }
 }
 
-@Composablefun VersionItem(
+@Composable
+fun VersionItem(
     version: McVersion,
     isSelected: Boolean,
     isCurrentlyDownloading: Boolean,
@@ -310,7 +266,6 @@ fun VersionManagerTab(
                 Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
                 Text("${version.type.uppercase()} • ${version.releaseTime.take(10)}", color = TextSecondary, fontSize = 10.sp)
             }
-            
             if (isCurrentlyDownloading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
             } else if (isSelected) {
@@ -337,11 +292,10 @@ fun DownloadStatusBar(state: DownloadState) {
             modifier = Modifier.fillMaxWidth().height(4.dp),
             color = AccentGreen,
             trackColor = BorderGray
-        )
-    }
+        )    }
 }
 
-// --- OTHER UI PARTS (Sidebar, TopBar, etc.) ---@Composable
+@Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
     Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))) {
@@ -375,7 +329,8 @@ fun HomeTabContent(version: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-            Text("Selected: $version", color = AccentGreen, marginTop = 8.dp)
+            Spacer(Modifier.height(8.dp))
+            Text("Selected: $version", color = AccentGreen)
         }
     }
 }
@@ -386,11 +341,11 @@ fun PlayBar(version: String) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Ready to Play", color = TextSecondary, fontSize = 12.sp)
-                Text(version, color = TextPrimary, fontWeight = FontWeight.Bold)
-            }
+                Text(version, color = TextPrimary, fontWeight = FontWeight.Bold)            }
             Button(
-                onClick = { /* Launch Logic Here */ },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),                shape = RoundedCornerShape(4.dp),
+                onClick = { /* Launch Logic */ },
+                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.width(150.dp).height(45.dp)
             ) {
                 Text("PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
@@ -402,5 +357,7 @@ fun PlayBar(version: String) {
 
 @Composable
 fun PlaceholderContent(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text, color = TextSecondary) }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
+        Text(text, color = TextSecondary) 
+    }
 }
