@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_sidebar">#232323</color>
+    <color name="launcher_background">#313233</color>
+    <color name="play_button_green">#3C8527</color>
+    <color name="play_button_hover">#49A030</color>
+    <color name="text_white">#FFFFFF</color>
+    <color name="text_gray">#AAAAAA</color>
+</resources>
