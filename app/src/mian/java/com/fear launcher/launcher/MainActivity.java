@@ -1,4 +1,4 @@
-package com.yourname.launcher;
+package com.fearlauncher.launcher;
 
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
