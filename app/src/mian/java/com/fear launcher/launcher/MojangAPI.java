@@ -1,4 +1,4 @@
-package com.yourname.launcher;
+package com.fearlauncher.launcher;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
