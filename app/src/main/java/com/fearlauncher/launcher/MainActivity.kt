@@ -17,8 +17,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,38 +50,42 @@ val TextPrimary = Color(0xFFFFFFFF)
 val TextSecondary = Color(0xFFA0A0A0)
 val AccentGreen = Color(0xFF2E7D32)
 val AccentGreenGlow = Color(0xFF4CAF50)
+
 @Composable
 fun MainAppNavigator(filesDir: File) {
     var isDownloadComplete by remember { mutableStateOf(false) }
-    
+
     // Global Shine Animation
     val infiniteTransition = rememberInfiniteTransition(label = "GlobalShine")
     val shineOffset by infiniteTransition.animateFloat(
-        initialValue = -200f, 
+        initialValue = -200f,
         targetValue = 800f,
         animationSpec = infiniteRepeatable(
-            tween(3000, easing = LinearEasing), 
+            tween(3000, easing = LinearEasing),
             RepeatMode.Restart
         )
     )
 
     val shineBrush = Brush.linearGradient(
         colors = listOf(
-            Color.Transparent, 
-            Color.White.copy(alpha = 0.05f), 
+            Color.Transparent,
+            Color.White.copy(alpha = 0.05f),
             Color.Transparent
         ),
-        start = androidx.compose.ui.geometry.Offset(shineOffset, 0f),
-        end = androidx.compose.ui.geometry.Offset(shineOffset + 200f, 0f)
+        start = Offset(shineOffset, 0f),
+        end = Offset(shineOffset + 200f, 0f)
     )
 
     Crossfade(
-        targetState = isDownloadComplete, 
-        animationSpec = tween(800), 
+        targetState = isDownloadComplete,
+        animationSpec = tween(800),
         label = "ScreenTransition"
     ) { screen ->
-        if (!screen) DownloaderScreen(filesDir, shineBrush) { isDownloadComplete = true }
-        else DashboardScreen(shineBrush)
+        if (!screen) {
+            DownloaderScreen(filesDir, shineBrush) { isDownloadComplete = true }
+        } else {
+            DashboardScreen(shineBrush)
+        }
     }
 }
 
@@ -90,37 +96,38 @@ fun DownloaderScreen(filesDir: File, shineBrush: Brush, onComplete: () -> Unit) 
     val scope = rememberCoroutineScope()
 
     Box(
-        modifier = Modifier.fillMaxSize().background(DeepBlack), 
+        modifier = Modifier.fillMaxSize().background(DeepBlack),
         contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier.padding(24.dp).fillMaxWidth(0.75f),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceBlack),            border = BorderStroke(1.dp, BorderGray),
+            colors = CardDefaults.cardColors(containerColor = SurfaceBlack),
+            border = BorderStroke(1.dp, BorderGray),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
-                modifier = Modifier.padding(40.dp), 
+                modifier = Modifier.padding(40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
-                    Icons.Outlined.CloudDownload, 
-                    contentDescription = null, 
-                    tint = TextSecondary, 
+                    Icons.Outlined.CloudDownload,
+                    contentDescription = null,
+                    tint = TextSecondary,
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "FEAR LAUNCHER", 
-                    fontSize = 28.sp, 
-                    fontWeight = FontWeight.Bold, 
-                    color = TextPrimary, 
+                    "FEAR LAUNCHER",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
                     letterSpacing = 1.sp
                 )
                 Text("Core Setup Required", fontSize = 14.sp, color = TextSecondary)
-                
+
                 Spacer(modifier = Modifier.height(40.dp))
-                
+
                 // Progress Bar
                 Box(
                     modifier = Modifier
@@ -139,25 +146,27 @@ fun DownloaderScreen(filesDir: File, shineBrush: Brush, onComplete: () -> Unit) 
                     )
                     Box(modifier = Modifier.fillMaxSize().background(shineBrush))
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("${(progress * 100).toInt()}%", color = TextPrimary, fontWeight = FontWeight.Medium)
-                
+
                 Spacer(modifier = Modifier.height(30.dp))
-                
-                Button(                    onClick = { 
+
+                Button(
+                    onClick = {
                         scope.launch(Dispatchers.IO) {
-                            for(i in 1..100) { 
-                                delay(20); progress = i/100f 
+                            for (i in 1..100) {
+                                delay(20)
+                                progress = i / 100f
                             }
-                            withContext(Dispatchers.Main) { 
+                            withContext(Dispatchers.Main) {
                                 delay(500)
-                                onComplete() 
+                                onComplete()
                             }
                         }
-                    }, 
+                    },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TextPrimary, 
+                        containerColor = TextPrimary,
                         contentColor = DeepBlack
                     ),
                     shape = RoundedCornerShape(8.dp),
@@ -177,24 +186,23 @@ fun DashboardScreen(shineBrush: Brush) {
     var selectedVersion by remember { mutableStateOf("Release 1.20.4") }
 
     Row(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
-        
         // SIDEBAR
         Sidebar(activeTab) { activeTab = it }
 
         // MAIN CONTENT
         Column(modifier = Modifier.weight(1f)) {
-            
             // TOP HEADER
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(70.dp)
                     .background(SurfaceBlack)
-                    .padding(horizontal = 24.dp), 
+                    .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("LIBRARY", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)                Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("LIBRARY", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("Steve", color = TextSecondary, fontSize = 14.sp)
@@ -220,12 +228,12 @@ fun DashboardScreen(shineBrush: Brush) {
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf(
-        "Home" to Icons.Default.Home, 
-        "Java Edition" to Icons.Default.Code, 
-        "Skins" to Icons.Default.Face, 
+        "Home" to Icons.Default.Home,
+        "Java Edition" to Icons.Default.Code,
+        "Skins" to Icons.Default.Face,
         "Settings" to Icons.Default.Settings
     )
-    
+
     Column(
         modifier = Modifier
             .width(240.dp)
@@ -238,12 +246,13 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
         Box(modifier = Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text(
-                "LAUNCHER", 
-                modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), 
-                fontSize = 10.sp, 
-                fontWeight = FontWeight.Light, 
-                color = AccentGreen, 
-                letterSpacing = 2.sp            )
+                "LAUNCHER",
+                modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Light,
+                color = AccentGreen,
+                letterSpacing = 2.sp
+            )
         }
 
         HorizontalDivider(color = BorderGray, thickness = 1.dp)
@@ -261,23 +270,23 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
                 horizontalArrangement = Arrangement.Start
             ) {
                 Icon(
-                    imageVector = icon, 
-                    contentDescription = label, 
+                    imageVector = icon,
+                    contentDescription = label,
                     tint = if (isSelected) AccentGreen else TextSecondary,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = label, 
+                    text = label,
                     color = if (isSelected) TextPrimary else TextSecondary,
                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                     fontSize = 15.sp
                 )
-                
+
                 // Active Indicator
                 if (isSelected) {
                     Box(
-                        modifier = Modifier.weight(1f).fillMaxHeight(), 
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         Box(
@@ -292,6 +301,7 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
         }
     }
 }
+
 @Composable
 fun HomeTabContent(version: String, shineBrush: Brush) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -310,11 +320,11 @@ fun HomeTabContent(version: String, shineBrush: Brush) {
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(24.dp))
         Text("Recent News", color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         // News Item Dummy
         Card(
             modifier = Modifier.fillMaxWidth().height(80.dp),
@@ -339,9 +349,9 @@ fun JavaEditionTabContent(selectedVersion: String, onVersionChange: (String) -> 
     Column(modifier = Modifier.fillMaxSize()) {
         Text("Installation Manager", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         Text("Select Version", color = TextSecondary, fontSize = 14.sp)
-        Spacer(modifier = Modifier.height(8.dp))        
+        Spacer(modifier = Modifier.height(8.dp))
         listOf("Release 1.20.4", "Release 1.20.1", "Snapshot 24w14a").forEach { ver ->
             val isSelected = selectedVersion == ver
             Row(
@@ -351,7 +361,7 @@ fun JavaEditionTabContent(selectedVersion: String, onVersionChange: (String) -> 
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isSelected) CardGray else Color.Transparent)
                     .border(
-                        if(isSelected) BorderStroke(1.dp, AccentGreen) else BorderStroke(1.dp, BorderGray), 
+                        if (isSelected) BorderStroke(1.dp, AccentGreen) else BorderStroke(1.dp, BorderGray),
                         RoundedCornerShape(8.dp)
                     )
                     .clickable { onVersionChange(ver) }
@@ -359,14 +369,14 @@ fun JavaEditionTabContent(selectedVersion: String, onVersionChange: (String) -> 
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(ver, color = if(isSelected) TextPrimary else TextSecondary)
-                if(isSelected) {
+                Text(ver, color = if (isSelected) TextPrimary else TextSecondary)
+                if (isSelected) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(20.dp))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
         }
-        
+
         Spacer(modifier = Modifier.height(24.dp))
         Text("Java Arguments", color = TextSecondary, fontSize = 14.sp)
         Card(
@@ -376,7 +386,7 @@ fun JavaEditionTabContent(selectedVersion: String, onVersionChange: (String) -> 
             border = BorderStroke(1.dp, BorderGray)
         ) {
             Box(modifier = Modifier.padding(12.dp)) {
-                Text("-Xmx4G -XX:+UseG1GC", color = TextSecondary, fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                Text("-Xmx4G -XX:+UseG1GC", color = TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }
@@ -390,7 +400,8 @@ fun PlaceholderContent(text: String) {
 }
 
 @Composable
-fun PlayBar(version: String) {    Box(
+fun PlayBar(version: String) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(90.dp)
@@ -404,7 +415,7 @@ fun PlayBar(version: String) {    Box(
                 Text("Current Selection", color = TextSecondary, fontSize = 12.sp)
                 Text(version, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 16.sp)
             }
-            
+
             // PLAY BUTTON
             Box(
                 modifier = Modifier
@@ -422,7 +433,7 @@ fun PlayBar(version: String) {    Box(
                     Text("PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, letterSpacing = 1.sp)
                 }
             }
-            
+
             Spacer(modifier = Modifier.width(30.dp))
         }
     }
