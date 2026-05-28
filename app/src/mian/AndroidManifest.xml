@@ -7,10 +7,12 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="Fear Launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.NoActionBar"> <activity
+        android:theme="@style/Theme.AppCompat.NoActionBar"> 
+        
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape">
