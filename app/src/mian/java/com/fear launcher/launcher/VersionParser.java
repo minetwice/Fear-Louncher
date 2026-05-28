@@ -1,4 +1,4 @@
-package com.yourname.launcher;
+package com.fearlauncher.launcher;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
