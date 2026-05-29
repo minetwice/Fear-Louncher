@@ -27,6 +27,7 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
+// --- DATA CLASSES ---
 data class McVersion(val id: String, val type: String, val url: String?, val releaseTime: String)
 data class DownloadState(val isDownloading: Boolean = false, val currentVersion: String = "", val progress: Float = 0f, val statusMessage: String = "")
 
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// --- THEME ---
 val DeepBlack = Color(0xFF050505)
 val SurfaceBlack = Color(0xFF121212)
 val CardGray = Color(0xFF1E1E1E)
@@ -48,6 +50,7 @@ val BorderGray = Color(0xFF333333)
 val TextPrimary = Color(0xFFFFFFFF)
 val TextSecondary = Color(0xFFA0A0A0)
 val AccentGreen = Color(0xFF2E7D32)
+
 @Composable
 fun MainAppNavigator(filesDir: File) {
     var activeTab by remember { mutableStateOf("Home") }
@@ -79,8 +82,10 @@ fun MainAppNavigator(filesDir: File) {
                                         scope.launch {
                                             isLoading = true
                                             try {
+                                                // Fetch ALL versions
                                                 val fetched = fetchMinecraftVersions()
                                                 allVersions = fetched
+                                                // Select latest release by default
                                                 selectedVersionId = fetched.find { it.type == "release" }?.id
                                             } catch (e: Exception) {
                                                 Log.e("Launcher", "Error", e)
@@ -89,16 +94,18 @@ fun MainAppNavigator(filesDir: File) {
                                             }
                                         }
                                     }) {
-                                        Text("Load Versions")
+                                        Text("Load All Versions from Mojang")
                                     }
                                 }
                             } else {
                                 VersionManagerTab(
                                     allVersions = allVersions,
                                     selectedVersionId = selectedVersionId,
-                                    onVersionSelect = { selectedVersionId = it.id },                                    onInstallRequest = { version ->
+                                    onVersionSelect = { selectedVersionId = it.id },
+                                    onInstallRequest = { version ->
                                         scope.launch {
-                                            performDownload(version, filesDir) { state ->
+                                            // Full Install with Libs
+                                            performFullInstall(version, filesDir) { state ->
                                                 downloadState = state
                                             }
                                         }
@@ -121,14 +128,18 @@ fun MainAppNavigator(filesDir: File) {
     }
 }
 
-suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
+// --- ADVANCED DOWNLOAD LOGIC (CORE + LIBS + ASSETS) ---
+suspend fun performFullInstall(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
     withContext(Dispatchers.IO) {
         try {
-            onUpdate(DownloadState(true, version.id, 0f, "Fetching..."))
+            onUpdate(DownloadState(true, version.id, 0f, "Fetching Metadata..."))
+            
+            // 1. Get Version Details JSON
             val metaUrl = version.url ?: throw Exception("No URL")
             val jsonStr = URL(metaUrl).readText()
             val json = Json.parseToJsonElement(jsonStr).jsonObject
             
+            // 2. Download Client JAR (Core)
             val downloads = json["downloads"]?.jsonObject
             val clientObj = downloads?.get("client")?.jsonObject
             val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
@@ -140,31 +151,65 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
             if (!versionDir.exists()) versionDir.mkdirs()
             val outputFile = File(versionDir, version.id + ".jar")
 
-            onUpdate(DownloadState(true, version.id, 0f, "Downloading..."))
-            
-            val connection = URL(jarUrl).openConnection() as HttpURLConnection
-            connection.connect()
-            val input = connection.inputStream
-            val output = FileOutputStream(outputFile)            
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            var totalBytesRead = 0L
-
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                output.write(buffer, 0, bytesRead)
-                totalBytesRead += bytesRead
-                val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
-                val mbRead = totalBytesRead / (1024 * 1024)
-                val totalMb = jarSize / (1024 * 1024)
-                val msg = mbRead.toString() + " MB / " + totalMb.toString() + " MB"
-                onUpdate(DownloadState(true, version.id, progress, msg))
+            onUpdate(DownloadState(true, version.id, 0.1f, "Downloading Core (client.jar)..."))
+            downloadFile(jarUrl, outputFile, jarSize) { progress ->
+                // Map 0-100% of jar download to 0.1-0.4 of total progress
+                onUpdate(DownloadState(true, version.id, 0.1f + (progress * 0.3f), "Downloading Core..."))
             }
+
+            // 3. Download Libraries (The Heavy Part ~800MB)
+            onUpdate(DownloadState(true, version.id, 0.4f, "Preparing Libraries..."))
+            val librariesArray = json["libraries"]?.jsonArray ?: emptyList()
+            val libsDir = File(filesDir, "libraries")
+            if (!libsDir.exists()) libsDir.mkdirs()
+
+            var libCount = 0
+            val totalLibs = librariesArray.size
             
-            output.close()
-            input.close()
-            onUpdate(DownloadState(false, version.id, 1f, "Installed"))
+            for (lib in librariesArray) {
+                val libObj = lib.jsonObject
+                val name = libObj["name"]?.jsonPrimitive?.content ?: continue
+                val downloadsLib = libObj["downloads"]?.jsonObject
+                val artifact = downloadsLib?.get("artifact")?.jsonObject
+                
+                if (artifact != null) {
+                    val libUrl = artifact["url"]?.jsonPrimitive?.content
+                    val libSize = artifact["size"]?.jsonPrimitive?.long ?: 0L
+                    val path = artifact["path"]?.jsonPrimitive?.content
+                    
+                    if (libUrl != null && path != null) {
+                        val libFile = File(libsDir, path)
+                        if (!libFile.exists()) {
+                            libFile.parentFile?.mkdirs()
+                            downloadFile(libUrl, libFile, libSize) { progress ->
+                                val libProgress = (libCount.toFloat() / totalLibs.toFloat())
+                                onUpdate(DownloadState(true, version.id, 0.4f + (libProgress * 0.5f), "Downloading Libs: $name"))
+                            }
+                        }
+                    }
+                }
+                libCount++
+            }
+
+            // 4. Download Assets Index
+            onUpdate(DownloadState(true, version.id, 0.9f, "Downloading Assets Index..."))
+            val assetIndex = json["assetIndex"]?.jsonObject
+            val assetUrl = assetIndex?.get("url")?.jsonPrimitive?.content
+            val assetId = assetIndex?.get("id")?.jsonPrimitive?.content
+            
+            if (assetUrl != null && assetId != null) {
+                val assetsDir = File(filesDir, "assets/indexes")
+                if (!assetsDir.exists()) assetsDir.mkdirs()
+                val assetFile = File(assetsDir, assetId + ".json")
+                downloadFile(assetUrl, assetFile, 0) {
+                    onUpdate(DownloadState(true, version.id, 0.95f, "Downloading Assets..."))
+                }
+            }
+
+            onUpdate(DownloadState(false, version.id, 1f, "Installation Complete"))
             delay(2000)
             onUpdate(DownloadState())
+
         } catch (e: Exception) {
             val errMsg = "Error: " + e.message
             onUpdate(DownloadState(false, version.id, 0f, errMsg))
@@ -174,12 +219,36 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
     }
 }
 
+// Helper to download a single file with progress
+suspend fun downloadFile(urlString: String, file: File, totalSize: Long, onProgress: (Float) -> Unit) {
+    val url = URL(urlString)
+    val connection = url.openConnection() as HttpURLConnection
+    connection.connect()
+    val input = connection.inputStream
+    val output = FileOutputStream(file)
+    
+    val buffer = ByteArray(8192)
+    var bytesRead: Int
+    var totalBytesRead = 0L
+
+    while (input.read(buffer).also { bytesRead = it } != -1) {
+        output.write(buffer, 0, bytesRead)
+        totalBytesRead += bytesRead
+        if (totalSize > 0) {
+            onProgress(totalBytesRead.toFloat() / totalSize.toFloat())
+        }
+    }
+    output.close()
+    input.close()
+}
+
 suspend fun fetchMinecraftVersions(): List<McVersion> {
     return withContext(Dispatchers.IO) {
         val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
         val json = Json.parseToJsonElement(url.readText()).jsonObject
         val versionsArray = json["versions"]?.jsonArray ?: emptyList()
         
+        // Return ALL versions, reversed so newest is first
         versionsArray.map {
             val obj = it.jsonObject
             McVersion(
@@ -192,9 +261,12 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
     }
 }
 
+// --- UI COMPONENTS (Same as before but cleaned) ---
+
 @Composable
 fun VersionManagerTab(
-    allVersions: List<McVersion>,    selectedVersionId: String?,
+    allVersions: List<McVersion>,
+    selectedVersionId: String?,
     onVersionSelect: (McVersion) -> Unit,
     onInstallRequest: (McVersion) -> Unit,
     downloadState: DownloadState
@@ -243,7 +315,8 @@ fun VersionManagerTab(
                         containerColor = CardGray, 
                         labelColor = TextSecondary
                     )
-                )            }
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
 
@@ -292,7 +365,8 @@ fun VersionItem(
                     Text("Install", color = AccentGreen, fontWeight = FontWeight.Bold)
                 }
             }
-        }    }
+        }
+    }
 }
 
 @Composable
@@ -321,7 +395,6 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
-        // FIX: Using Divider instead of HorizontalDivider
         Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
             val isSelected = activeTab == label
@@ -342,6 +415,7 @@ fun TopBar() {
         Text("Steve", color = TextSecondary)
     }
 }
+
 @Composable
 fun HomeTabContent(version: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -373,7 +447,7 @@ fun PlayBar(version: String, filesDir: File) {
             Button(
                 onClick = { 
                     if (isInstalled) {
-                        Log.d("Launcher", "Launching " + version)
+                        launchMinecraft(version, filesDir)
                     }
                 },
                 enabled = isInstalled,
@@ -390,9 +464,30 @@ fun PlayBar(version: String, filesDir: File) {
         }
     }
 }
+
 @Composable
 fun PlaceholderContent(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
         Text(text, color = TextSecondary) 
+    }
+}
+
+// --- LAUNCH LOGIC ---
+fun launchMinecraft(version: String, filesDir: File) {
+    Log.d("Launcher", "Attempting to launch version: $version")
+    
+    // Note: Real Minecraft launching on Android requires complex JNI/Native setup.
+    // This is a placeholder for the logic.
+    // In a real scenario, you would construct a command like:
+    // java -cp [classpath] -Djava.library.path=[natives] net.minecraft.client.main.Main [args]
+    
+    val versionDir = File(filesDir, "versions/$version")
+    val jarFile = File(versionDir, "$version.jar")
+    
+    if (jarFile.exists()) {
+        Log.d("Launcher", "Jar found at: ${jarFile.absolutePath}")
+        // Here you would trigger the native process
+    } else {
+        Log.e("Launcher", "Jar file missing!")
     }
 }
