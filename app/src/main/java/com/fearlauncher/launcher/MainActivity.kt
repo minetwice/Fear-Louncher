@@ -56,19 +56,17 @@ fun MainAppNavigator(filesDir: File) {
     var selectedVersionId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     
-    // Initialize with empty list to avoid null issues
-    var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
+    var allVersions by remember { mutableStateOf<List<McVersion>>(listOf()) }
     var isLoading by remember { mutableStateOf(true) }
     var downloadState by remember { mutableStateOf(DownloadState()) }
 
-    // FIX: Simplified LaunchedEffect to avoid Line 50 Error
     LaunchedEffect(Unit) {
         try {
-            val fetchedVersions = fetchMinecraftVersions()
-            allVersions = fetchedVersions
-            selectedVersionId = fetchedVersions.find { it.type == "release" }?.id
+            val fetched = fetchMinecraftVersions()
+            allVersions = fetched
+            selectedVersionId = fetched.find { it.type == "release" }?.id
         } catch (e: Exception) {
-            Log.e("Launcher", "Error fetching versions", e)
+            Log.e("Launcher", "Error", e)
         } finally {
             isLoading = false
         }
@@ -96,9 +94,9 @@ fun MainAppNavigator(filesDir: File) {
                                     onVersionSelect = { selectedVersionId = it.id },
                                     onInstallRequest = { version ->
                                         scope.launch {
-                                            performDownload(version, filesDir) { state ->                                                downloadState = state
-                                            }
-                                        }
+                                            performDownload(version, filesDir) { state ->
+                                                downloadState = state
+                                            }                                        }
                                     },
                                     downloadState = downloadState
                                 )
@@ -145,9 +143,9 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
             val connection = URL(jarUrl).openConnection() as HttpURLConnection
             connection.connect()
             val input = connection.inputStream
-            val output = FileOutputStream(outputFile)            
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
+            val output = FileOutputStream(outputFile)
+            
+            val buffer = ByteArray(8192)            var bytesRead: Int
             var totalBytesRead = 0L
 
             while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -194,9 +192,9 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
 
 // --- UI COMPONENTS ---
 
-@Composablefun VersionManagerTab(
-    allVersions: List<McVersion>,
-    selectedVersionId: String?,
+@Composable
+fun VersionManagerTab(
+    allVersions: List<McVersion>,    selectedVersionId: String?,
     onVersionSelect: (McVersion) -> Unit,
     onInstallRequest: (McVersion) -> Unit,
     downloadState: DownloadState
@@ -243,9 +241,9 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
                     selected = filterType == type,
                     onClick = { filterType = type },
                     label = { Text(type, fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(                        selectedContainerColor = AccentGreen, 
-                        selectedLabelColor = Color.White,
-                        containerColor = CardGray, 
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = AccentGreen, 
+                        selectedLabelColor = Color.White,                        containerColor = CardGray, 
                         labelColor = TextSecondary
                     )
                 )
@@ -292,9 +290,9 @@ fun VersionItem(
                 Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
                 Text("${version.type.uppercase()} • ${version.releaseTime.take(10)}", color = TextSecondary, fontSize = 10.sp)
             }
-            if (isCurrentlyDownloading) {                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
-            } else if (isSelected) {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
+            if (isCurrentlyDownloading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
+            } else if (isSelected) {                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
             } else {
                 TextButton(onClick = onInstall) {
                     Text("Install", color = AccentGreen, fontWeight = FontWeight.Bold)
@@ -341,9 +339,9 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(16.dp))                Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
-            }
-        }
+                Spacer(Modifier.width(16.dp))
+                Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
+            }        }
     }
 }
 
@@ -390,9 +388,9 @@ fun PlayBar(version: String) {
             ) {
                 Text("PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
             }
-            Spacer(Modifier.width(30.dp))        }
-    }
-}
+            Spacer(Modifier.width(30.dp))
+        }
+    }}
 
 @Composable
 fun PlaceholderContent(text: String) {
