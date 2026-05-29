@@ -60,11 +60,14 @@ fun MainAppNavigator(filesDir: File) {
     var isLoading by remember { mutableStateOf(true) }
     var downloadState by remember { mutableStateOf(DownloadState()) }
 
+    // FIX: Simple LaunchedEffect to avoid Line 50 Error
     LaunchedEffect(Unit) {
         try {
             val fetched = fetchMinecraftVersions()
             allVersions = fetched
-            selectedVersionId = fetched.find { it.type == "release" }?.id
+            if (fetched.isNotEmpty()) {
+                selectedVersionId = fetched.find { it.type == "release" }?.id
+            }
         } catch (e: Exception) {
             Log.e("Launcher", "Error", e)
         } finally {
@@ -93,10 +96,10 @@ fun MainAppNavigator(filesDir: File) {
                                     selectedVersionId = selectedVersionId,
                                     onVersionSelect = { selectedVersionId = it.id },
                                     onInstallRequest = { version ->
-                                        scope.launch {
-                                            performDownload(version, filesDir) { state ->
+                                        scope.launch {                                            performDownload(version, filesDir) { state ->
                                                 downloadState = state
-                                            }                                        }
+                                            }
+                                        }
                                     },
                                     downloadState = downloadState
                                 )
@@ -134,18 +137,18 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
 
             if (jarUrl == null) throw Exception("JAR URL not found")
 
-            val versionDir = File(filesDir, "versions/${version.id}")
+            val versionDir = File(filesDir, "versions/" + version.id)
             if (!versionDir.exists()) versionDir.mkdirs()
-            val outputFile = File(versionDir, "${version.id}.jar")
+            val outputFile = File(versionDir, version.id + ".jar")
 
             onUpdate(DownloadState(true, version.id, 0f, "Downloading Core..."))
             
             val connection = URL(jarUrl).openConnection() as HttpURLConnection
             connection.connect()
-            val input = connection.inputStream
-            val output = FileOutputStream(outputFile)
+            val input = connection.inputStream            val output = FileOutputStream(outputFile)
             
-            val buffer = ByteArray(8192)            var bytesRead: Int
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
             var totalBytesRead = 0L
 
             while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -156,7 +159,9 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
                 val mbRead = totalBytesRead / (1024 * 1024)
                 val totalMb = jarSize / (1024 * 1024)
                 
-                onUpdate(DownloadState(true, version.id, progress, "$mbRead MB / $totalMb MB"))
+                // FIX: Using string concatenation instead of interpolation
+                val msg = mbRead.toString() + " MB / " + totalMb.toString() + " MB"
+                onUpdate(DownloadState(true, version.id, progress, msg))
             }
             
             output.close()
@@ -165,7 +170,8 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
             delay(2000)
             onUpdate(DownloadState())
         } catch (e: Exception) {
-            onUpdate(DownloadState(false, version.id, 0f, "Error: ${e.message}"))
+            val errMsg = "Error: " + e.message
+            onUpdate(DownloadState(false, version.id, 0f, errMsg))
             delay(3000)
             onUpdate(DownloadState())
         }
@@ -189,12 +195,12 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
         }.reversed()
     }
 }
-
 // --- UI COMPONENTS ---
 
 @Composable
 fun VersionManagerTab(
-    allVersions: List<McVersion>,    selectedVersionId: String?,
+    allVersions: List<McVersion>,
+    selectedVersionId: String?,
     onVersionSelect: (McVersion) -> Unit,
     onInstallRequest: (McVersion) -> Unit,
     downloadState: DownloadState
@@ -237,13 +243,13 @@ fun VersionManagerTab(
         
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Release", "Snapshot").forEach { type ->
-                FilterChip(
-                    selected = filterType == type,
+                FilterChip(                    selected = filterType == type,
                     onClick = { filterType = type },
                     label = { Text(type, fontSize = 12.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AccentGreen, 
-                        selectedLabelColor = Color.White,                        containerColor = CardGray, 
+                        selectedLabelColor = Color.White,
+                        containerColor = CardGray, 
                         labelColor = TextSecondary
                     )
                 )
@@ -286,13 +292,15 @@ fun VersionItem(
             verticalAlignment = Alignment.CenterVertically, 
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
-                Text("${version.type.uppercase()} • ${version.releaseTime.take(10)}", color = TextSecondary, fontSize = 10.sp)
+            Column(Modifier.weight(1f)) {                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
+                // FIX: Using string concatenation
+                val typeText = version.type.uppercase() + " • " + version.releaseTime.take(10)
+                Text(typeText, color = TextSecondary, fontSize = 10.sp)
             }
             if (isCurrentlyDownloading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
-            } else if (isSelected) {                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
+            } else if (isSelected) {
+                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
             } else {
                 TextButton(onClick = onInstall) {
                     Text("Install", color = AccentGreen, fontWeight = FontWeight.Bold)
@@ -308,7 +316,8 @@ fun DownloadStatusBar(state: DownloadState) {
         modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Installing ${state.currentVersion}...", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            val installingText = "Installing " + state.currentVersion + "..."
+            Text(installingText, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Text(state.statusMessage, color = TextSecondary, fontSize = 12.sp)
         }
         Spacer(Modifier.height(6.dp))
@@ -332,8 +341,7 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
         HorizontalDivider(color = BorderGray)
-        items.forEach { (label, icon) ->
-            val isSelected = activeTab == label
+        items.forEach { (label, icon) ->            val isSelected = activeTab == label
             Row(
                 Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), 
                 verticalAlignment = Alignment.CenterVertically
@@ -341,7 +349,8 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
-            }        }
+            }
+        }
     }
 }
 
@@ -364,7 +373,8 @@ fun HomeTabContent(version: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
             Spacer(Modifier.height(8.dp))
-            Text("Selected: $version", color = AccentGreen)
+            val selectedText = "Selected: " + version
+            Text(selectedText, color = AccentGreen)
         }
     }
 }
@@ -380,8 +390,7 @@ fun PlayBar(version: String) {
                 Text("Ready to Play", color = TextSecondary, fontSize = 12.sp)
                 Text(version, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
-            Button(
-                onClick = { /* Launch Logic */ },
+            Button(                onClick = { /* Launch Logic */ },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
                 shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.width(150.dp).height(45.dp)
@@ -390,7 +399,8 @@ fun PlayBar(version: String) {
             }
             Spacer(Modifier.width(30.dp))
         }
-    }}
+    }
+}
 
 @Composable
 fun PlaceholderContent(text: String) {
