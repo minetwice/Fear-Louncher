@@ -56,24 +56,10 @@ fun MainAppNavigator(filesDir: File) {
     var selectedVersionId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     
-    var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
+    // State variables
+    var allVersions by remember { mutableStateOf<List<McVersion>>(listOf()) }
     var isLoading by remember { mutableStateOf(false) }
     var downloadState by remember { mutableStateOf(DownloadState()) }
-
-    // Auto-load versions when entering Java Edition tab
-    LaunchedEffect(activeTab) {
-        if (activeTab == "Java Edition" && allVersions.isEmpty()) {
-            isLoading = true
-            try {
-                allVersions = fetchMinecraftVersions()
-                selectedVersionId = allVersions.find { it.type == "release" }?.id
-            } catch (e: Exception) {
-                Log.e("Launcher", "Error loading versions", e)
-            } finally {
-                isLoading = false
-            }
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -90,13 +76,33 @@ fun MainAppNavigator(filesDir: File) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     CircularProgressIndicator(color = AccentGreen)
                                 }
-                            } else {
-                                VersionManagerTab(
+                            } else if (allVersions.isEmpty()) {
+                                // Manual Load Button to avoid LaunchedEffect errors
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Button(onClick = {
+                                        scope.launch {
+                                            isLoading = true
+                                            try {
+                                                val fetched = fetchMinecraftVersions()
+                                                allVersions = fetched
+                                                selectedVersionId = fetched.find { it.type == "release" }?.id
+                                            } catch (e: Exception) {
+                                                Log.e("Launcher", "Error", e)
+                                            } finally {
+                                                isLoading = false
+                                            }
+                                        }
+                                    }) {
+                                        Text("Load Versions from Mojang")
+                                    }
+                                }
+                            } else {                                VersionManagerTab(
                                     allVersions = allVersions,
                                     selectedVersionId = selectedVersionId,
                                     onVersionSelect = { selectedVersionId = it.id },
                                     onInstallRequest = { version ->
-                                        scope.launch {                                            performDownload(version, filesDir) { state ->
+                                        scope.launch {
+                                            performDownload(version, filesDir) { state ->
                                                 downloadState = state
                                             }
                                         }
@@ -109,15 +115,7 @@ fun MainAppNavigator(filesDir: File) {
                     }
                 }
                 
-                PlayBar(
-                    version = selectedVersionId ?: "No Version", 
-                    filesDir = filesDir,
-                    onLaunch = {
-                        // Launch Logic Here
-                        Log.d("Launcher", "Launching version: $selectedVersionId")
-                        // TODO: Add actual process builder logic here for native launch
-                    }
-                )
+                PlayBar(selectedVersionId ?: "No Version", filesDir)
                 
                 if (downloadState.isDownloading) {
                     DownloadStatusBar(state = downloadState)
@@ -127,36 +125,29 @@ fun MainAppNavigator(filesDir: File) {
     }
 }
 
-// --- DOWNLOAD LOGIC (REAL IMPLEMENTATION) ---
+// --- LOGIC FUNCTIONS ---
+
 suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
     withContext(Dispatchers.IO) {
         try {
             onUpdate(DownloadState(true, version.id, 0f, "Fetching Metadata..."))
             
-            // 1. Get Version Details
             val metaUrl = version.url ?: throw Exception("No URL")
             val jsonStr = URL(metaUrl).readText()
             val json = Json.parseToJsonElement(jsonStr).jsonObject
             
-            // 2. Get Client Jar URL
             val downloads = json["downloads"]?.jsonObject
             val clientObj = downloads?.get("client")?.jsonObject
             val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
             val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
 
             if (jarUrl == null) throw Exception("JAR URL not found")
-            // 3. Prepare Directories
-            val versionDir = File(filesDir, "versions/${version.id}")
-            if (!versionDir.exists()) versionDir.mkdirs()
-            val outputFile = File(versionDir, "${version.id}.jar")
-            
-            // Create assets directory (Dummy for now, real launcher needs asset index download)
-            val assetsDir = File(filesDir, "assets")
-            if (!assetsDir.exists()) assetsDir.mkdirs()
 
+            val versionDir = File(filesDir, "versions/" + version.id)
+            if (!versionDir.exists()) versionDir.mkdirs()
+            val outputFile = File(versionDir, version.id + ".jar")
             onUpdate(DownloadState(true, version.id, 0f, "Downloading Core..."))
             
-            // 4. Download JAR
             val connection = URL(jarUrl).openConnection() as HttpURLConnection
             connection.connect()
             val input = connection.inputStream
@@ -174,26 +165,25 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
                 val mbRead = totalBytesRead / (1024 * 1024)
                 val totalMb = jarSize / (1024 * 1024)
                 
-                onUpdate(DownloadState(true, version.id, progress, "$mbRead MB / $totalMb MB"))
+                // Safe string concatenation
+                val msg = mbRead.toString() + " MB / " + totalMb.toString() + " MB"
+                onUpdate(DownloadState(true, version.id, progress, msg))
             }
             
             output.close()
             input.close()
-            
-            // 5. Create Libraries Folder (Structure ready for future)
-            val libsDir = File(filesDir, "libraries")
-            if (!libsDir.exists()) libsDir.mkdirs()
-
-            onUpdate(DownloadState(false, version.id, 1f, "Installed Successfully"))
+            onUpdate(DownloadState(false, version.id, 1f, "Installed"))
             delay(2000)
             onUpdate(DownloadState())
         } catch (e: Exception) {
-            onUpdate(DownloadState(false, version.id, 0f, "Error: ${e.message}"))
+            val errMsg = "Error: " + e.message
+            onUpdate(DownloadState(false, version.id, 0f, errMsg))
             delay(3000)
             onUpdate(DownloadState())
         }
     }
 }
+
 suspend fun fetchMinecraftVersions(): List<McVersion> {
     return withContext(Dispatchers.IO) {
         val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
@@ -204,11 +194,10 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
             val obj = it.jsonObject
             McVersion(
                 id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
-                type = obj["type"]?.jsonPrimitive?.content ?: "release",
-                url = obj["url"]?.jsonPrimitive?.content,
+                type = obj["type"]?.jsonPrimitive?.content ?: "release",                url = obj["url"]?.jsonPrimitive?.content,
                 releaseTime = obj["releaseTime"]?.jsonPrimitive?.content ?: ""
             )
-        }.reversed() // Newest first
+        }.reversed()
     }
 }
 
@@ -232,7 +221,11 @@ fun VersionManagerTab(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(), 
+            horizontalArrangement = Arrangement.SpaceBetween, 
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("Library", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             TextField(
                 value = searchQuery,
@@ -243,14 +236,14 @@ fun VersionManagerTab(
                 shape = RoundedCornerShape(20.dp),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = CardGray, 
-                    unfocusedContainerColor = CardGray,                    focusedIndicatorColor = Color.Transparent, 
+                    unfocusedContainerColor = CardGray,
+                    focusedIndicatorColor = Color.Transparent, 
                     unfocusedIndicatorColor = Color.Transparent,
                     focusedTextColor = TextPrimary, 
                     unfocusedTextColor = TextPrimary
                 ),
                 singleLine = true
-            )
-        }
+            )        }
         Spacer(Modifier.height(12.dp))
         
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -292,17 +285,23 @@ fun VersionItem(
     isSelected: Boolean,
     isCurrentlyDownloading: Boolean,
     onSelect: () -> Unit,
-    onInstall: () -> Unit) {
+    onInstall: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
         border = BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    ) {        Row(
+            Modifier.padding(16.dp), 
+            verticalAlignment = Alignment.CenterVertically, 
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
-                Text("${version.type.uppercase()} • ${version.releaseTime.take(10)}", color = TextSecondary, fontSize = 10.sp)
+                // Safe string concatenation
+                val typeText = version.type.uppercase() + " • " + version.releaseTime.take(10)
+                Text(typeText, color = TextSecondary, fontSize = 10.sp)
             }
             if (isCurrentlyDownloading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
@@ -319,9 +318,12 @@ fun VersionItem(
 
 @Composable
 fun DownloadStatusBar(state: DownloadState) {
-    Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)
+    ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Installing ${state.currentVersion}...", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            val installingText = "Installing " + state.currentVersion + "..."
+            Text(installingText, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Text(state.statusMessage, color = TextSecondary, fontSize = 12.sp)
         }
         Spacer(Modifier.height(6.dp))
@@ -337,14 +339,20 @@ fun DownloadStatusBar(state: DownloadState) {
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
-    Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))) {
-        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+    Column(
+        modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))
+    ) {        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
-        }        HorizontalDivider(color = BorderGray)
+        }
+        // Using Divider instead of HorizontalDivider for compatibility
+        Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
             val isSelected = activeTab == label
-            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), 
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
@@ -355,7 +363,11 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
 
 @Composable
 fun TopBar() {
-    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+    Row(
+        Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), 
+        verticalAlignment = Alignment.CenterVertically, 
+        horizontalArrangement = Arrangement.End
+    ) {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
@@ -368,19 +380,23 @@ fun HomeTabContent(version: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
             Spacer(Modifier.height(8.dp))
-            Text("Selected: $version", color = AccentGreen)
+            val selectedText = "Selected: " + version
+            Text(selectedText, color = AccentGreen)
         }
     }
 }
 
 @Composable
-fun PlayBar(version: String, filesDir: File, onLaunch: () -> Unit) {
-    // Check if version is actually downloaded
+fun PlayBar(version: String, filesDir: File) {
+    // Check if version is installed
     val isInstalled = remember(version) {
-        File(filesDir, "versions/$version/${version}.jar").exists()
+        if (version == "No Version") false        else File(filesDir, "versions/" + version + "/" + version + ".jar").exists()
     }
 
-    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), 
+        contentAlignment = Alignment.Center
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Ready to Play", color = TextSecondary, fontSize = 12.sp)
@@ -390,10 +406,10 @@ fun PlayBar(version: String, filesDir: File, onLaunch: () -> Unit) {
                 }
             }
             Button(
-                onClick = {                     if (isInstalled) {
-                        onLaunch() 
-                    } else {
-                        Log.e("Launcher", "Please install the version first!")
+                onClick = { 
+                    if (isInstalled) {
+                        Log.d("Launcher", "Launching " + version)
+                        // Add actual launch logic here
                     }
                 },
                 enabled = isInstalled,
