@@ -54,7 +54,6 @@ fun MainAppNavigator(filesDir: File) {
     var selectedVersionId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     
-    // FIX: Initialized with empty list directly
     var allVersions: List<McVersion> by remember { mutableStateOf(listOf()) }
     var isLoading by remember { mutableStateOf(false) }
     var downloadState by remember { mutableStateOf(DownloadState()) }
@@ -70,7 +69,6 @@ fun MainAppNavigator(filesDir: File) {
                     when (activeTab) {
                         "Home" -> HomeTabContent(selectedVersionId ?: "Unknown")
                         "Java Edition" -> {
-                            // FIX: Added a button to load versions manually to avoid LaunchedEffect errors
                             if (allVersions.isEmpty() && !isLoading) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Button(onClick = {
@@ -96,15 +94,17 @@ fun MainAppNavigator(filesDir: File) {
                             } else {
                                 VersionManagerTab(
                                     allVersions = allVersions,
-                                    selectedVersionId = selectedVersionId,                                    onVersionSelect = { selectedVersionId = it.id },
-                                    onInstallRequest = { version ->
+                                    selectedVersionId = selectedVersionId,
+                                    onVersionSelect = { selectedVersionId = it.id },
+                                    onInstallRequest = { version ->                                        // FIX: Changed Lambda to direct function call to avoid Line 148 Error
                                         scope.launch {
-                                            performDownload(version, filesDir) { state ->
-                                                downloadState = state
-                                            }
+                                            performDownload(version, filesDir)
                                         }
                                     },
-                                    downloadState = downloadState
+                                    downloadState = downloadState,
+                                    onDownloadUpdate = { newState ->
+                                        downloadState = newState
+                                    }
                                 )
                             }
                         }
@@ -122,58 +122,15 @@ fun MainAppNavigator(filesDir: File) {
     }
 }
 
-suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
-    withContext(Dispatchers.IO) {
-        try {
-            onUpdate(DownloadState(true, version.id, 0f, "Fetching..."))
-            val metaUrl = version.url ?: throw Exception("No URL")
-            val jsonStr = URL(metaUrl).readText()
-            val json = Json.parseToJsonElement(jsonStr).jsonObject
-            
-            val downloads = json["downloads"]?.jsonObject
-            val clientObj = downloads?.get("client")?.jsonObject
-            val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
-            val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
-
-            if (jarUrl == null) throw Exception("JAR URL not found")
-
-            val versionDir = File(filesDir, "versions/" + version.id)
-            if (!versionDir.exists()) versionDir.mkdirs()
-            val outputFile = File(versionDir, version.id + ".jar")
-
-            onUpdate(DownloadState(true, version.id, 0f, "Downloading..."))
-            
-            val connection = URL(jarUrl).openConnection() as HttpURLConnection
-            connection.connect()
-            val input = connection.inputStream            val output = FileOutputStream(outputFile)
-            
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            var totalBytesRead = 0L
-
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                output.write(buffer, 0, bytesRead)
-                totalBytesRead += bytesRead
-                val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
-                val mbRead = totalBytesRead / (1024 * 1024)
-                val totalMb = jarSize / (1024 * 1024)
-                val msg = mbRead.toString() + " MB / " + totalMb.toString() + " MB"
-                onUpdate(DownloadState(true, version.id, progress, msg))
-            }
-            
-            output.close()
-            input.close()
-            onUpdate(DownloadState(false, version.id, 1f, "Installed"))
-            delay(2000)
-            onUpdate(DownloadState())
-        } catch (e: Exception) {
-            val errMsg = "Error: " + e.message
-            onUpdate(DownloadState(false, version.id, 0f, errMsg))
-            delay(3000)
-            onUpdate(DownloadState())
-        }
-    }
+// FIX: Updated function signature to remove callback and use direct state update
+suspend fun performDownload(version: McVersion, filesDir: File) {
+    // Note: We will update state via a callback passed from UI if needed, 
+    // but for simplicity in this fix, we'll use a global holder or pass it down.
+    // To keep it simple and fix the error, we will pass the update logic inside VersionManagerTab
 }
+
+// Actually, let's keep the logic inside VersionManagerTab to avoid complex passing
+// Reverting to a simpler structure that compiles.
 
 suspend fun fetchMinecraftVersions(): List<McVersion> {
     return withContext(Dispatchers.IO) {
@@ -188,20 +145,23 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
                 type = obj["type"]?.jsonPrimitive?.content ?: "release",
                 url = obj["url"]?.jsonPrimitive?.content,
                 releaseTime = obj["releaseTime"]?.jsonPrimitive?.content ?: ""
-            )
-        }.reversed()
+            )        }.reversed()
     }
 }
 
 @Composable
-fun VersionManagerTab(    allVersions: List<McVersion>,
+fun VersionManagerTab(
+    allVersions: List<McVersion>,
     selectedVersionId: String?,
     onVersionSelect: (McVersion) -> Unit,
     onInstallRequest: (McVersion) -> Unit,
-    downloadState: DownloadState
+    downloadState: DownloadState,
+    onDownloadUpdate: (DownloadState) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var filterType by remember { mutableStateOf("All") }
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val filtered = allVersions.filter {
         val matchesSearch = it.id.contains(searchQuery, ignoreCase = true)
@@ -234,8 +194,7 @@ fun VersionManagerTab(    allVersions: List<McVersion>,
         
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Release", "Snapshot").forEach { type ->
-                FilterChip(
-                    selected = filterType == type,
+                FilterChip(                    selected = filterType == type,
                     onClick = { filterType = type },
                     label = { Text(type, fontSize = 12.sp) },
                     colors = FilterChipDefaults.filterChipColors(
@@ -243,7 +202,8 @@ fun VersionManagerTab(    allVersions: List<McVersion>,
                         selectedLabelColor = Color.White,
                         containerColor = CardGray, 
                         labelColor = TextSecondary
-                    )                )
+                    )
+                )
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -256,10 +216,68 @@ fun VersionManagerTab(    allVersions: List<McVersion>,
                         isSelected = selectedVersionId == version.id,
                         isCurrentlyDownloading = downloadState.isDownloading && downloadState.currentVersion == version.id,
                         onSelect = { onVersionSelect(version) },
-                        onInstall = { onInstallRequest(version) }
+                        onInstall = { 
+                            // FIX: Direct launch without complex lambda
+                            scope.launch {
+                                performDownloadInternal(version, (context as androidx.activity.ComponentActivity).filesDir, onDownloadUpdate)
+                            }
+                        }
                     )
                 }
             }
+        }
+    }
+}
+
+suspend fun performDownloadInternal(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
+    withContext(Dispatchers.IO) {
+        try {
+            onUpdate(DownloadState(true, version.id, 0f, "Fetching..."))
+            val metaUrl = version.url ?: throw Exception("No URL")
+            val jsonStr = URL(metaUrl).readText()
+            val json = Json.parseToJsonElement(jsonStr).jsonObject
+            
+            val downloads = json["downloads"]?.jsonObject
+            val clientObj = downloads?.get("client")?.jsonObject
+            val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
+            val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
+
+            if (jarUrl == null) throw Exception("JAR URL not found")
+            val versionDir = File(filesDir, "versions/" + version.id)
+            if (!versionDir.exists()) versionDir.mkdirs()
+            val outputFile = File(versionDir, version.id + ".jar")
+
+            onUpdate(DownloadState(true, version.id, 0f, "Downloading..."))
+            
+            val connection = URL(jarUrl).openConnection() as HttpURLConnection
+            connection.connect()
+            val input = connection.inputStream
+            val output = FileOutputStream(outputFile)
+            
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            var totalBytesRead = 0L
+
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+                output.write(buffer, 0, bytesRead)
+                totalBytesRead += bytesRead
+                val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
+                val mbRead = totalBytesRead / (1024 * 1024)
+                val totalMb = jarSize / (1024 * 1024)
+                val msg = mbRead.toString() + " MB / " + totalMb.toString() + " MB"
+                onUpdate(DownloadState(true, version.id, progress, msg))
+            }
+            
+            output.close()
+            input.close()
+            onUpdate(DownloadState(false, version.id, 1f, "Installed"))
+            delay(2000)
+            onUpdate(DownloadState())
+        } catch (e: Exception) {
+            val errMsg = "Error: " + e.message
+            onUpdate(DownloadState(false, version.id, 0f, errMsg))
+            delay(3000)
+            onUpdate(DownloadState())
         }
     }
 }
@@ -274,8 +292,7 @@ fun VersionItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
+        shape = RoundedCornerShape(8.dp),        colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
         border = BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -292,7 +309,8 @@ fun VersionItem(
                 TextButton(onClick = onInstall) {
                     Text("Install", color = AccentGreen, fontWeight = FontWeight.Bold)
                 }
-            }        }
+            }
+        }
     }
 }
 
@@ -323,8 +341,7 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
         HorizontalDivider(color = BorderGray)
-        items.forEach { (label, icon) ->
-            val isSelected = activeTab == label
+        items.forEach { (label, icon) ->            val isSelected = activeTab == label
             Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
@@ -342,6 +359,7 @@ fun TopBar() {
         Text("Steve", color = TextSecondary)
     }
 }
+
 @Composable
 fun HomeTabContent(version: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -372,8 +390,7 @@ fun PlayBar(version: String) {
             }
             Spacer(Modifier.width(30.dp))
         }
-    }
-}
+    }}
 
 @Composable
 fun PlaceholderContent(text: String) {
