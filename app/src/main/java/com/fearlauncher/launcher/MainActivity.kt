@@ -44,12 +44,10 @@ val AccentGreen = Color(0xFF2E7D32)
 fun MainAppNavigator(filesDir: java.io.File) {
     var activeTab by remember { mutableStateOf("Home") }
     
-    // State for Installed Instances
     var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
     
-    // Refresh instances when tab changes or window resumes    LaunchedEffect(activeTab) {
-        if (activeTab == "Home") {
-            installedInstances = MinecraftManager.getInstalledInstances(filesDir)
+    LaunchedEffect(activeTab) {
+        if (activeTab == "Home") {            installedInstances = MinecraftManager.getInstalledInstances(filesDir)
         }
     }
 
@@ -94,21 +92,18 @@ fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh:
                 }
             }
         } else {
-            // List of Installed Instances
             LazyColumn(Modifier.weight(1f)) {
-                items(instances) { instance ->                    InstanceCard(
+                items(instances) { instance ->
+                    InstanceCard(
                         instance = instance,
-                        isSelected = selectedInstanceId == instance.versionId,
-                        onSelect = { selectedInstanceId = instance.versionId }
+                        isSelected = selectedInstanceId == instance.versionId,                        onSelect = { selectedInstanceId = instance.versionId }
                     )
                 }
             }
         }
 
-        // Play Bar for Selected Instance
         selectedInstanceId?.let { id ->
             PlayBar(instanceId = id, filesDir = filesDir, onPlayed = {
-                // Refresh list after play (in case something changed)
                 onRefresh()
             })
         }
@@ -145,13 +140,12 @@ fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
                 Text(instanceId, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Button(
-                onClick = {                     if (isInstalled) {
-                        // Launch Logic Here
-                        android.util.Log.d("Launcher", "Launching $instanceId")
+                onClick = { 
+                    if (isInstalled) {
+                        android.util.Log.d("Launcher", "Launching " + instanceId)
                         onPlayed()
                     }
-                },
-                enabled = isInstalled,
+                },                enabled = isInstalled,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isInstalled) AccentGreen else CardGray,
                     disabledContainerColor = CardGray
@@ -194,18 +188,18 @@ fun LibraryScreen(filesDir: java.io.File) {
                     
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),                        colors = CardDefaults.cardColors(containerColor = SurfaceBlack),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceBlack),
                         border = BorderStroke(1.dp, if (isInstalled) AccentGreen else BorderGray)
                     ) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
-                                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
-                                Text(version.type.uppercase(), color = TextSecondary, fontSize = 10.sp)
+                                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)                                Text(version.type.uppercase(), color = TextSecondary, fontSize = 10.sp)
                             }
                             
                             if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("${(downloadProgress * 100).toInt()}%", color = AccentGreen, fontSize = 12.sp)
+                                    Text((downloadProgress * 100).toInt().toString() + "%", color = AccentGreen, fontSize = 12.sp)
                                     LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.width(100.dp).height(4.dp), color = AccentGreen)
                                 }
                             } else if (isInstalled) {
@@ -213,13 +207,12 @@ fun LibraryScreen(filesDir: java.io.File) {
                             } else {
                                 Button(onClick = {
                                     scope.launch {
-                                        downloadStatus = "Installing ${version.id}..."
+                                        downloadStatus = "Installing " + version.id + "..."
                                         MinecraftManager.installVersion(version, filesDir) { status, progress ->
                                             downloadStatus = status
                                             if (progress >= 0) downloadProgress = progress
                                         }
                                         downloadStatus = null
-                                        // Refresh UI implicitly by state change
                                     }
                                 }, colors = ButtonDefaults.buttonColors(containerColor = BorderGray)) {
                                     Text("Install", color = TextPrimary, fontSize = 12.sp)
@@ -243,14 +236,14 @@ fun LibraryScreen(filesDir: java.io.File) {
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
     Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))) {
-        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {            Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
+        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+            Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
         Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
             val isSelected = activeTab == label
-            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
+            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {                Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
             }
