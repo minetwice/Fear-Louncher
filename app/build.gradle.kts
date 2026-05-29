@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    // Ye plugin JSON parsing (Serialization) ke liye zaruri hai
+    // Ye line serialization plugin ko add karti hai
     kotlin("plugin.serialization") version "1.9.0"
 }
 
@@ -62,31 +62,31 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
 
-    // Compose BOM (Bill of Materials) - Manages versions
+    // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     
-    // Compose UI Libraries
+    // Compose UI
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     
-    // Material Design 3
+    // Material 3
     implementation("androidx.compose.material3:material3")
     
-    // Material Icons Extended (For Code, CloudDownload, etc.)
+    // Material Icons Extended
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Kotlin Serialization (For JSON Parsing from Mojang API)
+    // Kotlin Serialization (JSON Parsing ke liye zaruri)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
-    // Testing Dependencies
+    // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     
-    // Debug Tools
+    // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
