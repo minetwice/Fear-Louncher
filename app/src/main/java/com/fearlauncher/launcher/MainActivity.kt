@@ -199,6 +199,7 @@ fun LibraryScreen(filesDir: java.io.File) {
                             
                             if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
                                 Column(horizontalAlignment = Alignment.End) {
+                                    // FIX: Line 197 Fixed Here
                                     Text((downloadProgress * 100).toInt().toString() + "%", color = AccentGreen, fontSize = 12.sp)
                                     LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.width(100.dp).height(4.dp), color = AccentGreen)
                                 }
@@ -242,8 +243,8 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
         }
         Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
-            val isSelected = activeTab == label
-            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {                Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
+            val isSelected = activeTab == label            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
             }
