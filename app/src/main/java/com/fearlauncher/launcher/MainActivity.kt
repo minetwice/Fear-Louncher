@@ -192,15 +192,17 @@ fun LibraryScreen(filesDir: java.io.File) {
                         colors = CardDefaults.cardColors(containerColor = SurfaceBlack),
                         border = BorderStroke(1.dp, if (isInstalled) AccentGreen else BorderGray)
                     ) {
+                        // FIX: Line 197 & 246 Fixed by simplifying the Row structure
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)                                Text(version.type.uppercase(), color = TextSecondary, fontSize = 10.sp)
+                            Column {                                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                Text(version.type.uppercase(), color = TextSecondary, fontSize = 10.sp)
                             }
                             
                             if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
                                 Column(horizontalAlignment = Alignment.End) {
-                                    // FIX: Line 197 Fixed Here
-                                    Text((downloadProgress * 100).toInt().toString() + "%", color = AccentGreen, fontSize = 12.sp)
+                                    // FIX: Using variable for text to avoid compilation error
+                                    val progressText = (downloadProgress * 100).toInt().toString() + "%"
+                                    Text(progressText, color = AccentGreen, fontSize = 12.sp)
                                     LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.width(100.dp).height(4.dp), color = AccentGreen)
                                 }
                             } else if (isInstalled) {
@@ -241,9 +243,9 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
-        Divider(color = BorderGray, thickness = 1.dp)
-        items.forEach { (label, icon) ->
-            val isSelected = activeTab == label            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+        Divider(color = BorderGray, thickness = 1.dp)        items.forEach { (label, icon) ->
+            val isSelected = activeTab == label
+            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
