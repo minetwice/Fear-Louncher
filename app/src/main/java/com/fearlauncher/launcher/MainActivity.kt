@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,9 +45,9 @@ class MainActivity : ComponentActivity() {
 // --- THEME COLORS ---
 val DeepBlack = Color(0xFF050505)
 val SurfaceBlack = Color(0xFF121212)
-val CardGray = Color(0xFF1E1E1E)val BorderGray = Color(0xFF333333)
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFA0A0A0)
+val CardGray = Color(0xFF1E1E1E)
+val BorderGray = Color(0xFF333333)
+val TextPrimary = Color(0xFFFFFFFF)val TextSecondary = Color(0xFFA0A0A0)
 val AccentGreen = Color(0xFF2E7D32)
 
 @Composable
@@ -58,20 +56,17 @@ fun MainAppNavigator(filesDir: File) {
     var selectedVersionId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     
-    // FIX: Explicitly defining types to avoid inference errors on Line 50
     var allVersions by remember { mutableStateOf<List<McVersion>>(listOf()) }
     var isLoading by remember { mutableStateOf(true) }
     var downloadState by remember { mutableStateOf(DownloadState()) }
 
-    // FIX: Simplified LaunchedEffect
-    LaunchedEffect(key1 = Unit) {
+    LaunchedEffect(Unit) {
         try {
-            val fetchedVersions = fetchMinecraftVersions()
-            allVersions = fetchedVersions
-            val latestRelease = fetchedVersions.find { it.type == "release" }
-            selectedVersionId = latestRelease?.id
+            val fetched = fetchMinecraftVersions()
+            allVersions = fetched
+            selectedVersionId = fetched.find { it.type == "release" }?.id
         } catch (e: Exception) {
-            Log.e("Launcher", "Error fetching versions", e)
+            Log.e("Launcher", "Error", e)
         } finally {
             isLoading = false
         }
@@ -80,8 +75,10 @@ fun MainAppNavigator(filesDir: File) {
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
         Row(modifier = Modifier.fillMaxSize()) {
             Sidebar(activeTab) { activeTab = it }
+            
             Column(modifier = Modifier.weight(1f)) {
                 TopBar()
+                
                 Box(modifier = Modifier.weight(1f).padding(24.dp)) {
                     when (activeTab) {
                         "Home" -> HomeTabContent(selectedVersionId ?: "Unknown")
@@ -96,10 +93,10 @@ fun MainAppNavigator(filesDir: File) {
                                     selectedVersionId = selectedVersionId,
                                     onVersionSelect = { selectedVersionId = it.id },
                                     onInstallRequest = { version ->
-                                        scope.launch {                                            performDownload(version, filesDir) { state -> 
-                                                downloadState = state 
-                                            }
-                                        }
+                                        scope.launch {
+                                            performDownload(version, filesDir) { state ->
+                                                downloadState = state
+                                            }                                        }
                                     },
                                     downloadState = downloadState
                                 )
@@ -108,7 +105,9 @@ fun MainAppNavigator(filesDir: File) {
                         else -> PlaceholderContent("Coming Soon")
                     }
                 }
+                
                 PlayBar(selectedVersionId ?: "No Version")
+                
                 if (downloadState.isDownloading) {
                     DownloadStatusBar(state = downloadState)
                 }
@@ -117,7 +116,8 @@ fun MainAppNavigator(filesDir: File) {
     }
 }
 
-// --- DOWNLOAD LOGIC ---
+// --- LOGIC FUNCTIONS ---
+
 suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
     withContext(Dispatchers.IO) {
         try {
@@ -153,8 +153,6 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
                 totalBytesRead += bytesRead
                 
                 val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
-                
-                // Fix: Using string concatenation to avoid interpolation issues
                 val mbRead = totalBytesRead / (1024 * 1024)
                 val totalMb = jarSize / (1024 * 1024)
                 
@@ -194,9 +192,9 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
 
 // --- UI COMPONENTS ---
 
-@Composablefun VersionManagerTab(
-    allVersions: List<McVersion>,
-    selectedVersionId: String?,
+@Composable
+fun VersionManagerTab(
+    allVersions: List<McVersion>,    selectedVersionId: String?,
     onVersionSelect: (McVersion) -> Unit,
     onInstallRequest: (McVersion) -> Unit,
     downloadState: DownloadState
@@ -211,7 +209,11 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(), 
+            horizontalArrangement = Arrangement.SpaceBetween, 
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("Library", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             TextField(
                 value = searchQuery,
@@ -221,9 +223,12 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
                 modifier = Modifier.width(200.dp).height(40.dp),
                 shape = RoundedCornerShape(20.dp),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = CardGray, unfocusedContainerColor = CardGray,
-                    focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary
+                    focusedContainerColor = CardGray, 
+                    unfocusedContainerColor = CardGray,
+                    focusedIndicatorColor = Color.Transparent, 
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = TextPrimary, 
+                    unfocusedTextColor = TextPrimary
                 ),
                 singleLine = true
             )
@@ -237,13 +242,15 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
                     onClick = { filterType = type },
                     label = { Text(type, fontSize = 12.sp) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AccentGreen, selectedLabelColor = Color.White,
-                        containerColor = CardGray, labelColor = TextSecondary
+                        selectedContainerColor = AccentGreen, 
+                        selectedLabelColor = Color.White,                        containerColor = CardGray, 
+                        labelColor = TextSecondary
                     )
                 )
             }
         }
         Spacer(Modifier.height(12.dp))
+
         Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {
             LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
                 items(filtered) { version ->
@@ -274,15 +281,18 @@ fun VersionItem(
         colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
         border = BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.padding(16.dp), 
+            verticalAlignment = Alignment.CenterVertically, 
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
                 Text("${version.type.uppercase()} • ${version.releaseTime.take(10)}", color = TextSecondary, fontSize = 10.sp)
             }
             if (isCurrentlyDownloading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
-            } else if (isSelected) {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
+            } else if (isSelected) {                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
             } else {
                 TextButton(onClick = onInstall) {
                     Text("Install", color = AccentGreen, fontWeight = FontWeight.Bold)
@@ -292,8 +302,11 @@ fun VersionItem(
     }
 }
 
-@Composablefun DownloadStatusBar(state: DownloadState) {
-    Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)) {
+@Composable
+fun DownloadStatusBar(state: DownloadState) {
+    Column(
+        modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)
+    ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Installing ${state.currentVersion}...", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Text(state.statusMessage, color = TextSecondary, fontSize = 12.sp)
@@ -311,7 +324,9 @@ fun VersionItem(
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
-    Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))) {
+    Column(
+        modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))
+    ) {
         Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
@@ -319,18 +334,24 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
         HorizontalDivider(color = BorderGray)
         items.forEach { (label, icon) ->
             val isSelected = activeTab == label
-            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), 
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
-            }
-        }
+            }        }
     }
 }
 
 @Composable
 fun TopBar() {
-    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+    Row(
+        Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), 
+        verticalAlignment = Alignment.CenterVertically, 
+        horizontalArrangement = Arrangement.End
+    ) {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
@@ -341,7 +362,8 @@ fun TopBar() {
 fun HomeTabContent(version: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)            Spacer(Modifier.height(8.dp))
+            Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
+            Spacer(Modifier.height(8.dp))
             Text("Selected: $version", color = AccentGreen)
         }
     }
@@ -349,7 +371,10 @@ fun HomeTabContent(version: String) {
 
 @Composable
 fun PlayBar(version: String) {
-    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), 
+        contentAlignment = Alignment.Center
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Ready to Play", color = TextSecondary, fontSize = 12.sp)
@@ -365,8 +390,7 @@ fun PlayBar(version: String) {
             }
             Spacer(Modifier.width(30.dp))
         }
-    }
-}
+    }}
 
 @Composable
 fun PlaceholderContent(text: String) {
