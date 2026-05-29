@@ -1,6 +1,7 @@
 package com.fearlauncher.launcher
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -14,12 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,21 +43,18 @@ val AccentGreen = Color(0xFF2E7D32)
 @Composable
 fun MainAppNavigator(filesDir: java.io.File) {
     var activeTab by remember { mutableStateOf("Home") }
-    
     var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
     
     LaunchedEffect(activeTab) {
-        if (activeTab == "Home") {            installedInstances = MinecraftManager.getInstalledInstances(filesDir)
-        }
+        if (activeTab == "Home") {
+            installedInstances = MinecraftManager.getInstalledInstances(filesDir)        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
         Row(modifier = Modifier.fillMaxSize()) {
             Sidebar(activeTab) { activeTab = it }
-            
             Column(modifier = Modifier.weight(1f)) {
                 TopBar()
-                
                 Box(modifier = Modifier.weight(1f).padding(24.dp)) {
                     when (activeTab) {
                         "Home" -> HomeScreen(
@@ -77,6 +74,7 @@ fun MainAppNavigator(filesDir: java.io.File) {
 @Composable
 fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh: () -> Unit) {
     var selectedInstanceId by remember { mutableStateOf<String?>(instances.firstOrNull()?.versionId) }
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -93,17 +91,18 @@ fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh:
             }
         } else {
             LazyColumn(Modifier.weight(1f)) {
-                items(instances) { instance: GameInstance ->
+                items(instances) { instance ->
                     InstanceCard(
                         instance = instance,
-                        isSelected = selectedInstanceId == instance.versionId,                        onSelect = { selectedInstanceId = instance.versionId }
-                    )
-                }
+                        isSelected = selectedInstanceId == instance.versionId,
+                        onSelect = { selectedInstanceId = instance.versionId }
+                    )                }
             }
         }
 
         selectedInstanceId?.let { id ->
             PlayBar(instanceId = id, filesDir = filesDir, onPlayed = {
+                Toast.makeText(context, "Launching $id... (Check Logcat)", Toast.LENGTH_LONG).show()
                 onRefresh()
             })
         }
@@ -116,7 +115,7 @@ fun InstanceCard(instance: GameInstance, isSelected: Boolean, onSelect: () -> Un
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSelect() },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
-        border = BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Computer, contentDescription = null, tint = if (isSelected) AccentGreen else TextSecondary)
@@ -133,7 +132,7 @@ fun InstanceCard(instance: GameInstance, isSelected: Boolean, onSelect: () -> Un
 fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
     val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, instanceId)
 
-    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
@@ -142,7 +141,8 @@ fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
             Button(
                 onClick = { 
                     if (isInstalled) {
-                        android.util.Log.d("Launcher", "Launching " + instanceId)
+                        val cmd = MinecraftManager.getLaunchCommand(filesDir, instanceId)
+                        android.util.Log.d("Launcher", "CMD: $cmd")
                         onPlayed()
                     }
                 },                enabled = isInstalled,
@@ -161,89 +161,16 @@ fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
 }
 
 @Composable
-fun LibraryScreen(filesDir: java.io.File) {
-    val scope = rememberCoroutineScope()
-    var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var downloadStatus by remember { mutableStateOf<String?>(null) }
-    var downloadProgress by remember { mutableStateOf(0f) }
-
-    LaunchedEffect(Unit) {
-        isLoading = true
-        allVersions = MinecraftManager.fetchAllVersions()
-        isLoading = false
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Library (Online)", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            if (isLoading) CircularProgressIndicator(Modifier.size(24.dp), color = AccentGreen)
-        }
-        Spacer(Modifier.height(16.dp))
-
-        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {
-            LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                // FIX: Explicit type for version parameter to avoid inference error
-                items(allVersions) { version: McVersion ->
-                    val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
-                    
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceBlack),
-                        border = BorderStroke(1.dp, if (isInstalled) AccentGreen else BorderGray)
-                    ) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {                                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
-                                Text(version.type.uppercase(), color = TextSecondary, fontSize = 10.sp)
-                            }
-                            
-                            if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
-                                Column(horizontalAlignment = Alignment.End) {
-                                    val progressText = (downloadProgress * 100).toInt().toString() + "%"
-                                    Text(progressText, color = AccentGreen, fontSize = 12.sp)
-                                    LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.width(100.dp).height(4.dp), color = AccentGreen)
-                                }
-                            } else if (isInstalled) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = "Installed", tint = AccentGreen)
-                            } else {
-                                Button(onClick = {
-                                    scope.launch {
-                                        downloadStatus = "Installing " + version.id + "..."
-                                        MinecraftManager.installVersion(version, filesDir) { status, progress ->
-                                            downloadStatus = status
-                                            if (progress >= 0) downloadProgress = progress
-                                        }
-                                        downloadStatus = null
-                                    }
-                                }, colors = ButtonDefaults.buttonColors(containerColor = BorderGray)) {
-                                    Text("Install", color = TextPrimary, fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (downloadStatus != null) {
-            Box(Modifier.fillMaxWidth().padding(16.dp).background(SurfaceBlack, RoundedCornerShape(8.dp)).padding(12.dp)) {
-                Text(downloadStatus!!, color = TextPrimary)
-            }
-        }
-    }
-}
-
-@Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
-    Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))) {
+    Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray))) {
         Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
         Divider(color = BorderGray, thickness = 1.dp)
-        items.forEach { (label, icon) ->            val isSelected = activeTab == label
+        items.forEach { (label, icon) ->
+            val isSelected = activeTab == label
             Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
