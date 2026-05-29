@@ -58,18 +58,20 @@ fun MainAppNavigator(filesDir: File) {
     var selectedVersionId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     
-    // Explicitly typed to avoid inference errors
-    var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
+    // FIX: Explicitly defining types to avoid inference errors on Line 50
+    var allVersions by remember { mutableStateOf<List<McVersion>>(listOf()) }
     var isLoading by remember { mutableStateOf(true) }
     var downloadState by remember { mutableStateOf(DownloadState()) }
 
-    LaunchedEffect(Unit) {
+    // FIX: Simplified LaunchedEffect
+    LaunchedEffect(key1 = Unit) {
         try {
-            val versions = fetchMinecraftVersions()
-            allVersions = versions
-            selectedVersionId = versions.find { it.type == "release" }?.id
+            val fetchedVersions = fetchMinecraftVersions()
+            allVersions = fetchedVersions
+            val latestRelease = fetchedVersions.find { it.type == "release" }
+            selectedVersionId = latestRelease?.id
         } catch (e: Exception) {
-            Log.e("Launcher", "Error", e)
+            Log.e("Launcher", "Error fetching versions", e)
         } finally {
             isLoading = false
         }
@@ -94,9 +96,9 @@ fun MainAppNavigator(filesDir: File) {
                                     selectedVersionId = selectedVersionId,
                                     onVersionSelect = { selectedVersionId = it.id },
                                     onInstallRequest = { version ->
-                                        scope.launch {
-                                            performDownload(version, filesDir) { state -> 
-                                                downloadState = state                                             }
+                                        scope.launch {                                            performDownload(version, filesDir) { state -> 
+                                                downloadState = state 
+                                            }
                                         }
                                     },
                                     downloadState = downloadState
@@ -143,16 +145,16 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
             val input = connection.inputStream
             val output = FileOutputStream(outputFile)
             
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
+            val buffer = ByteArray(8192)            var bytesRead: Int
             var totalBytesRead = 0L
+
             while (input.read(buffer).also { bytesRead = it } != -1) {
                 output.write(buffer, 0, bytesRead)
                 totalBytesRead += bytesRead
                 
                 val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
                 
-                // Fixed Variable Scope Issue
+                // Fix: Using string concatenation to avoid interpolation issues
                 val mbRead = totalBytesRead / (1024 * 1024)
                 val totalMb = jarSize / (1024 * 1024)
                 
@@ -192,9 +194,9 @@ suspend fun fetchMinecraftVersions(): List<McVersion> {
 
 // --- UI COMPONENTS ---
 
-@Composable
-fun VersionManagerTab(
-    allVersions: List<McVersion>,    selectedVersionId: String?,
+@Composablefun VersionManagerTab(
+    allVersions: List<McVersion>,
+    selectedVersionId: String?,
     onVersionSelect: (McVersion) -> Unit,
     onInstallRequest: (McVersion) -> Unit,
     downloadState: DownloadState
@@ -242,8 +244,8 @@ fun VersionManagerTab(
             }
         }
         Spacer(Modifier.height(12.dp))
-
-        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {            LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
+        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {
+            LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
                 items(filtered) { version ->
                     VersionItem(
                         version = version,
@@ -290,9 +292,9 @@ fun VersionItem(
     }
 }
 
-@Composable
-fun DownloadStatusBar(state: DownloadState) {
-    Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)) {        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+@Composablefun DownloadStatusBar(state: DownloadState) {
+    Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Installing ${state.currentVersion}...", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Text(state.statusMessage, color = TextSecondary, fontSize = 12.sp)
         }
@@ -339,9 +341,9 @@ fun TopBar() {
 fun HomeTabContent(version: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-            Spacer(Modifier.height(8.dp))
-            Text("Selected: $version", color = AccentGreen)        }
+            Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)            Spacer(Modifier.height(8.dp))
+            Text("Selected: $version", color = AccentGreen)
+        }
     }
 }
 
