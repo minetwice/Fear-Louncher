@@ -144,8 +144,11 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
                 output.write(buffer, 0, bytesRead)
                 totalBytesRead += bytesRead
                 val progress = if (jarSize > 0) (totalBytesRead.toFloat() / jarSize.toFloat()) else 0f
-                val mbRead = totalBytesRead / (1024 * 1024)
-                val totalMb = jarSize / (1024 * 1024)                onUpdate(DownloadState(true, version.id, progress, "$mbRead MB / $totalMb MB"))
+                
+                // Fix: Using string concatenation instead of interpolation to avoid errors                val mbRead = (totalBytesRead / (1024 * 1024)).toString()
+                val totalMb = (jarSize / (1024 * 1024)).toString()
+                
+                onUpdate(DownloadState(true, version.id, progress, mbRead + " MB / " + totalMb + " MB"))
             }
             
             output.close()
@@ -154,7 +157,7 @@ suspend fun performDownload(version: McVersion, filesDir: File, onUpdate: (Downl
             delay(2000)
             onUpdate(DownloadState())
         } catch (e: Exception) {
-            onUpdate(DownloadState(false, version.id, 0f, "Error: ${e.message}"))
+            onUpdate(DownloadState(false, version.id, 0f, "Error: " + e.message))
             delay(3000)
             onUpdate(DownloadState())
         }
@@ -191,10 +194,10 @@ fun VersionManagerTab(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var filterType by remember { mutableStateOf("All") }
-
     val filtered = allVersions.filter {
         val matchesSearch = it.id.contains(searchQuery, ignoreCase = true)
-        val matchesType = if (filterType == "All") true else it.type.equals(filterType, ignoreCase = true)        matchesSearch && matchesType
+        val matchesType = if (filterType == "All") true else it.type.equals(filterType, ignoreCase = true)
+        matchesSearch && matchesType
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -240,10 +243,10 @@ fun VersionManagerTab(
                         isSelected = selectedVersionId == version.id,
                         isCurrentlyDownloading = downloadState.isDownloading && downloadState.currentVersion == version.id,
                         onSelect = { onVersionSelect(version) },
-                        onInstall = { onInstallRequest(version) }
-                    )
+                        onInstall = { onInstallRequest(version) }                    )
                 }
-            }        }
+            }
+        }
     }
 }
 
@@ -264,7 +267,8 @@ fun VersionItem(
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
-                Text("${version.type.uppercase()} • ${version.releaseTime.take(10)}", color = TextSecondary, fontSize = 10.sp)
+                // Fix: Using string concatenation
+                Text(version.type.uppercase() + " • " + version.releaseTime.take(10), color = TextSecondary, fontSize = 10.sp)
             }
             if (isCurrentlyDownloading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
@@ -283,16 +287,16 @@ fun VersionItem(
 fun DownloadStatusBar(state: DownloadState) {
     Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Installing ${state.currentVersion}...", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text("Installing " + state.currentVersion + "...", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Text(state.statusMessage, color = TextSecondary, fontSize = 12.sp)
         }
         Spacer(Modifier.height(6.dp))
         LinearProgressIndicator(
-            progress = { state.progress },
-            modifier = Modifier.fillMaxWidth().height(4.dp),
+            progress = { state.progress },            modifier = Modifier.fillMaxWidth().height(4.dp),
             color = AccentGreen,
             trackColor = BorderGray
-        )    }
+        )
+    }
 }
 
 @Composable
@@ -330,18 +334,18 @@ fun HomeTabContent(version: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
             Spacer(Modifier.height(8.dp))
-            Text("Selected: $version", color = AccentGreen)
+            Text("Selected: " + version, color = AccentGreen)
         }
     }
 }
 
 @Composable
 fun PlayBar(version: String) {
-    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {        Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Ready to Play", color = TextSecondary, fontSize = 12.sp)
-                Text(version, color = TextPrimary, fontWeight = FontWeight.Bold)            }
+                Text(version, color = TextPrimary, fontWeight = FontWeight.Bold)
+            }
             Button(
                 onClick = { /* Launch Logic */ },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
