@@ -80,7 +80,13 @@ fun LibraryScreen(filesDir: java.io.File) {
         
         Spacer(Modifier.height(16.dp))
 
-        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1E1E1E))) {
+        // FIX: Added .background modifier properly
+        Box(
+            Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1E1E1E)) 
+        ) {
             if (isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF2E7D32))
@@ -90,13 +96,13 @@ fun LibraryScreen(filesDir: java.io.File) {
                     items(filteredVersions) { version ->
                         val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
                         Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),                            shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
                             border = androidx.compose.foundation.BorderStroke(1.dp, if (isInstalled) Color(0xFF2E7D32) else Color(0xFF333333))
                         ) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column {                                    Text(version.id, color = Color.White, fontWeight = FontWeight.Medium)
+                                Column {
+                                    Text(version.id, color = Color.White, fontWeight = FontWeight.Medium)
                                     Text(version.type.uppercase(), color = Color.Gray, fontSize = 10.sp)
                                 }
                                 if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
@@ -128,9 +134,15 @@ fun LibraryScreen(filesDir: java.io.File) {
         }
         
         if (downloadStatus != null) {
-            Box(Modifier.fillMaxWidth().padding(16.dp).background(Color(0xFF121212), RoundedCornerShape(8.dp)).padding(12.dp)) {
+            // FIX: Added .background modifier properly
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .background(Color(0xFF121212), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
                 Text(downloadStatus!!, color = Color.White)
             }
         }
-    }
-}
+    }}
