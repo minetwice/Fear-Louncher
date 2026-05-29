@@ -1,7 +1,6 @@
 package com.fearlauncher.launcher
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -21,15 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
-import kotlinx.serialization.json.*
-import java.io.File
-import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
-
-// --- DATA CLASSES ---
-data class McVersion(val id: String, val type: String, val url: String?, val releaseTime: String)
-data class DownloadState(val isDownloading: Boolean = false, val currentVersion: String = "", val progress: Float = 0f, val statusMessage: String = "")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,7 +32,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// --- THEME ---
 val DeepBlack = Color(0xFF050505)
 val SurfaceBlack = Color(0xFF121212)
 val CardGray = Color(0xFF1E1E1E)
@@ -52,14 +41,17 @@ val TextSecondary = Color(0xFFA0A0A0)
 val AccentGreen = Color(0xFF2E7D32)
 
 @Composable
-fun MainAppNavigator(filesDir: File) {
+fun MainAppNavigator(filesDir: java.io.File) {
     var activeTab by remember { mutableStateOf("Home") }
-    var selectedVersionId by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
     
-    var allVersions by remember { mutableStateOf<List<McVersion>>(listOf()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var downloadState by remember { mutableStateOf(DownloadState()) }
+    // State for Installed Instances
+    var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
+    
+    // Refresh instances when tab changes or window resumes    LaunchedEffect(activeTab) {
+        if (activeTab == "Home") {
+            installedInstances = MinecraftManager.getInstalledInstances(filesDir)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -70,320 +62,180 @@ fun MainAppNavigator(filesDir: File) {
                 
                 Box(modifier = Modifier.weight(1f).padding(24.dp)) {
                     when (activeTab) {
-                        "Home" -> HomeTabContent(selectedVersionId ?: "Unknown")
-                        "Java Edition" -> {
-                            if (isLoading) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    CircularProgressIndicator(color = AccentGreen)
-                                }
-                            } else if (allVersions.isEmpty()) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Button(onClick = {
-                                        scope.launch {
-                                            isLoading = true
-                                            try {
-                                                // Fetch ALL versions
-                                                val fetched = fetchMinecraftVersions()
-                                                allVersions = fetched
-                                                // Select latest release by default
-                                                selectedVersionId = fetched.find { it.type == "release" }?.id
-                                            } catch (e: Exception) {
-                                                Log.e("Launcher", "Error", e)
-                                            } finally {
-                                                isLoading = false
-                                            }
-                                        }
-                                    }) {
-                                        Text("Load All Versions from Mojang")
-                                    }
-                                }
-                            } else {
-                                VersionManagerTab(
-                                    allVersions = allVersions,
-                                    selectedVersionId = selectedVersionId,
-                                    onVersionSelect = { selectedVersionId = it.id },
-                                    onInstallRequest = { version ->
-                                        scope.launch {
-                                            // Full Install with Libs
-                                            performFullInstall(version, filesDir) { state ->
-                                                downloadState = state
-                                            }
-                                        }
-                                    },
-                                    downloadState = downloadState
-                                )
-                            }
-                        }
+                        "Home" -> HomeScreen(
+                            instances = installedInstances, 
+                            filesDir = filesDir,
+                            onRefresh = { installedInstances = MinecraftManager.getInstalledInstances(filesDir) }
+                        )
+                        "Java Edition" -> LibraryScreen(filesDir)
                         else -> PlaceholderContent("Coming Soon")
                     }
                 }
-                
-                PlayBar(selectedVersionId ?: "No Version", filesDir)
-                
-                if (downloadState.isDownloading) {
-                    DownloadStatusBar(state = downloadState)
-                }
             }
         }
     }
 }
-
-// --- ADVANCED DOWNLOAD LOGIC (CORE + LIBS + ASSETS) ---
-suspend fun performFullInstall(version: McVersion, filesDir: File, onUpdate: (DownloadState) -> Unit) {
-    withContext(Dispatchers.IO) {
-        try {
-            onUpdate(DownloadState(true, version.id, 0f, "Fetching Metadata..."))
-            
-            // 1. Get Version Details JSON
-            val metaUrl = version.url ?: throw Exception("No URL")
-            val jsonStr = URL(metaUrl).readText()
-            val json = Json.parseToJsonElement(jsonStr).jsonObject
-            
-            // 2. Download Client JAR (Core)
-            val downloads = json["downloads"]?.jsonObject
-            val clientObj = downloads?.get("client")?.jsonObject
-            val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
-            val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
-
-            if (jarUrl == null) throw Exception("JAR URL not found")
-
-            val versionDir = File(filesDir, "versions/" + version.id)
-            if (!versionDir.exists()) versionDir.mkdirs()
-            val outputFile = File(versionDir, version.id + ".jar")
-
-            onUpdate(DownloadState(true, version.id, 0.1f, "Downloading Core (client.jar)..."))
-            downloadFile(jarUrl, outputFile, jarSize) { progress ->
-                // Map 0-100% of jar download to 0.1-0.4 of total progress
-                onUpdate(DownloadState(true, version.id, 0.1f + (progress * 0.3f), "Downloading Core..."))
-            }
-
-            // 3. Download Libraries (The Heavy Part ~800MB)
-            onUpdate(DownloadState(true, version.id, 0.4f, "Preparing Libraries..."))
-            val librariesArray = json["libraries"]?.jsonArray ?: emptyList()
-            val libsDir = File(filesDir, "libraries")
-            if (!libsDir.exists()) libsDir.mkdirs()
-
-            var libCount = 0
-            val totalLibs = librariesArray.size
-            
-            for (lib in librariesArray) {
-                val libObj = lib.jsonObject
-                val name = libObj["name"]?.jsonPrimitive?.content ?: continue
-                val downloadsLib = libObj["downloads"]?.jsonObject
-                val artifact = downloadsLib?.get("artifact")?.jsonObject
-                
-                if (artifact != null) {
-                    val libUrl = artifact["url"]?.jsonPrimitive?.content
-                    val libSize = artifact["size"]?.jsonPrimitive?.long ?: 0L
-                    val path = artifact["path"]?.jsonPrimitive?.content
-                    
-                    if (libUrl != null && path != null) {
-                        val libFile = File(libsDir, path)
-                        if (!libFile.exists()) {
-                            libFile.parentFile?.mkdirs()
-                            downloadFile(libUrl, libFile, libSize) { progress ->
-                                val libProgress = (libCount.toFloat() / totalLibs.toFloat())
-                                onUpdate(DownloadState(true, version.id, 0.4f + (libProgress * 0.5f), "Downloading Libs: $name"))
-                            }
-                        }
-                    }
-                }
-                libCount++
-            }
-
-            // 4. Download Assets Index
-            onUpdate(DownloadState(true, version.id, 0.9f, "Downloading Assets Index..."))
-            val assetIndex = json["assetIndex"]?.jsonObject
-            val assetUrl = assetIndex?.get("url")?.jsonPrimitive?.content
-            val assetId = assetIndex?.get("id")?.jsonPrimitive?.content
-            
-            if (assetUrl != null && assetId != null) {
-                val assetsDir = File(filesDir, "assets/indexes")
-                if (!assetsDir.exists()) assetsDir.mkdirs()
-                val assetFile = File(assetsDir, assetId + ".json")
-                downloadFile(assetUrl, assetFile, 0) {
-                    onUpdate(DownloadState(true, version.id, 0.95f, "Downloading Assets..."))
-                }
-            }
-
-            onUpdate(DownloadState(false, version.id, 1f, "Installation Complete"))
-            delay(2000)
-            onUpdate(DownloadState())
-
-        } catch (e: Exception) {
-            val errMsg = "Error: " + e.message
-            onUpdate(DownloadState(false, version.id, 0f, errMsg))
-            delay(3000)
-            onUpdate(DownloadState())
-        }
-    }
-}
-
-// Helper to download a single file with progress
-suspend fun downloadFile(urlString: String, file: File, totalSize: Long, onProgress: (Float) -> Unit) {
-    val url = URL(urlString)
-    val connection = url.openConnection() as HttpURLConnection
-    connection.connect()
-    val input = connection.inputStream
-    val output = FileOutputStream(file)
-    
-    val buffer = ByteArray(8192)
-    var bytesRead: Int
-    var totalBytesRead = 0L
-
-    while (input.read(buffer).also { bytesRead = it } != -1) {
-        output.write(buffer, 0, bytesRead)
-        totalBytesRead += bytesRead
-        if (totalSize > 0) {
-            onProgress(totalBytesRead.toFloat() / totalSize.toFloat())
-        }
-    }
-    output.close()
-    input.close()
-}
-
-suspend fun fetchMinecraftVersions(): List<McVersion> {
-    return withContext(Dispatchers.IO) {
-        val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
-        val json = Json.parseToJsonElement(url.readText()).jsonObject
-        val versionsArray = json["versions"]?.jsonArray ?: emptyList()
-        
-        // Return ALL versions, reversed so newest is first
-        versionsArray.map {
-            val obj = it.jsonObject
-            McVersion(
-                id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
-                type = obj["type"]?.jsonPrimitive?.content ?: "release",
-                url = obj["url"]?.jsonPrimitive?.content,
-                releaseTime = obj["releaseTime"]?.jsonPrimitive?.content ?: ""
-            )
-        }.reversed()
-    }
-}
-
-// --- UI COMPONENTS (Same as before but cleaned) ---
 
 @Composable
-fun VersionManagerTab(
-    allVersions: List<McVersion>,
-    selectedVersionId: String?,
-    onVersionSelect: (McVersion) -> Unit,
-    onInstallRequest: (McVersion) -> Unit,
-    downloadState: DownloadState
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    var filterType by remember { mutableStateOf("All") }
-
-    val filtered = allVersions.filter {
-        val matchesSearch = it.id.contains(searchQuery, ignoreCase = true)
-        val matchesType = if (filterType == "All") true else it.type.equals(filterType, ignoreCase = true)
-        matchesSearch && matchesType
-    }
+fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh: () -> Unit) {
+    var selectedInstanceId by remember { mutableStateOf<String?>(instances.firstOrNull()?.versionId) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Library", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Search...", color = TextSecondary, fontSize = 12.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp)) },
-                modifier = Modifier.width(200.dp).height(40.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = CardGray, 
-                    unfocusedContainerColor = CardGray,
-                    focusedIndicatorColor = Color.Transparent, 
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = TextPrimary, 
-                    unfocusedTextColor = TextPrimary
-                ),
-                singleLine = true
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("All", "Release", "Snapshot").forEach { type ->
-                FilterChip(
-                    selected = filterType == type,
-                    onClick = { filterType = type },
-                    label = { Text(type, fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AccentGreen, 
-                        selectedLabelColor = Color.White,
-                        containerColor = CardGray, 
-                        labelColor = TextSecondary
-                    )
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
+        Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(Modifier.height(16.dp))
 
-        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {
-            LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                items(filtered) { version ->
-                    VersionItem(
-                        version = version,
-                        isSelected = selectedVersionId == version.id,
-                        isCurrentlyDownloading = downloadState.isDownloading && downloadState.currentVersion == version.id,
-                        onSelect = { onVersionSelect(version) },
-                        onInstall = { onInstallRequest(version) }
+        if (instances.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.CloudOff, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text("No Instances Found", color = TextSecondary)
+                    Text("Go to Java Edition to install one", color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+        } else {
+            // List of Installed Instances
+            LazyColumn(Modifier.weight(1f)) {
+                items(instances) { instance ->                    InstanceCard(
+                        instance = instance,
+                        isSelected = selectedInstanceId == instance.versionId,
+                        onSelect = { selectedInstanceId = instance.versionId }
                     )
                 }
             }
+        }
+
+        // Play Bar for Selected Instance
+        selectedInstanceId?.let { id ->
+            PlayBar(instanceId = id, filesDir = filesDir, onPlayed = {
+                // Refresh list after play (in case something changed)
+                onRefresh()
+            })
         }
     }
 }
 
 @Composable
-fun VersionItem(
-    version: McVersion,
-    isSelected: Boolean,
-    isCurrentlyDownloading: Boolean,
-    onSelect: () -> Unit,
-    onInstall: () -> Unit
-) {
+fun InstanceCard(instance: GameInstance, isSelected: Boolean, onSelect: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSelect() },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
         border = BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
-                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
-                val typeText = version.type.uppercase() + " • " + version.releaseTime.take(10)
-                Text(typeText, color = TextSecondary, fontSize = 10.sp)
-            }
-            if (isCurrentlyDownloading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentGreen, strokeWidth = 2.dp)
-            } else if (isSelected) {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = AccentGreen)
-            } else {
-                TextButton(onClick = onInstall) {
-                    Text("Install", color = AccentGreen, fontWeight = FontWeight.Bold)
-                }
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Computer, contentDescription = null, tint = if (isSelected) AccentGreen else TextSecondary)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(instance.versionId, color = TextPrimary, fontWeight = FontWeight.Medium)
+                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
             }
         }
     }
 }
 
 @Composable
-fun DownloadStatusBar(state: DownloadState) {
-    Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF1a1a1a)).padding(horizontal = 24.dp, vertical = 12.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val installingText = "Installing " + state.currentVersion + "..."
-            Text(installingText, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Text(state.statusMessage, color = TextSecondary, fontSize = 12.sp)
+fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
+    val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, instanceId)
+
+    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(start = 30.dp)) {
+                Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
+                Text(instanceId, color = TextPrimary, fontWeight = FontWeight.Bold)
+            }
+            Button(
+                onClick = {                     if (isInstalled) {
+                        // Launch Logic Here
+                        android.util.Log.d("Launcher", "Launching $instanceId")
+                        onPlayed()
+                    }
+                },
+                enabled = isInstalled,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isInstalled) AccentGreen else CardGray,
+                    disabledContainerColor = CardGray
+                ),
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.width(150.dp).height(45.dp)
+            ) {
+                Text("PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
+            }
+            Spacer(Modifier.width(30.dp))
         }
-        Spacer(Modifier.height(6.dp))
-        LinearProgressIndicator(
-            progress = { state.progress },
-            modifier = Modifier.fillMaxWidth().height(4.dp),
-            color = AccentGreen,
-            trackColor = BorderGray
-        )
+    }
+}
+
+@Composable
+fun LibraryScreen(filesDir: java.io.File) {
+    val scope = rememberCoroutineScope()
+    var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var downloadStatus by remember { mutableStateOf<String?>(null) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        allVersions = MinecraftManager.fetchAllVersions()
+        isLoading = false
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Library (Online)", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            if (isLoading) CircularProgressIndicator(Modifier.size(24.dp), color = AccentGreen)
+        }
+        Spacer(Modifier.height(16.dp))
+
+        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(CardGray)) {
+            LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
+                items(allVersions) { version ->
+                    val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),                        colors = CardDefaults.cardColors(containerColor = SurfaceBlack),
+                        border = BorderStroke(1.dp, if (isInstalled) AccentGreen else BorderGray)
+                    ) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text(version.id, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                Text(version.type.uppercase(), color = TextSecondary, fontSize = 10.sp)
+                            }
+                            
+                            if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("${(downloadProgress * 100).toInt()}%", color = AccentGreen, fontSize = 12.sp)
+                                    LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.width(100.dp).height(4.dp), color = AccentGreen)
+                                }
+                            } else if (isInstalled) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "Installed", tint = AccentGreen)
+                            } else {
+                                Button(onClick = {
+                                    scope.launch {
+                                        downloadStatus = "Installing ${version.id}..."
+                                        MinecraftManager.installVersion(version, filesDir) { status, progress ->
+                                            downloadStatus = status
+                                            if (progress >= 0) downloadProgress = progress
+                                        }
+                                        downloadStatus = null
+                                        // Refresh UI implicitly by state change
+                                    }
+                                }, colors = ButtonDefaults.buttonColors(containerColor = BorderGray)) {
+                                    Text("Install", color = TextPrimary, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (downloadStatus != null) {
+            Box(Modifier.fillMaxWidth().padding(16.dp).background(SurfaceBlack, RoundedCornerShape(8.dp)).padding(12.dp)) {
+                Text(downloadStatus!!, color = TextPrimary)
+            }
+        }
     }
 }
 
@@ -391,8 +243,7 @@ fun DownloadStatusBar(state: DownloadState) {
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
     Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray))) {
-        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-            Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
+        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {            Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
         Divider(color = BorderGray, thickness = 1.dp)
@@ -417,77 +268,8 @@ fun TopBar() {
 }
 
 @Composable
-fun HomeTabContent(version: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("MINECRAFT JAVA", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-            Spacer(Modifier.height(8.dp))
-            val selectedText = "Selected: " + version
-            Text(selectedText, color = AccentGreen)
-        }
-    }
-}
-
-@Composable
-fun PlayBar(version: String, filesDir: File) {
-    val isInstalled = remember(version) {
-        if (version == "No Version") false
-        else File(filesDir, "versions/" + version + "/" + version + ".jar").exists()
-    }
-
-    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(start = 30.dp)) {
-                Text("Ready to Play", color = TextSecondary, fontSize = 12.sp)
-                Text(version, color = TextPrimary, fontWeight = FontWeight.Bold)
-                if (!isInstalled && version != "No Version") {
-                    Text("Not Installed", color = Color.Red, fontSize = 10.sp)
-                }
-            }
-            Button(
-                onClick = { 
-                    if (isInstalled) {
-                        launchMinecraft(version, filesDir)
-                    }
-                },
-                enabled = isInstalled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isInstalled) AccentGreen else CardGray,
-                    disabledContainerColor = CardGray
-                ),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.width(150.dp).height(45.dp)
-            ) {
-                Text("PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
-            }
-            Spacer(Modifier.width(30.dp))
-        }
-    }
-}
-
-@Composable
 fun PlaceholderContent(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
         Text(text, color = TextSecondary) 
-    }
-}
-
-// --- LAUNCH LOGIC ---
-fun launchMinecraft(version: String, filesDir: File) {
-    Log.d("Launcher", "Attempting to launch version: $version")
-    
-    // Note: Real Minecraft launching on Android requires complex JNI/Native setup.
-    // This is a placeholder for the logic.
-    // In a real scenario, you would construct a command like:
-    // java -cp [classpath] -Djava.library.path=[natives] net.minecraft.client.main.Main [args]
-    
-    val versionDir = File(filesDir, "versions/$version")
-    val jarFile = File(versionDir, "$version.jar")
-    
-    if (jarFile.exists()) {
-        Log.d("Launcher", "Jar found at: ${jarFile.absolutePath}")
-        // Here you would trigger the native process
-    } else {
-        Log.e("Launcher", "Jar file missing!")
     }
 }
