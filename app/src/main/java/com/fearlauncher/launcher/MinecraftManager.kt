@@ -14,7 +14,6 @@ data class GameInstance(val versionId: String, val isInstalled: Boolean)
 
 object MinecraftManager {
     
-    // Get Directory: Android/data/com.fearlauncher.launcher/files
     fun getLauncherDir(filesDir: File): File {
         return filesDir
     }
@@ -27,13 +26,11 @@ object MinecraftManager {
         return File(getInstancesDir(filesDir), versionId)
     }
 
-    // Check if an instance is installed by looking for the JAR file
     fun isInstanceInstalled(filesDir: File, versionId: String): Boolean {
-        val jarFile = File(getInstanceDir(filesDir, versionId), "$versionId.jar")
+        val jarFile = File(getInstanceDir(filesDir, versionId), versionId + ".jar")
         return jarFile.exists()
     }
 
-    // Get List of ONLY Installed Instances
     fun getInstalledInstances(filesDir: File): List<GameInstance> {
         val instancesDir = getInstancesDir(filesDir)
         if (!instancesDir.exists()) return emptyList()
@@ -47,10 +44,10 @@ object MinecraftManager {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
-                val json = Json.parseToJsonElement(url.readText()).jsonObject                val versionsArray = json["versions"]?.jsonArray ?: emptyList()
+                val json = Json.parseToJsonElement(url.readText()).jsonObject
+                val versionsArray = json["versions"]?.jsonArray ?: emptyList()
                 
-                versionsArray.map {
-                    val obj = it.jsonObject
+                versionsArray.map {                    val obj = it.jsonObject
                     McVersion(
                         id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
                         type = obj["type"]?.jsonPrimitive?.content ?: "release",
@@ -73,36 +70,33 @@ object MinecraftManager {
 
                 onProgress("Fetching Metadata...", 0.1f)
                 
-                // 1. Get Version JSON
                 val metaUrl = version.url ?: throw Exception("No URL")
                 val jsonStr = URL(metaUrl).readText()
                 val json = Json.parseToJsonElement(jsonStr).jsonObject
                 
-                // 2. Download Client Jar
                 val clientObj = json["downloads"]?.jsonObject?.get("client")?.jsonObject
                 val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
                 val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
 
                 if (jarUrl != null) {
-                    val jarFile = File(instanceDir, "${version.id}.jar")
+                    val jarFile = File(instanceDir, version.id + ".jar")
                     onProgress("Downloading Core...", 0.2f)
                     downloadFile(jarUrl, jarFile, jarSize) { progress ->
                         onProgress("Downloading Core...", 0.2f + (progress * 0.3f))
                     }
                 }
 
-                // 3. Download Libraries (Simplified for stability)
                 onProgress("Downloading Libraries...", 0.5f)
                 val libsDir = File(getLauncherDir(filesDir), "libraries")
                 if (!libsDir.exists()) libsDir.mkdirs()
 
-                val libraries = json["libraries"]?.jsonArray ?: emptyList()                var libCount = 0
+                val libraries = json["libraries"]?.jsonArray ?: emptyList()
+                var libCount = 0
                 for (lib in libraries) {
                     val libObj = lib.jsonObject
                     val downloadsLib = libObj["downloads"]?.jsonObject
                     val artifact = downloadsLib?.get("artifact")?.jsonObject
-                    
-                    if (artifact != null) {
+                                        if (artifact != null) {
                         val libUrl = artifact["url"]?.jsonPrimitive?.content
                         val path = artifact["path"]?.jsonPrimitive?.content
                         val size = artifact["size"]?.jsonPrimitive?.long ?: 0L
@@ -112,9 +106,8 @@ object MinecraftManager {
                             if (!libFile.exists()) {
                                 libFile.parentFile?.mkdirs()
                                 downloadFile(libUrl, libFile, size) {
-                                    // Update progress based on lib count
                                     val libProgress = (libCount.toFloat() / libraries.size.toFloat()) * 0.4f
-                                    onProgress("Libs: ${path.substringAfterLast('/')}", 0.5f + libProgress)
+                                    onProgress("Libs: " + path.substringAfterLast('/'), 0.5f + libProgress)
                                 }
                             }
                         }
@@ -123,13 +116,12 @@ object MinecraftManager {
                 }
 
                 onProgress("Finalizing...", 0.95f)
-                // Create a marker file to confirm installation
                 File(instanceDir, "installed.lock").createNewFile()
                 
                 onProgress("Installed!", 1.0f)
             } catch (e: Exception) {
                 Log.e("Manager", "Install Error", e)
-                onProgress("Error: ${e.message}", -1f)
+                onProgress("Error: " + e.message, -1f)
             }
         }
     }
@@ -145,13 +137,13 @@ object MinecraftManager {
         var bytesRead: Int
         var totalBytesRead = 0L
 
-        while (input.read(buffer).also { bytesRead = it } != -1) {            output.write(buffer, 0, bytesRead)
+        while (input.read(buffer).also { bytesRead = it } != -1) {
+            output.write(buffer, 0, bytesRead)
             totalBytesRead += bytesRead
             if (totalSize > 0) {
                 onProgress(totalBytesRead.toFloat() / totalSize.toFloat())
             }
         }
         output.close()
-        input.close()
-    }
+        input.close()    }
 }
