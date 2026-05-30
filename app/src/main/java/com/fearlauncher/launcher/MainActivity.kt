@@ -45,9 +45,10 @@ fun MainAppNavigator(filesDir: java.io.File) {
     var activeTab by remember { mutableStateOf("Home") }
     var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
     
+    // Refresh instances whenever we switch to Home tab
     LaunchedEffect(activeTab) {
-        if (activeTab == "Home") {
-            installedInstances = MinecraftManager.getInstalledInstances(filesDir)        }
+        if (activeTab == "Home") {            installedInstances = MinecraftManager.getInstalledInstances(filesDir)
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
@@ -95,15 +96,15 @@ fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh:
                     InstanceCard(
                         instance = instance,
                         isSelected = selectedInstanceId == instance.versionId,
-                        onSelect = { selectedInstanceId = instance.versionId }
-                    )                }
+                        onSelect = { selectedInstanceId = instance.versionId }                    )
+                }
             }
         }
 
         selectedInstanceId?.let { id ->
             PlayBar(instanceId = id, filesDir = filesDir, onPlayed = {
                 Toast.makeText(context, "Launching $id... (Check Logcat)", Toast.LENGTH_LONG).show()
-                onRefresh()
+                // In a real app, you would start the game process here
             })
         }
     }
@@ -141,12 +142,10 @@ fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
             Button(
                 onClick = { 
                     if (isInstalled) {
-                        val cmd = MinecraftManager.getLaunchCommand(filesDir, instanceId)
-                        android.util.Log.d("Launcher", "CMD: $cmd")
                         onPlayed()
                     }
-                },                enabled = isInstalled,
-                colors = ButtonDefaults.buttonColors(
+                },
+                enabled = isInstalled,                colors = ButtonDefaults.buttonColors(
                     containerColor = if (isInstalled) AccentGreen else CardGray,
                     disabledContainerColor = CardGray
                 ),
