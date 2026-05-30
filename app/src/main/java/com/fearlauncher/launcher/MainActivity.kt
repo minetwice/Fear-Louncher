@@ -25,30 +25,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
             Toast.makeText(this, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "Permission Denied. App may not work correctly.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Permission Required for Game Files", Toast.LENGTH_LONG).show()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Request Storage Permission on Start
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // For Android 11+, we ideally need MANAGE_EXTERNAL_STORAGE, but for now we request WRITE
-            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else {
-            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        // Request permission (only needed for Android 9 and below)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
         }
-
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 MainAppNavigator()
@@ -71,7 +69,6 @@ fun MainAppNavigator() {
     var activeTab by remember { mutableStateOf("Home") }
     var installedVersions by remember { mutableStateOf<List<String>>(emptyList()) }
     
-    // Refresh list when tab changes
     LaunchedEffect(activeTab) {
         if (activeTab == "Home") {
             installedVersions = MinecraftManager.getInstalledInstances(context)
@@ -85,11 +82,7 @@ fun MainAppNavigator() {
                 TopBar()
                 Box(modifier = Modifier.weight(1f).padding(24.dp)) {
                     when (activeTab) {
-                        "Home" -> HomeScreen(
-                            installedVersions = installedVersions,
-                            context = context,
-                            onRefresh = { installedVersions = MinecraftManager.getInstalledInstances(context) }
-                        )
+                        "Home" -> HomeScreen(installedVersions = installedVersions, context = context)
                         "Java Edition" -> LibraryScreen(context = context)
                         else -> PlaceholderContent("Coming Soon")
                     }
@@ -100,11 +93,10 @@ fun MainAppNavigator() {
 }
 
 @Composable
-fun HomeScreen(installedVersions: List<String>, context: android.content.Context, onRefresh: () -> Unit) {
+fun HomeScreen(installedVersions: List<String>, context: android.content.Context) {
     var selectedVersion by remember { mutableStateOf<String?>(installedVersions.firstOrNull()) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+    Column(modifier = Modifier.fillMaxSize()) {        Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(Modifier.height(16.dp))
 
         if (installedVersions.isEmpty()) {
@@ -146,21 +138,24 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
 
 @Composable
 fun PlayBar(versionId: String, context: android.content.Context) {
+    val scope = rememberCoroutineScope()
     val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
+    var isLaunching by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
-                Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
-                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Button(
-                onClick = { 
-                    if (isInstalled) {
-                        MinecraftManager.launchGame(context, versionId)
-                        Toast.makeText(context, "Launching $versionId...", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Files Missing! Please reinstall.", Toast.LENGTH_LONG).show()
+                onClick = {
+                    if (isInstalled && !isLaunching) {
+                        isLaunching = true
+                        scope.launch {
+                            val success = GameLauncher.launch(context, versionId)
+                            isLaunching = false
+                            Toast.makeText(context, if(success) "Game Launched!" else "Launch Failed. Check Logcat.", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
                 enabled = isInstalled,
@@ -171,7 +166,7 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                 shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.width(150.dp).height(45.dp)
             ) {
-                Text("PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
+                Text(if (isLaunching) "Launching..." else "PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
             }
             Spacer(Modifier.width(30.dp))
         }
@@ -199,8 +194,7 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
 }
 
 @Composable
-fun TopBar() {
-    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+fun TopBar() {    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
