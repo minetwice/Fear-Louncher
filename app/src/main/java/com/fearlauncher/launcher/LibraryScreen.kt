@@ -1,5 +1,6 @@
 package com.fearlauncher.launcher
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -46,8 +47,8 @@ fun LibraryScreen(filesDir: java.io.File) {
             TextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search versions...", color = Color.Gray) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },                modifier = Modifier.weight(1f).height(50.dp),
+                placeholder = { Text("Search versions...", color = Color.Gray) },                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(25.dp),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color(0xFF1E1E1E),
@@ -80,9 +81,9 @@ fun LibraryScreen(filesDir: java.io.File) {
         
         Spacer(Modifier.height(16.dp))
 
-        // FIX: Added .background modifier properly
+        // Main List Box
         Box(
-            Modifier
+            modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF1E1E1E)) 
@@ -95,8 +96,8 @@ fun LibraryScreen(filesDir: java.io.File) {
                 LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
                     items(filteredVersions) { version ->
                         val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),                            shape = RoundedCornerShape(8.dp),
+                        Card(                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
                             border = androidx.compose.foundation.BorderStroke(1.dp, if (isInstalled) Color(0xFF2E7D32) else Color(0xFF333333))
                         ) {
@@ -133,10 +134,10 @@ fun LibraryScreen(filesDir: java.io.File) {
             }
         }
         
+        // Status Box
         if (downloadStatus != null) {
-            // FIX: Added .background modifier properly
             Box(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
                     .background(Color(0xFF121212), RoundedCornerShape(8.dp))
@@ -144,5 +145,5 @@ fun LibraryScreen(filesDir: java.io.File) {
             ) {
                 Text(downloadStatus!!, color = Color.White)
             }
-        }
-    }}
+        }    }
+}
