@@ -1,9 +1,13 @@
 package com.fearlauncher.launcher
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,10 +24,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
+    
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(this, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Permission Denied. App may not work correctly.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Request Storage Permission on Start
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // For Android 11+, we ideally need MANAGE_EXTERNAL_STORAGE, but for now we request WRITE
+            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 MainAppNavigator()
@@ -42,12 +67,14 @@ val AccentGreen = Color(0xFF2E7D32)
 
 @Composable
 fun MainAppNavigator() {
+    val context = LocalContext.current
     var activeTab by remember { mutableStateOf("Home") }
-    var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
+    var installedVersions by remember { mutableStateOf<List<String>>(emptyList()) }
     
+    // Refresh list when tab changes
     LaunchedEffect(activeTab) {
         if (activeTab == "Home") {
-            // FIX: Removed filesDir argument            installedInstances = MinecraftManager.getInstalledInstances()
+            installedVersions = MinecraftManager.getInstalledInstances(context)
         }
     }
 
@@ -59,10 +86,11 @@ fun MainAppNavigator() {
                 Box(modifier = Modifier.weight(1f).padding(24.dp)) {
                     when (activeTab) {
                         "Home" -> HomeScreen(
-                            instances = installedInstances, 
-                            onRefresh = { installedInstances = MinecraftManager.getInstalledInstances() }
+                            installedVersions = installedVersions,
+                            context = context,
+                            onRefresh = { installedVersions = MinecraftManager.getInstalledInstances(context) }
                         )
-                        "Java Edition" -> LibraryScreen()
+                        "Java Edition" -> LibraryScreen(context = context)
                         else -> PlaceholderContent("Coming Soon")
                     }
                 }
@@ -72,80 +100,71 @@ fun MainAppNavigator() {
 }
 
 @Composable
-fun HomeScreen(instances: List<GameInstance>, onRefresh: () -> Unit) {
-    var selectedInstanceId by remember { mutableStateOf<String?>(instances.firstOrNull()?.versionId) }
-    val context = LocalContext.current
+fun HomeScreen(installedVersions: List<String>, context: android.content.Context, onRefresh: () -> Unit) {
+    var selectedVersion by remember { mutableStateOf<String?>(installedVersions.firstOrNull()) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(Modifier.height(16.dp))
 
-        if (instances.isEmpty()) {
+        if (installedVersions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.CloudOff, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(16.dp))
                     Text("No Instances Found", color = TextSecondary)
-                    Text("Go to Java Edition to install one", color = TextSecondary, fontSize = 12.sp)
+                    Text("Go to Java Edition to download a version", color = TextSecondary, fontSize = 12.sp)
                 }
             }
         } else {
             LazyColumn(Modifier.weight(1f)) {
-                items(instances) { instance ->
-                    InstanceCard(
-                        instance = instance,
-                        isSelected = selectedInstanceId == instance.versionId,
-                        onSelect = { selectedInstanceId = instance.versionId }
-                    )                }
+                items(installedVersions) { versionId ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedVersion = versionId },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (selectedVersion == versionId) SurfaceBlack else CardGray),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (selectedVersion == versionId) AccentGreen else BorderGray)
+                    ) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Computer, contentDescription = null, tint = if (selectedVersion == versionId) AccentGreen else TextSecondary)
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        selectedInstanceId?.let { id ->
-            PlayBar(instanceId = id, onPlayed = {
-                Toast.makeText(context, "Launching $id... Check Logcat", Toast.LENGTH_LONG).show()
-            })
+        selectedVersion?.let { id ->
+            PlayBar(versionId = id, context = context)
         }
     }
 }
 
 @Composable
-fun InstanceCard(instance: GameInstance, isSelected: Boolean, onSelect: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSelect() },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) SurfaceBlack else CardGray),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGray)
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Computer, contentDescription = null, tint = if (isSelected) AccentGreen else TextSecondary)
-            Spacer(Modifier.width(16.dp))
-            Column {
-                Text(instance.versionId, color = TextPrimary, fontWeight = FontWeight.Medium)
-                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
-            }
-        }
-    }
-}
-
-@Composable
-fun PlayBar(instanceId: String, onPlayed: () -> Unit) {
-    // FIX: Removed filesDir argument
-    val isInstalled = MinecraftManager.isInstanceInstalled(instanceId)
+fun PlayBar(versionId: String, context: android.content.Context) {
+    val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
 
     Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
-                Text(instanceId, color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = { 
                     if (isInstalled) {
-                        MinecraftManager.launchGame(instanceId)
-                        onPlayed()
+                        MinecraftManager.launchGame(context, versionId)
+                        Toast.makeText(context, "Launching $versionId...", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Files Missing! Please reinstall.", Toast.LENGTH_LONG).show()
                     }
                 },
-                enabled = isInstalled,                colors = ButtonDefaults.buttonColors(
+                enabled = isInstalled,
+                colors = ButtonDefaults.buttonColors(
                     containerColor = if (isInstalled) AccentGreen else CardGray,
                     disabledContainerColor = CardGray
                 ),
