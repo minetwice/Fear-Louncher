@@ -144,16 +144,27 @@ fun PlayBar(versionId: String, context: android.content.Context) {
     val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
     var isLaunching by remember { mutableStateOf(false) }
 
-    Box(
-        Modifier.fillMaxWidth().height(80.dp)            .background(SurfaceBlack)
+    // FIX: Proper Box and Row syntax
+    Box(        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .background(SurfaceBlack)
             .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), 
         contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(start = 30.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 30.dp)
+            ) {
                 Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
                 Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
+            
             Button(
                 onClick = {
                     if (isInstalled && !isLaunching) {
@@ -183,7 +194,6 @@ fun PlayBar(versionId: String, context: android.content.Context) {
         }
     }
 }
-
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
@@ -194,7 +204,8 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
         }
         Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
-            val isSelected = activeTab == label            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            val isSelected = activeTab == label
+            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
