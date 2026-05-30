@@ -1,5 +1,6 @@
 package com.fearlauncher.launcher
 
+import android.os.Environment
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,22 +16,29 @@ data class GameInstance(val versionId: String, val isInstalled: Boolean)
 
 object MinecraftManager {
     
-    fun getLauncherDir(filesDir: File): File = filesDir
-    fun getInstancesDir(filesDir: File): File = File(getLauncherDir(filesDir), "instances")
-    fun getInstanceDir(filesDir: File, versionId: String): File = File(getInstancesDir(filesDir), versionId)
-    fun getNativesDir(filesDir: File, versionId: String): File = File(getInstanceDir(filesDir, versionId), "natives")
+    // FIX: Use Public Directory so you can see files in File Manager
+    fun getBaseDir(): File {
+        val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        return File(publicDir, "FearLauncher")
+    }
 
-    fun isInstanceInstalled(filesDir: File, versionId: String): Boolean {
-        val jarFile = File(getInstanceDir(filesDir, versionId), "$versionId.jar")
-        val nativesDir = getNativesDir(filesDir, versionId)
+    fun getInstancesDir(): File = File(getBaseDir(), "instances")
+    fun getInstanceDir(versionId: String): File = File(getInstancesDir(), versionId)
+    fun getNativesDir(versionId: String): File = File(getInstanceDir(versionId), "natives")
+    fun getLibsDir(): File = File(getBaseDir(), "libraries")
+
+    fun isInstanceInstalled(versionId: String): Boolean {
+        val jarFile = File(getInstanceDir(versionId), "$versionId.jar")
+        val nativesDir = getNativesDir(versionId)
+        // Check if jar exists and natives folder has files
         return jarFile.exists() && nativesDir.exists() && nativesDir.listFiles()?.isNotEmpty() == true
     }
 
-    fun getInstalledInstances(filesDir: File): List<GameInstance> {
-        val instancesDir = getInstancesDir(filesDir)
+    fun getInstalledInstances(): List<GameInstance> {
+        val instancesDir = getInstancesDir()
         if (!instancesDir.exists()) return emptyList()
         return instancesDir.listFiles()?.filter { it.isDirectory }?.map { dir ->
-            GameInstance(dir.name, isInstanceInstalled(filesDir, dir.name))
+            GameInstance(dir.name, isInstanceInstalled(dir.name))
         } ?: emptyList()
     }
 
@@ -39,15 +47,15 @@ object MinecraftManager {
             try {
                 val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
                 val json = Json.parseToJsonElement(url.readText()).jsonObject
-                val versionsArray = json["versions"]?.jsonArray ?: emptyList()
-                versionsArray.map {
+                val versionsArray = json["versions"]?.jsonArray ?: emptyList()                versionsArray.map {
                     val obj = it.jsonObject
                     McVersion(
                         id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
                         type = obj["type"]?.jsonPrimitive?.content ?: "release",
                         url = obj["url"]?.jsonPrimitive?.content,
                         releaseTime = obj["releaseTime"]?.jsonPrimitive?.content ?: ""
-                    )                }.reversed()
+                    )
+                }.reversed()
             } catch (e: Exception) {
                 Log.e("Manager", "Fetch Error", e)
                 emptyList()
@@ -55,13 +63,14 @@ object MinecraftManager {
         }
     }
 
-    suspend fun installVersion(version: McVersion, filesDir: File, onProgress: (String, Float) -> Unit) {
+    suspend fun installVersion(version: McVersion, onProgress: (String, Float) -> Unit) {
         withContext(Dispatchers.IO) {
             try {
-                val instanceDir = getInstanceDir(filesDir, version.id)
-                val nativesDir = getNativesDir(filesDir, version.id)
+                val instanceDir = getInstanceDir(version.id)
+                val nativesDir = getNativesDir(version.id)
                 if (!instanceDir.exists()) instanceDir.mkdirs()
                 if (!nativesDir.exists()) nativesDir.mkdirs()
+                if (!getLibsDir().exists()) getLibsDir().mkdirs()
 
                 onProgress("Fetching Metadata...", 0.1f)
                 val metaUrl = version.url ?: throw Exception("No URL")
@@ -82,22 +91,19 @@ object MinecraftManager {
 
                 // 2. Download Libraries & Extract Natives
                 onProgress("Processing Libraries...", 0.4f)
-                val libsDir = File(getLauncherDir(filesDir), "libraries")
-                if (!libsDir.exists()) libsDir.mkdirs()
-
                 val libraries = json["libraries"]?.jsonArray ?: emptyList()
                 var libCount = 0
                 for (lib in libraries) {
                     val libObj = lib.jsonObject
                     val downloadsLib = libObj["downloads"]?.jsonObject
-                    val artifact = downloadsLib?.get("artifact")?.jsonObject
-                    
+                    val artifact = downloadsLib?.get("artifact")?.jsonObject                    
                     if (artifact != null) {
                         val libUrl = artifact["url"]?.jsonPrimitive?.content
                         val path = artifact["path"]?.jsonPrimitive?.content
                         val size = artifact["size"]?.jsonPrimitive?.long ?: 0L
-                                                if (libUrl != null && path != null) {
-                            val libFile = File(libsDir, path)
+                        
+                        if (libUrl != null && path != null) {
+                            val libFile = File(getLibsDir(), path)
                             if (!libFile.exists()) {
                                 libFile.parentFile?.mkdirs()
                                 downloadFile(libUrl, libFile, size) {
@@ -106,9 +112,10 @@ object MinecraftManager {
                                 }
                             }
                             
-                            // Extract Natives if present
+                            // Extract Natives
                             val classifiers = downloadsLib["classifiers"]?.jsonObject
                             if (classifiers != null) {
+                                // Android uses Linux natives
                                 val nativeObj = classifiers["natives-linux"]?.jsonObject 
                                     ?: classifiers["natives-windows"]?.jsonObject 
                                 
@@ -116,7 +123,7 @@ object MinecraftManager {
                                     val nativeUrl = nativeObj["url"]?.jsonPrimitive?.content
                                     val nativePath = nativeObj["path"]?.jsonPrimitive?.content
                                     if (nativeUrl != null && nativePath != null) {
-                                        val nativeFile = File(libsDir, nativePath)
+                                        val nativeFile = File(getLibsDir(), nativePath)
                                         if (!nativeFile.exists()) {
                                             downloadFile(nativeUrl, nativeFile, 0) {
                                                 onProgress("Extracting Natives...", 0.9f)
@@ -138,14 +145,14 @@ object MinecraftManager {
                 Log.e("Manager", "Install Error", e)
                 onProgress("Error: ${e.message}", -1f)
             }
-        }
-    }
+        }    }
 
     private fun extractNatives(zipFile: File, outputDir: File) {
         try {
             ZipFile(zipFile).use { zip ->
                 zip.entries().asSequence().forEach { entry ->
-                    if (!entry.isDirectory && entry.name.endsWith(".so")) {                        val outFile = File(outputDir, entry.name.substringAfterLast('/'))
+                    if (!entry.isDirectory && entry.name.endsWith(".so")) {
+                        val outFile = File(outputDir, entry.name.substringAfterLast('/'))
                         zip.getInputStream(entry).use { input ->
                             FileOutputStream(outFile).use { output ->
                                 input.copyTo(output)
@@ -178,10 +185,40 @@ object MinecraftManager {
         input.close()
     }
 
-    fun getLaunchCommand(filesDir: File, versionId: String): String {
-        val instanceDir = getInstanceDir(filesDir, versionId)
-        val nativesDir = getNativesDir(filesDir, versionId)
+    // Launch Logic
+    fun launchGame(versionId: String) {
+        val instanceDir = getInstanceDir(versionId)
+        val nativesDir = getNativesDir(versionId)
         val jarFile = File(instanceDir, "$versionId.jar")
-        return "java -Djava.library.path=${nativesDir.absolutePath} -cp ${jarFile.absolutePath} net.minecraft.client.main.Main --version $versionId"
+        
+        if (!jarFile.exists()) {
+            Log.e("Launcher", "Jar file not found!")
+            return
+        }
+        // Construct Classpath
+        val libsDir = getLibsDir()
+        val classpath = StringBuilder()
+        classpath.append(jarFile.absolutePath)
+        
+        // Add all libraries to classpath (Simplified)
+        libsDir.walkTopDown().filter { it.extension == "jar" }.forEach {
+            classpath.append(":").append(it.absolutePath)
+        }
+
+        // Command to run Java (This requires Termux or a JVM installed on Android)
+        // Standard Android doesn't have 'java' command in PATH. 
+        // We try to use app's internal java or termux if available.
+        val command = "java -Djava.library.path=${nativesDir.absolutePath} -cp $classpath net.minecraft.client.main.Main --version $versionId --accessToken demo --userType demo"
+        
+        Log.d("Launcher", "Running: $command")
+        
+        try {
+            // Try to execute via Shell (May fail on non-rooted/non-termux devices)
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+            Log.d("Launcher", "Process Started: ${process.pid}")
+        } catch (e: Exception) {
+            Log.e("Launcher", "Launch Failed: ${e.message}")
+            e.printStackTrace()
+        }
     }
 }
