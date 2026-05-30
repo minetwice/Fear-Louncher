@@ -194,12 +194,17 @@ object MinecraftManager {
             return
         }
 
-        val libsDir = getLibsDir()        val classpath = StringBuilder()
-        classpath.append(jarFile.absolutePath)
+        val libsDir = getLibsDir()        
+        // FIX: Simplified Classpath Construction to avoid Line 197 Error
+        val jarFiles = libsDir.walkTopDown().filter { it.extension == "jar" }.toList()
+        val classpathParts = mutableListOf<String>()
+        classpathParts.add(jarFile.absolutePath)
         
-        libsDir.walkTopDown().filter { it.extension == "jar" }.forEach {
-            classpath.append(":").append(it.absolutePath)
+        for (lib in jarFiles) {
+            classpathParts.add(lib.absolutePath)
         }
+        
+        val classpath = classpathParts.joinToString(":")
 
         val command = "java -Djava.library.path=${nativesDir.absolutePath} -cp $classpath net.minecraft.client.main.Main --version $versionId --accessToken demo --userType demo"
         
