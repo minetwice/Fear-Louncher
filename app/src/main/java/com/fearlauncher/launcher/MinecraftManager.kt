@@ -16,7 +16,6 @@ data class GameInstance(val versionId: String, val isInstalled: Boolean)
 
 object MinecraftManager {
     
-    // FIX: Use Public Directory so you can see files in File Manager
     fun getBaseDir(): File {
         val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         return File(publicDir, "FearLauncher")
@@ -30,7 +29,6 @@ object MinecraftManager {
     fun isInstanceInstalled(versionId: String): Boolean {
         val jarFile = File(getInstanceDir(versionId), "$versionId.jar")
         val nativesDir = getNativesDir(versionId)
-        // Check if jar exists and natives folder has files
         return jarFile.exists() && nativesDir.exists() && nativesDir.listFiles()?.isNotEmpty() == true
     }
 
@@ -47,7 +45,9 @@ object MinecraftManager {
             try {
                 val url = URL("https://launchermeta.mojang.com/mc/game/version_manifest.json")
                 val json = Json.parseToJsonElement(url.readText()).jsonObject
-                val versionsArray = json["versions"]?.jsonArray ?: emptyList()                versionsArray.map {
+                val versionsArray = json["versions"]?.jsonArray ?: emptyList()
+                
+                // Fix: Proper mapping and reversing                val mappedList = versionsArray.map {
                     val obj = it.jsonObject
                     McVersion(
                         id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
@@ -55,7 +55,8 @@ object MinecraftManager {
                         url = obj["url"]?.jsonPrimitive?.content,
                         releaseTime = obj["releaseTime"]?.jsonPrimitive?.content ?: ""
                     )
-                }.reversed()
+                }
+                return@withContext mappedList.reversed()
             } catch (e: Exception) {
                 Log.e("Manager", "Fetch Error", e)
                 emptyList()
@@ -95,8 +96,8 @@ object MinecraftManager {
                 var libCount = 0
                 for (lib in libraries) {
                     val libObj = lib.jsonObject
-                    val downloadsLib = libObj["downloads"]?.jsonObject
-                    val artifact = downloadsLib?.get("artifact")?.jsonObject                    
+                    val downloadsLib = libObj["downloads"]?.jsonObject                    val artifact = downloadsLib?.get("artifact")?.jsonObject
+                    
                     if (artifact != null) {
                         val libUrl = artifact["url"]?.jsonPrimitive?.content
                         val path = artifact["path"]?.jsonPrimitive?.content
@@ -115,7 +116,6 @@ object MinecraftManager {
                             // Extract Natives
                             val classifiers = downloadsLib["classifiers"]?.jsonObject
                             if (classifiers != null) {
-                                // Android uses Linux natives
                                 val nativeObj = classifiers["natives-linux"]?.jsonObject 
                                     ?: classifiers["natives-windows"]?.jsonObject 
                                 
@@ -185,7 +185,6 @@ object MinecraftManager {
         input.close()
     }
 
-    // Launch Logic
     fun launchGame(versionId: String) {
         val instanceDir = getInstanceDir(versionId)
         val nativesDir = getNativesDir(versionId)
@@ -195,27 +194,21 @@ object MinecraftManager {
             Log.e("Launcher", "Jar file not found!")
             return
         }
-        // Construct Classpath
         val libsDir = getLibsDir()
         val classpath = StringBuilder()
         classpath.append(jarFile.absolutePath)
         
-        // Add all libraries to classpath (Simplified)
         libsDir.walkTopDown().filter { it.extension == "jar" }.forEach {
             classpath.append(":").append(it.absolutePath)
         }
 
-        // Command to run Java (This requires Termux or a JVM installed on Android)
-        // Standard Android doesn't have 'java' command in PATH. 
-        // We try to use app's internal java or termux if available.
         val command = "java -Djava.library.path=${nativesDir.absolutePath} -cp $classpath net.minecraft.client.main.Main --version $versionId --accessToken demo --userType demo"
         
         Log.d("Launcher", "Running: $command")
         
         try {
-            // Try to execute via Shell (May fail on non-rooted/non-termux devices)
             val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-            Log.d("Launcher", "Process Started: ${process.pid}")
+            Log.d("Launcher", "Process Started")
         } catch (e: Exception) {
             Log.e("Launcher", "Launch Failed: ${e.message}")
             e.printStackTrace()
