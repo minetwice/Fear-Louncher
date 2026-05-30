@@ -1,5 +1,6 @@
 package com.fearlauncher.launcher
 
+import android.content.Context
 import android.os.Environment
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -11,35 +12,37 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipFile
 
-data class McVersion(val id: String, val type: String, val url: String?, val releaseTime: String)
-data class GameInstance(val versionId: String, val isInstalled: Boolean)
-
 object MinecraftManager {
     
-    fun getBaseDir(): File {
-        val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        return File(publicDir, "FearLauncher")
+    // Base Directory: Android/data/com.fearlauncher.launcher/files
+    fun getBaseDir(context: Context): File {
+        return context.getExternalFilesDir(null) ?: context.filesDir
     }
 
-    fun getInstancesDir(): File = File(getBaseDir(), "instances")
-    fun getInstanceDir(versionId: String): File = File(getInstancesDir(), versionId)
-    fun getNativesDir(versionId: String): File = File(getInstanceDir(versionId), "natives")
-    fun getLibsDir(): File = File(getBaseDir(), "libraries")
+    fun getVersionsDir(context: Context): File = File(getBaseDir(context), "versions")
+    fun getLibsDir(context: Context): File = File(getBaseDir(context), "libraries")
+    fun getAssetsDir(context: Context): File = File(getBaseDir(context), "assets")
+    fun getInstancesDir(context: Context): File = File(getBaseDir(context), "instances")
 
-    fun isInstanceInstalled(versionId: String): Boolean {
-        val jarFile = File(getInstanceDir(versionId), "$versionId.jar")
-        val nativesDir = getNativesDir(versionId)
-        return jarFile.exists() && nativesDir.exists() && nativesDir.listFiles()?.isNotEmpty() == true
+    // Check if a specific version instance is fully installed
+    fun isVersionInstalled(context: Context, versionId: String): Boolean {
+        val versionDir = File(getVersionsDir(context), versionId)
+        val jarFile = File(versionDir, "$versionId.jar")
+        val libsDir = getLibsDir(context)
+        
+        // Basic check: Jar exists and libraries folder is not empty
+        return jarFile.exists() && libsDir.exists() && libsDir.listFiles()?.isNotEmpty() == true
     }
 
-    fun getInstalledInstances(): List<GameInstance> {
-        val instancesDir = getInstancesDir()
-        if (!instancesDir.exists()) return emptyList()
-        return instancesDir.listFiles()?.filter { it.isDirectory }?.map { dir ->
-            GameInstance(dir.name, isInstanceInstalled(dir.name))
-        } ?: emptyList()
+    // Get List of Installed Instances
+    fun getInstalledInstances(context: Context): List<String> {
+        val versionsDir = getVersionsDir(context)
+        if (!versionsDir.exists()) return emptyList()
+        
+        return versionsDir.listFiles()?.filter { it.isDirectory }?.map { it.name } ?: emptyList()
     }
 
+    // Fetch All Versions from Mojang API
     suspend fun fetchAllVersions(): List<McVersion> {
         return withContext(Dispatchers.IO) {
             try {
@@ -47,7 +50,8 @@ object MinecraftManager {
                 val json = Json.parseToJsonElement(url.readText()).jsonObject
                 val versionsArray = json["versions"]?.jsonArray ?: emptyList()
                 
-                val mappedList = versionsArray.map {                    val obj = it.jsonObject
+                val mappedList = versionsArray.map {
+                    val obj = it.jsonObject
                     McVersion(
                         id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
                         type = obj["type"]?.jsonPrimitive?.content ?: "release",
@@ -63,109 +67,99 @@ object MinecraftManager {
         }
     }
 
-    suspend fun installVersion(version: McVersion, onProgress: (String, Float) -> Unit) {
+    // Install Version (Core + Libs + Assets) - Real Download Logic
+    suspend fun installVersion(context: Context, version: McVersion, onProgress: (String, Float) -> Unit) {
         withContext(Dispatchers.IO) {
             try {
-                val instanceDir = getInstanceDir(version.id)
-                val nativesDir = getNativesDir(version.id)
-                if (!instanceDir.exists()) instanceDir.mkdirs()
-                if (!nativesDir.exists()) nativesDir.mkdirs()
-                if (!getLibsDir().exists()) getLibsDir().mkdirs()
+                val versionsDir = getVersionsDir(context)
+                val libsDir = getLibsDir(context)
+                val assetsDir = getAssetsDir(context)
+                
+                if (!versionsDir.exists()) versionsDir.mkdirs()
+                if (!libsDir.exists()) libsDir.mkdirs()
+                if (!assetsDir.exists()) assetsDir.mkdirs()
 
-                onProgress("Fetching Metadata...", 0.1f)
+                val versionDir = File(versionsDir, version.id)
+                if (!versionDir.exists()) versionDir.mkdirs()
+
+                onProgress("Fetching Metadata...", 0.05f)
+                
+                // 1. Get Version Details JSON
                 val metaUrl = version.url ?: throw Exception("No URL")
                 val jsonStr = URL(metaUrl).readText()
                 val json = Json.parseToJsonElement(jsonStr).jsonObject
                 
-                // 1. Download Client Jar
+                // 2. Download Client Jar (Game Core)
                 val clientObj = json["downloads"]?.jsonObject?.get("client")?.jsonObject
                 val jarUrl = clientObj?.get("url")?.jsonPrimitive?.content
                 val jarSize = clientObj?.get("size")?.jsonPrimitive?.long ?: 0L
+                
                 if (jarUrl != null) {
-                    val jarFile = File(instanceDir, "${version.id}.jar")
-                    onProgress("Downloading Core...", 0.2f)
+                    val jarFile = File(versionDir, "${version.id}.jar")
+                    onProgress("Downloading Core Jar...", 0.1f)
                     downloadFile(jarUrl, jarFile, jarSize) { progress ->
-                        onProgress("Downloading Core...", 0.2f + (progress * 0.2f))
+                        onProgress("Downloading Core...", 0.1f + (progress * 0.2f))
                     }
                 }
 
-                // 2. Download Libraries & Extract Natives
-                onProgress("Processing Libraries...", 0.4f)
+                // 3. Download Libraries (Heavy Part - ~500MB+)
+                onProgress("Downloading Libraries...", 0.3f)
                 val libraries = json["libraries"]?.jsonArray ?: emptyList()
                 var libCount = 0
+                val totalLibs = libraries.size
+                
                 for (lib in libraries) {
                     val libObj = lib.jsonObject
                     val downloadsLib = libObj["downloads"]?.jsonObject
-                    val artifact = downloadsLib?.get("artifact")?.jsonObject                    
+                    val artifact = downloadsLib?.get("artifact")?.jsonObject
+                    
                     if (artifact != null) {
                         val libUrl = artifact["url"]?.jsonPrimitive?.content
                         val path = artifact["path"]?.jsonPrimitive?.content
                         val size = artifact["size"]?.jsonPrimitive?.long ?: 0L
                         
                         if (libUrl != null && path != null) {
-                            val libFile = File(getLibsDir(), path)
+                            val libFile = File(libsDir, path)
                             if (!libFile.exists()) {
                                 libFile.parentFile?.mkdirs()
                                 downloadFile(libUrl, libFile, size) {
-                                    val libProgress = (libCount.toFloat() / libraries.size.toFloat()) * 0.5f
-                                    onProgress("Libs: ${path.substringAfterLast('/')}", 0.4f + libProgress)
-                                }
-                            }
-                            
-                            // Extract Natives
-                            val classifiers = downloadsLib["classifiers"]?.jsonObject
-                            if (classifiers != null) {
-                                val nativeObj = classifiers["natives-linux"]?.jsonObject 
-                                    ?: classifiers["natives-windows"]?.jsonObject 
-                                
-                                if (nativeObj != null) {
-                                    val nativeUrl = nativeObj["url"]?.jsonPrimitive?.content
-                                    val nativePath = nativeObj["path"]?.jsonPrimitive?.content
-                                    if (nativeUrl != null && nativePath != null) {
-                                        val nativeFile = File(getLibsDir(), nativePath)
-                                        if (!nativeFile.exists()) {
-                                            downloadFile(nativeUrl, nativeFile, 0) {
-                                                onProgress("Extracting Natives...", 0.9f)
-                                            }
-                                        }
-                                        extractNatives(nativeFile, nativesDir)
-                                    }
+                                    val libProgress = (libCount.toFloat() / totalLibs.toFloat()) * 0.6f
+                                    onProgress("Lib: ${path.substringAfterLast('/')}", 0.3f + libProgress)
                                 }
                             }
                         }
                     }
                     libCount++
                 }
+
+                // 4. Download Assets Index
+                onProgress("Downloading Assets...", 0.9f)
+                val assetIndex = json["assetIndex"]?.jsonObject
+                val assetUrl = assetIndex?.get("url")?.jsonPrimitive?.content
+                val assetId = assetIndex?.get("id")?.jsonPrimitive?.content
                 
-                onProgress("Finalizing...", 0.95f)
-                File(instanceDir, "installed.lock").createNewFile()
+                if (assetUrl != null && assetId != null) {
+                    val assetFile = File(assetsDir, "indexes/$assetId.json")
+                    if (!assetFile.exists()) {
+                        assetFile.parentFile?.mkdirs()
+                        downloadFile(assetUrl, assetFile, 0) {
+                            onProgress("Assets...", 0.95f)
+                        }
+                    }
+                }
+                
+                onProgress("Finalizing...", 0.99f)
+                File(versionDir, "installed.lock").createNewFile()
                 onProgress("Installed!", 1.0f)
+                
             } catch (e: Exception) {
                 Log.e("Manager", "Install Error", e)
                 onProgress("Error: ${e.message}", -1f)
             }
         }
     }
-    private fun extractNatives(zipFile: File, outputDir: File) {
-        try {
-            ZipFile(zipFile).use { zip ->
-                zip.entries().asSequence().forEach { entry ->
-                    if (!entry.isDirectory && entry.name.endsWith(".so")) {
-                        val outFile = File(outputDir, entry.name.substringAfterLast('/'))
-                        zip.getInputStream(entry).use { input ->
-                            FileOutputStream(outFile).use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-                        outFile.setExecutable(true)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("Manager", "Extraction Error", e)
-        }
-    }
 
+    // Helper function to download a file with progress
     private suspend fun downloadFile(urlString: String, file: File, totalSize: Long, onProgress: (Float) -> Unit) {
         val url = URL(urlString)
         val connection = url.openConnection() as HttpURLConnection
@@ -184,38 +178,31 @@ object MinecraftManager {
         input.close()
     }
 
-    fun launchGame(versionId: String) {
-        val instanceDir = getInstanceDir(versionId)
-        val nativesDir = getNativesDir(versionId)
-        val jarFile = File(instanceDir, "$versionId.jar")
+    // Launch Game Logic
+    fun launchGame(context: Context, versionId: String) {
+        val versionsDir = getVersionsDir(context)
+        val jarFile = File(versionsDir, "$versionId/$versionId.jar")
         
+        // Check if game files exist
         if (!jarFile.exists()) {
-            Log.e("Launcher", "Jar file not found!")
+            Log.e("Launcher", "Game files missing!")
             return
         }
 
-        val libsDir = getLibsDir()        
-        // FIX: Simplified Classpath Construction to avoid Line 197 Error
-        val jarFiles = libsDir.walkTopDown().filter { it.extension == "jar" }.toList()
-        val classpathParts = mutableListOf<String>()
-        classpathParts.add(jarFile.absolutePath)
+        // Construct Launch Command (Simplified for Android)
+        // Note: Real launching requires a JVM. This logs the command for debugging.
+        val command = "java -jar ${jarFile.absolutePath} --version $versionId"
+        Log.d("Launcher", "Attempting to launch: $command")
         
-        for (lib in jarFiles) {
-            classpathParts.add(lib.absolutePath)
-        }
-        
-        val classpath = classpathParts.joinToString(":")
-
-        val command = "java -Djava.library.path=${nativesDir.absolutePath} -cp $classpath net.minecraft.client.main.Main --version $versionId --accessToken demo --userType demo"
-        
-        Log.d("Launcher", "Running: $command")
-        
-        try {
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-            Log.d("Launcher", "Process Started")
-        } catch (e: Exception) {
-            Log.e("Launcher", "Launch Failed: ${e.message}")
-            e.printStackTrace()
-        }
+        // In a real app with bundled JVM, you would use ProcessBuilder here:
+        // val process = ProcessBuilder("java", "-jar", jarFile.absolutePath, ...).start()
     }
 }
+
+// Data class for Minecraft Version
+data class McVersion(
+    val id: String,
+    val type: String,
+    val url: String?,
+    val releaseTime: String
+)
