@@ -24,7 +24,7 @@ fun LibraryScreen(filesDir: java.io.File) {
     var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     
-    // State to track which version is currently downloading and its progress
+    // State for Downloading
     var downloadingVersionId by remember { mutableStateOf<String?>(null) }
     var downloadProgress by remember { mutableStateOf(0f) }
     var downloadStatusText by remember { mutableStateOf("") }
@@ -111,9 +111,7 @@ fun LibraryScreen(filesDir: java.io.File) {
                                     Text(version.type.uppercase(), color = Color.Gray, fontSize = 10.sp)
                                 }
                                 
-                                // UI Logic for Button/Progress
                                 if (isDownloading) {
-                                    // Show Progress Bar when downloading
                                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(120.dp)) {
                                         Text(downloadStatusText, color = Color(0xFF2E7D32), fontSize = 10.sp, maxLines = 1)
                                         LinearProgressIndicator(
@@ -123,10 +121,8 @@ fun LibraryScreen(filesDir: java.io.File) {
                                         )
                                     }
                                 } else if (isInstalled) {
-                                    // Show Installed Icon
                                     Icon(Icons.Default.CheckCircle, contentDescription = "Installed", tint = Color(0xFF2E7D32))
                                 } else {
-                                    // Show Install Button
                                     Button(onClick = {
                                         scope.launch {
                                             downloadingVersionId = version.id
@@ -138,19 +134,18 @@ fun LibraryScreen(filesDir: java.io.File) {
                                                 if (progress >= 0) downloadProgress = progress
                                             }
                                             
-                                            // Reset after download
                                             downloadingVersionId = null
                                             downloadProgress = 0f
                                             downloadStatusText = ""
                                         }
                                     }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))) {
                                         Text("Install", color = Color.White, fontSize = 12.sp)
-                                    }                                }
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            }
+                }            }
         }
     }
 }
