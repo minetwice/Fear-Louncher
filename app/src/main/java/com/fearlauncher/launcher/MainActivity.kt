@@ -45,9 +45,9 @@ fun MainAppNavigator() {
     var activeTab by remember { mutableStateOf("Home") }
     var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
     
-    // Refresh instances whenever we switch to Home tab
     LaunchedEffect(activeTab) {
-        if (activeTab == "Home") {            installedInstances = MinecraftManager.getInstalledInstances()
+        if (activeTab == "Home") {
+            // FIX: Removed filesDir argument            installedInstances = MinecraftManager.getInstalledInstances()
         }
     }
 
@@ -129,6 +129,7 @@ fun InstanceCard(instance: GameInstance, isSelected: Boolean, onSelect: () -> Un
 
 @Composable
 fun PlayBar(instanceId: String, onPlayed: () -> Unit) {
+    // FIX: Removed filesDir argument
     val isInstalled = MinecraftManager.isInstanceInstalled(instanceId)
 
     Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
@@ -144,8 +145,8 @@ fun PlayBar(instanceId: String, onPlayed: () -> Unit) {
                         onPlayed()
                     }
                 },
-                enabled = isInstalled,
-                colors = ButtonDefaults.buttonColors(                    containerColor = if (isInstalled) AccentGreen else CardGray,
+                enabled = isInstalled,                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isInstalled) AccentGreen else CardGray,
                     disabledContainerColor = CardGray
                 ),
                 shape = RoundedCornerShape(4.dp),
