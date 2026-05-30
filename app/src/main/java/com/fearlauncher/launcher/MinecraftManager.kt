@@ -109,8 +109,8 @@ object MinecraftManager {
                             // Extract Natives if present
                             val classifiers = downloadsLib["classifiers"]?.jsonObject
                             if (classifiers != null) {
-                                val nativeObj = classifiers["natives-linux"]?.jsonObject // Android is Linux-based
-                                    ?: classifiers["natives-windows"]?.jsonObject // Fallback
+                                val nativeObj = classifiers["natives-linux"]?.jsonObject 
+                                    ?: classifiers["natives-windows"]?.jsonObject 
                                 
                                 if (nativeObj != null) {
                                     val nativeUrl = nativeObj["url"]?.jsonPrimitive?.content
@@ -122,7 +122,6 @@ object MinecraftManager {
                                                 onProgress("Extracting Natives...", 0.9f)
                                             }
                                         }
-                                        // Extract .so files to natives folder
                                         extractNatives(nativeFile, nativesDir)
                                     }
                                 }
@@ -145,8 +144,8 @@ object MinecraftManager {
     private fun extractNatives(zipFile: File, outputDir: File) {
         try {
             ZipFile(zipFile).use { zip ->
-                zip.entries().asSequence().forEach { entry ->                    if (!entry.isDirectory && entry.name.endsWith(".so")) {
-                        val outFile = File(outputDir, entry.name.substringAfterLast('/'))
+                zip.entries().asSequence().forEach { entry ->
+                    if (!entry.isDirectory && entry.name.endsWith(".so")) {                        val outFile = File(outputDir, entry.name.substringAfterLast('/'))
                         zip.getInputStream(entry).use { input ->
                             FileOutputStream(outFile).use { output ->
                                 input.copyTo(output)
@@ -179,14 +178,10 @@ object MinecraftManager {
         input.close()
     }
 
-    // Generate Launch Command (Simplified for Android)
     fun getLaunchCommand(filesDir: File, versionId: String): String {
         val instanceDir = getInstanceDir(filesDir, versionId)
         val nativesDir = getNativesDir(filesDir, versionId)
         val jarFile = File(instanceDir, "$versionId.jar")
-        
-        // Note: Real launching requires a JVM. On Android, we usually use a custom JVM or Termux.
-        // This is a placeholder for the logic.
         return "java -Djava.library.path=${nativesDir.absolutePath} -cp ${jarFile.absolutePath} net.minecraft.client.main.Main --version $versionId"
     }
 }
