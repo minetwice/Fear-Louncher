@@ -47,8 +47,7 @@ object MinecraftManager {
                 val json = Json.parseToJsonElement(url.readText()).jsonObject
                 val versionsArray = json["versions"]?.jsonArray ?: emptyList()
                 
-                // Fix: Proper mapping and reversing                val mappedList = versionsArray.map {
-                    val obj = it.jsonObject
+                val mappedList = versionsArray.map {                    val obj = it.jsonObject
                     McVersion(
                         id = obj["id"]?.jsonPrimitive?.content ?: "Unknown",
                         type = obj["type"]?.jsonPrimitive?.content ?: "release",
@@ -96,8 +95,8 @@ object MinecraftManager {
                 var libCount = 0
                 for (lib in libraries) {
                     val libObj = lib.jsonObject
-                    val downloadsLib = libObj["downloads"]?.jsonObject                    val artifact = downloadsLib?.get("artifact")?.jsonObject
-                    
+                    val downloadsLib = libObj["downloads"]?.jsonObject
+                    val artifact = downloadsLib?.get("artifact")?.jsonObject                    
                     if (artifact != null) {
                         val libUrl = artifact["url"]?.jsonPrimitive?.content
                         val path = artifact["path"]?.jsonPrimitive?.content
@@ -145,8 +144,8 @@ object MinecraftManager {
                 Log.e("Manager", "Install Error", e)
                 onProgress("Error: ${e.message}", -1f)
             }
-        }    }
-
+        }
+    }
     private fun extractNatives(zipFile: File, outputDir: File) {
         try {
             ZipFile(zipFile).use { zip ->
@@ -194,8 +193,8 @@ object MinecraftManager {
             Log.e("Launcher", "Jar file not found!")
             return
         }
-        val libsDir = getLibsDir()
-        val classpath = StringBuilder()
+
+        val libsDir = getLibsDir()        val classpath = StringBuilder()
         classpath.append(jarFile.absolutePath)
         
         libsDir.walkTopDown().filter { it.extension == "jar" }.forEach {
