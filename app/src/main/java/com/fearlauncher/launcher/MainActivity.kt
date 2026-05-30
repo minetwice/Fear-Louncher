@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                MainAppNavigator(filesDir)
+                MainAppNavigator()
             }
         }
     }
@@ -41,13 +41,14 @@ val TextSecondary = Color(0xFFA0A0A0)
 val AccentGreen = Color(0xFF2E7D32)
 
 @Composable
-fun MainAppNavigator(filesDir: java.io.File) {
+fun MainAppNavigator() {
     var activeTab by remember { mutableStateOf("Home") }
     var installedInstances by remember { mutableStateOf<List<GameInstance>>(emptyList()) }
     
+    // Refresh instances whenever we switch to Home tab
     LaunchedEffect(activeTab) {
-        if (activeTab == "Home") {
-            installedInstances = MinecraftManager.getInstalledInstances(filesDir)        }
+        if (activeTab == "Home") {            installedInstances = MinecraftManager.getInstalledInstances()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
@@ -59,10 +60,9 @@ fun MainAppNavigator(filesDir: java.io.File) {
                     when (activeTab) {
                         "Home" -> HomeScreen(
                             instances = installedInstances, 
-                            filesDir = filesDir,
-                            onRefresh = { installedInstances = MinecraftManager.getInstalledInstances(filesDir) }
+                            onRefresh = { installedInstances = MinecraftManager.getInstalledInstances() }
                         )
-                        "Java Edition" -> LibraryScreen(filesDir)
+                        "Java Edition" -> LibraryScreen()
                         else -> PlaceholderContent("Coming Soon")
                     }
                 }
@@ -72,7 +72,7 @@ fun MainAppNavigator(filesDir: java.io.File) {
 }
 
 @Composable
-fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh: () -> Unit) {
+fun HomeScreen(instances: List<GameInstance>, onRefresh: () -> Unit) {
     var selectedInstanceId by remember { mutableStateOf<String?>(instances.firstOrNull()?.versionId) }
     val context = LocalContext.current
 
@@ -101,8 +101,8 @@ fun HomeScreen(instances: List<GameInstance>, filesDir: java.io.File, onRefresh:
         }
 
         selectedInstanceId?.let { id ->
-            PlayBar(instanceId = id, filesDir = filesDir, onPlayed = {
-                Toast.makeText(context, "Launching $id... (Check Logcat)", Toast.LENGTH_LONG).show()
+            PlayBar(instanceId = id, onPlayed = {
+                Toast.makeText(context, "Launching $id... Check Logcat", Toast.LENGTH_LONG).show()
             })
         }
     }
@@ -128,8 +128,8 @@ fun InstanceCard(instance: GameInstance, isSelected: Boolean, onSelect: () -> Un
 }
 
 @Composable
-fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
-    val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, instanceId)
+fun PlayBar(instanceId: String, onPlayed: () -> Unit) {
+    val isInstalled = MinecraftManager.isInstanceInstalled(instanceId)
 
     Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -140,12 +140,13 @@ fun PlayBar(instanceId: String, filesDir: java.io.File, onPlayed: () -> Unit) {
             Button(
                 onClick = { 
                     if (isInstalled) {
+                        MinecraftManager.launchGame(instanceId)
                         onPlayed()
                     }
                 },
                 enabled = isInstalled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isInstalled) AccentGreen else CardGray,                    disabledContainerColor = CardGray
+                colors = ButtonDefaults.buttonColors(                    containerColor = if (isInstalled) AccentGreen else CardGray,
+                    disabledContainerColor = CardGray
                 ),
                 shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.width(150.dp).height(45.dp)
