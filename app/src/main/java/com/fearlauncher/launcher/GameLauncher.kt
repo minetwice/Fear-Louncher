@@ -19,7 +19,7 @@ object GameLauncher {
         val baseDir = MinecraftManager.getBaseDir(context)
         val jreDir = File(baseDir, "jre_extracted")
         
-        // 1. Extract JRE from assets if not present
+        // Extract JRE from assets if not present
         if (!jreDir.exists()) {
             Log.d("Launcher", "Extracting JRE from assets...")
             copyAssets(context.assets, "jre", jreDir)
@@ -33,11 +33,12 @@ object GameLauncher {
             return@withContext false
         }
 
-        // 2. Call Native JVM Launcher
-        val result = startMinecraftNative(
+        // Call Native JVM Launcher
+        val result: Int = startMinecraftNative(
             jreDir.absolutePath, jarPath, versionId, assetsPath
         )
 
+        // FIX: Compare Int with Int (not Long)
         Log.d("Launcher", if (result == 0) "✅ Launch Success" else "❌ Launch Failed: $result")
         return@withContext result == 0
     }
@@ -47,11 +48,13 @@ object GameLauncher {
         targetDir.mkdirs()
         for (name in names) {
             val isFile = assetManager.openFd("$assetPath/$name")?.length ?: -1
-            if (isFile == -1) {
+            if (isFile == -1L) {  // FIX: Compare Long with Long (-1L)
                 copyAssets(assetManager, "$assetPath/$name", File(targetDir, name))
             } else {
                 assetManager.open("$assetPath/$name").use { input ->
-                    File(targetDir, name).outputStream().use { input.copyTo(it) }
+                    File(targetDir, name).outputStream().use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
         }
