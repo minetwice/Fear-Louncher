@@ -1,7 +1,6 @@
 #include <jni.h>
 #include <android/log.h>
 #include <string>
-#include <vector>
 #include <dlfcn.h>
 
 #define TAG "NativeLaunch"
@@ -43,12 +42,12 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         return -1;
     }
 
-    // 2. JVM Options - FIX: Use proper string storage
+    // 2. JVM Options
     std::string classpath_str = std::string(c_jarPath) + ":" + 
                                 std::string(c_jrePath) + "/lib/*:" + 
                                 std::string(c_jrePath) + "/lib/ext/*";
-        std::string libPath_str = std::string(c_jrePath) + "/lib";
     
+    std::string libPath_str = std::string(c_jrePath) + "/lib";    
     // Store option strings in variables to keep them alive
     std::string opt1_str = "-Djava.class.path";
     std::string opt4_str = "-Djava.library.path";
@@ -67,7 +66,8 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     options[3].extraInfo = const_cast<char*>(libPath_str.c_str());
 
     JavaVMInitArgs vm_args;
-    vm_args.version = JNI_VERSION_1_8;  // FIX: Now defined in jni.h
+    // FIX: Use hardcoded hex value for JNI_VERSION_1_8 to avoid macro issues
+    vm_args.version = 0x00010008; 
     vm_args.nOptions = 4;
     vm_args.options = options;
     vm_args.ignoreUnrecognized = JNI_TRUE;
