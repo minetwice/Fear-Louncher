@@ -19,12 +19,11 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
 
 @Composable
-fun LibraryScreen(filesDir: java.io.File) {
+fun LibraryScreen() {
     val scope = rememberCoroutineScope()
     var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     
-    // State for Downloading
     var downloadingVersionId by remember { mutableStateOf<String?>(null) }
     var downloadProgress by remember { mutableStateOf(0f) }
     var downloadStatusText by remember { mutableStateOf("") }
@@ -45,11 +44,10 @@ fun LibraryScreen(filesDir: java.io.File) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search Bar
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextField(                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Search versions...", color = Color.Gray) },
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },                placeholder = { Text("Search versions...", color = Color.Gray) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
                 modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(25.dp),
@@ -65,7 +63,6 @@ fun LibraryScreen(filesDir: java.io.File) {
             )
         }
 
-        // Tabs
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Release", "Snapshot").forEach { type ->
                 FilterChip(
@@ -96,10 +93,10 @@ fun LibraryScreen(filesDir: java.io.File) {
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                    items(filteredVersions) { version ->                        val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
+                    items(filteredVersions) { version ->
+                        val isInstalled = MinecraftManager.isInstanceInstalled(version.id)
                         val isDownloading = downloadingVersionId == version.id
-                        
-                        Card(
+                                                Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
@@ -129,7 +126,8 @@ fun LibraryScreen(filesDir: java.io.File) {
                                             downloadProgress = 0f
                                             downloadStatusText = "Starting..."
                                             
-                                            MinecraftManager.installVersion(version, filesDir) { status, progress ->
+                                            // FIX: Removed filesDir argument
+                                            MinecraftManager.installVersion(version) { status, progress ->
                                                 downloadStatusText = status
                                                 if (progress >= 0) downloadProgress = progress
                                             }
@@ -145,7 +143,7 @@ fun LibraryScreen(filesDir: java.io.File) {
                             }
                         }
                     }
-                }            }
-        }
-    }
+                }
+            }
+        }    }
 }
