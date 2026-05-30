@@ -23,11 +23,14 @@ fun LibraryScreen(filesDir: java.io.File) {
     val scope = rememberCoroutineScope()
     var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
-    var downloadStatus by remember { mutableStateOf<String?>(null) }
+    
+    // State to track which version is currently downloading and its progress
+    var downloadingVersionId by remember { mutableStateOf<String?>(null) }
     var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadStatusText by remember { mutableStateOf("") }
     
     var searchQuery by remember { mutableStateOf("") }
-    var filterType by remember { mutableStateOf("All") } // All, Release, Snapshot
+    var filterType by remember { mutableStateOf("All") }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -44,10 +47,10 @@ fun LibraryScreen(filesDir: java.io.File) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Search Bar
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextField(
-                value = searchQuery,
+            TextField(                value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search versions...", color = Color.Gray) },                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                placeholder = { Text("Search versions...", color = Color.Gray) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
                 modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(25.dp),
                 colors = TextFieldDefaults.colors(
@@ -81,7 +84,6 @@ fun LibraryScreen(filesDir: java.io.File) {
         
         Spacer(Modifier.height(16.dp))
 
-        // Main List Box
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -94,9 +96,11 @@ fun LibraryScreen(filesDir: java.io.File) {
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                    items(filteredVersions) { version ->
-                        val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
-                        Card(                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    items(filteredVersions) { version ->                        val isInstalled = MinecraftManager.isInstanceInstalled(filesDir, version.id)
+                        val isDownloading = downloadingVersionId == version.id
+                        
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
                             border = androidx.compose.foundation.BorderStroke(1.dp, if (isInstalled) Color(0xFF2E7D32) else Color(0xFF333333))
@@ -106,44 +110,47 @@ fun LibraryScreen(filesDir: java.io.File) {
                                     Text(version.id, color = Color.White, fontWeight = FontWeight.Medium)
                                     Text(version.type.uppercase(), color = Color.Gray, fontSize = 10.sp)
                                 }
-                                if (downloadStatus != null && downloadStatus!!.contains(version.id)) {
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text((downloadProgress * 100).toInt().toString() + "%", color = Color(0xFF2E7D32), fontSize = 12.sp)
-                                        LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.width(100.dp).height(4.dp), color = Color(0xFF2E7D32))
+                                
+                                // UI Logic for Button/Progress
+                                if (isDownloading) {
+                                    // Show Progress Bar when downloading
+                                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(120.dp)) {
+                                        Text(downloadStatusText, color = Color(0xFF2E7D32), fontSize = 10.sp, maxLines = 1)
+                                        LinearProgressIndicator(
+                                            progress = { downloadProgress }, 
+                                            modifier = Modifier.fillMaxWidth().height(4.dp), 
+                                            color = Color(0xFF2E7D32)
+                                        )
                                     }
                                 } else if (isInstalled) {
+                                    // Show Installed Icon
                                     Icon(Icons.Default.CheckCircle, contentDescription = "Installed", tint = Color(0xFF2E7D32))
                                 } else {
+                                    // Show Install Button
                                     Button(onClick = {
                                         scope.launch {
-                                            downloadStatus = "Installing " + version.id + "..."
+                                            downloadingVersionId = version.id
+                                            downloadProgress = 0f
+                                            downloadStatusText = "Starting..."
+                                            
                                             MinecraftManager.installVersion(version, filesDir) { status, progress ->
-                                                downloadStatus = status
+                                                downloadStatusText = status
                                                 if (progress >= 0) downloadProgress = progress
                                             }
-                                            downloadStatus = null
+                                            
+                                            // Reset after download
+                                            downloadingVersionId = null
+                                            downloadProgress = 0f
+                                            downloadStatusText = ""
                                         }
                                     }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))) {
                                         Text("Install", color = Color.White, fontSize = 12.sp)
-                                    }
-                                }
+                                    }                                }
                             }
                         }
                     }
                 }
             }
         }
-        
-        // Status Box
-        if (downloadStatus != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .background(Color(0xFF121212), RoundedCornerShape(8.dp))
-                    .padding(12.dp)
-            ) {
-                Text(downloadStatus!!, color = Color.White)
-            }
-        }    }
+    }
 }
