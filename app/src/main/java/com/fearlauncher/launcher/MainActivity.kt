@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Request permission (only needed for Android 9 and below)
+        // Request permission for Android 9 and below
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Theme Colors
 val DeepBlack = Color(0xFF050505)
 val SurfaceBlack = Color(0xFF121212)
 val CardGray = Color(0xFF1E1E1E)
@@ -69,6 +70,7 @@ fun MainAppNavigator() {
     var activeTab by remember { mutableStateOf("Home") }
     var installedVersions by remember { mutableStateOf<List<String>>(emptyList()) }
     
+    // Refresh installed versions when switching to Home tab
     LaunchedEffect(activeTab) {
         if (activeTab == "Home") {
             installedVersions = MinecraftManager.getInstalledInstances(context)
@@ -95,8 +97,8 @@ fun MainAppNavigator() {
 @Composable
 fun HomeScreen(installedVersions: List<String>, context: android.content.Context) {
     var selectedVersion by remember { mutableStateOf<String?>(installedVersions.firstOrNull()) }
-
-    Column(modifier = Modifier.fillMaxSize()) {        Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(Modifier.height(16.dp))
 
         if (installedVersions.isEmpty()) {
@@ -142,10 +144,15 @@ fun PlayBar(versionId: String, context: android.content.Context) {
     val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
     var isLaunching by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxWidth().height(80.dp).background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxWidth().height(80.dp)            .background(SurfaceBlack)
+            .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), 
+        contentAlignment = Alignment.Center
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 30.dp)) {
-                Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
+                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = {
@@ -154,7 +161,11 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                         scope.launch {
                             val success = GameLauncher.launch(context, versionId)
                             isLaunching = false
-                            Toast.makeText(context, if(success) "Game Launched!" else "Launch Failed. Check Logcat.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(
+                                context, 
+                                if (success) "Game Launched!" else "Launch Failed. Check Logcat.", 
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                     }
                 },
@@ -183,8 +194,7 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
         }
         Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
-            val isSelected = activeTab == label
-            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            val isSelected = activeTab == label            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
@@ -194,7 +204,8 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
 }
 
 @Composable
-fun TopBar() {    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+fun TopBar() {
+    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
