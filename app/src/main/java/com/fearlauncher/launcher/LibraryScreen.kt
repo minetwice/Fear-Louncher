@@ -1,5 +1,6 @@
 package com.fearlauncher.launcher
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +20,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
 
 @Composable
-fun LibraryScreen() {
+fun LibraryScreen(context: Context) {
     val scope = rememberCoroutineScope()
     var allVersions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
@@ -47,7 +48,8 @@ fun LibraryScreen() {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             TextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },                placeholder = { Text("Search versions...", color = Color.Gray) },
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search versions...", color = Color.Gray) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
                 modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(25.dp),
@@ -94,9 +96,10 @@ fun LibraryScreen() {
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
                     items(filteredVersions) { version ->
-                        val isInstalled = MinecraftManager.isInstanceInstalled(version.id)
+                        val isInstalled = MinecraftManager.isVersionInstalled(context, version.id)
                         val isDownloading = downloadingVersionId == version.id
-                                                Card(
+                        
+                        Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
@@ -126,8 +129,7 @@ fun LibraryScreen() {
                                             downloadProgress = 0f
                                             downloadStatusText = "Starting..."
                                             
-                                            // FIX: Removed filesDir argument
-                                            MinecraftManager.installVersion(version) { status, progress ->
+                                            MinecraftManager.installVersion(context, version) { status, progress ->
                                                 downloadStatusText = status
                                                 if (progress >= 0) downloadProgress = progress
                                             }
@@ -145,5 +147,6 @@ fun LibraryScreen() {
                     }
                 }
             }
-        }    }
+        }
+    }
 }
