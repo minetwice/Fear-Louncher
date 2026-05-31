@@ -19,7 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip  // ✅ FIX: Added missing import
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
         if (isGranted) {
             Toast.makeText(this, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "Permission Required for Game Files", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Permission Required", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -88,11 +88,11 @@ fun MainAppNavigator() {
             
             result.onSuccess {
                 installationStatus = "✅ Installation complete!"
-                Toast.makeText(context, "Libraries installed successfully", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Libraries installed", Toast.LENGTH_SHORT).show()
             }
             result.onFailure {
-                installationStatus = "❌ Installation failed: ${it.message}"
-                Toast.makeText(context, "Failed to install libraries", Toast.LENGTH_LONG).show()
+                installationStatus = "❌ Failed: ${it.message}"
+                Toast.makeText(context, "Install failed", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -111,7 +111,9 @@ fun MainAppNavigator() {
                     when (activeTab) {
                         "Home" -> HomeScreen(installedVersions = installedVersions, context = context)
                         "Java Edition" -> LibraryScreen(context = context)
-                        else -> PlaceholderContent("Coming Soon")
+                        else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Coming Soon", color = TextSecondary)
+                        }
                     }
                 }
             }
@@ -128,37 +130,22 @@ fun MainAppNavigator() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(32.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(64.dp),
-                        color = AccentGreen
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(64.dp), color = AccentGreen)
                     Spacer(Modifier.height(24.dp))
-                    Text(
-                        text = "Installing Game Libraries...",
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Installing Libraries...", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = installationStatus,
-                        color = TextSecondary,
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(16.dp))                    LinearProgressIndicator(
+                    Text(installationStatus, color = TextSecondary, fontSize = 14.sp)
+                    Spacer(Modifier.height(16.dp))
+                    LinearProgressIndicator(
                         progress = { installationProgress / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                         color = AccentGreen,
                         trackColor = BorderGray
                     )
                 }
             }
         }
-    }
-}
+    }}
 
 @Composable
 fun HomeScreen(installedVersions: List<String>, context: android.content.Context) {
@@ -174,7 +161,7 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
                     Icon(Icons.Default.CloudOff, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(16.dp))
                     Text("No Instances Found", color = TextSecondary)
-                    Text("Go to Java Edition to download a version", color = TextSecondary, fontSize = 12.sp)
+                    Text("Go to Java Edition to download", color = TextSecondary, fontSize = 12.sp)
                 }
             }
         } else {
@@ -194,7 +181,8 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
                                 Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
                             }
                         }
-                    }                }
+                    }
+                }
             }
         }
 
@@ -206,11 +194,9 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
 
 @Composable
 fun PlayBar(versionId: String, context: android.content.Context) {
-    val scope = rememberCoroutineScope()
-    val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
+    val scope = rememberCoroutineScope()    val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
     var isLaunching by remember { mutableStateOf(false) }
 
-    // ✅ FIX: Proper Box and Row syntax with modifiers
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -223,11 +209,7 @@ fun PlayBar(versionId: String, context: android.content.Context) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 30.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f).padding(start = 30.dp)) {
                 Text("Selected Instance", color = TextSecondary, fontSize = 12.sp)
                 Text(versionId, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
@@ -239,12 +221,11 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                         scope.launch {
                             val result = GameLauncher.launch(context, versionId)
                             isLaunching = false
-                            
-                            result.onSuccess {
-                                Toast.makeText(context, "Game Launched!", Toast.LENGTH_SHORT).show()
-                            }
-                            result.onFailure {                                Toast.makeText(context, "Launch Failed: ${it.message}", Toast.LENGTH_LONG).show()
-                            }
+                            Toast.makeText(
+                                context, 
+                                if (result.isSuccess) "Game Launched!" else "Launch Failed", 
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                     }
                 },
@@ -262,7 +243,6 @@ fun PlayBar(versionId: String, context: android.content.Context) {
         }
     }
 }
-
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
@@ -289,11 +269,5 @@ fun TopBar() {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
-    }
-}
-
-@Composablefun PlaceholderContent(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
-        Text(text, color = TextSecondary) 
     }
 }
