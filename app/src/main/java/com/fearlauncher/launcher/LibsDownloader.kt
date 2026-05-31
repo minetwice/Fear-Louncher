@@ -24,7 +24,6 @@ object LibsDownloader {
                 File(baseDir, "jre").mkdirs()
                 File(baseDir, "natives").mkdirs()
                 
-                // Check if already installed
                 val jreBin = File(baseDir, "jre/bin/java")
                 if (jreBin.exists() && jreBin.length() > 0) {
                     Log.d("Libs", "Already installed")
@@ -33,7 +32,6 @@ object LibsDownloader {
                 
                 Log.d("Libs", "Downloading JRE")
                 
-                // Download JRE - INLINE CODE (no function call)
                 val jreZip = File(context.cacheDir, "jre.zip")
                 var conn: HttpURLConnection? = null
                 var input: InputStream? = null
@@ -45,10 +43,11 @@ object LibsDownloader {
                     conn.connectTimeout = 60000
                     conn.readTimeout = 120000
                     conn.connect()
-                    if (conn.responseCode == 200) {
+                    val code = conn.responseCode
+                    if (code == 200) {
                         input = conn.inputStream
-                        output = FileOutputStream(jreZip)                        val buffer = ByteArray(8192)
-                        var count: Int
+                        output = FileOutputStream(jreZip)
+                        val buffer = ByteArray(8192)                        var count = 0
                         while (true) {
                             count = input.read(buffer)
                             if (count == -1) break
@@ -57,15 +56,18 @@ object LibsDownloader {
                         output.close()
                         input.close()
                         conn.disconnect()
-                        jreDownloaded = jreZip.exists() && jreZip.length() > 0
+                        val exists = jreZip.exists()
+                        val len = jreZip.length()
+                        jreDownloaded = exists && len > 0
                     }
                 } catch (e: Exception) {
-                    Log.e("Libs", "JRE download error: " + e.message)
+                    val msg = e.message
+                    Log.e("Libs", "JRE download error: $msg")
                     if (jreZip.exists()) jreZip.delete()
                 } finally {
-                    try { input?.close() } catch (e: Exception) {}
-                    try { output?.close() } catch (e: Exception) {}
-                    try { conn?.disconnect() } catch (e: Exception) {}
+                    try { if (input != null) input.close() } catch (e: Exception) {}
+                    try { if (output != null) output.close() } catch (e: Exception) {}
+                    try { if (conn != null) conn.disconnect() } catch (e: Exception) {}
                 }
                 
                 if (!jreDownloaded) {
@@ -73,31 +75,41 @@ object LibsDownloader {
                     return@withContext false
                 }
                 
-                // Extract JRE - INLINE CODE
                 Log.d("Libs", "Extracting JRE")
                 try {
-                    ZipFile(jreZip).use { zip ->
-                        zip.entries().asSequence().forEach { entry ->
-                            val outFile = File(File(baseDir, "jre"), entry.name)
-                            if (entry.isDirectory) {
-                                outFile.mkdirs()
-                            } else {
-                                outFile.parentFile?.mkdirs()
-                                zip.getInputStream(entry).use { ins ->
-                                    FileOutputStream(outFile).use { outs ->
-                                        ins.copyTo(outs)
-                                    }
-                                }
-                            }
+                    val zipFile = ZipFile(jreZip)
+                    val entries = zipFile.entries()
+                    while (entries.hasMoreElements()) {
+                        val entry = entries.nextElement()
+                        val jreDir = File(baseDir, "jre")
+                        val outFile = File(jreDir, entry.name)
+                        if (entry.isDirectory) {
+                            outFile.mkdirs()
+                        } else {
+                            val parent = outFile.parentFile
+                            if (parent != null) parent.mkdirs()
+                            val ins = zipFile.getInputStream(entry)
+                            val outs = FileOutputStream(outFile)
+                            val buf = ByteArray(8192)
+                            var n = 0
+                            while (true) {
+                                n = ins.read(buf)
+                                if (n == -1) break
+                                outs.write(buf, 0, n)
+                            }                            outs.close()
+                            ins.close()
                         }
                     }
+                    zipFile.close()
                     jreZip.delete()
-                    File(baseDir, "jre/bin/java").setExecutable(true)
+                    val javaFile = File(baseDir, "jre/bin/java")
+                    javaFile.setExecutable(true)
                 } catch (e: Exception) {
-                    Log.e("Libs", "Extraction error: " + e.message)
+                    val msg = e.message
+                    Log.e("Libs", "Extraction error: $msg")
                     return@withContext false
-                }                
-                // Download GL4ES - INLINE CODE (optional)
+                }
+                
                 Log.d("Libs", "Downloading GL4ES")
                 val libGL = File(baseDir, "natives/libGL.so")
                 var gl4esDownloaded = false
@@ -107,11 +119,12 @@ object LibsDownloader {
                     conn.connectTimeout = 60000
                     conn.readTimeout = 120000
                     conn.connect()
-                    if (conn.responseCode == 200) {
+                    val code = conn.responseCode
+                    if (code == 200) {
                         input = conn.inputStream
                         output = FileOutputStream(libGL)
                         val buffer = ByteArray(8192)
-                        var count: Int
+                        var count = 0
                         while (true) {
                             count = input.read(buffer)
                             if (count == -1) break
@@ -120,17 +133,19 @@ object LibsDownloader {
                         output.close()
                         input.close()
                         conn.disconnect()
-                        gl4esDownloaded = libGL.exists() && libGL.length() > 0
+                        val exists = libGL.exists()
+                        val len = libGL.length()
+                        gl4esDownloaded = exists && len > 0
                     }
                 } catch (e: Exception) {
-                    Log.e("Libs", "GL4ES download error: " + e.message)
+                    val msg = e.message
+                    Log.e("Libs", "GL4ES download error: $msg")
                 } finally {
-                    try { input?.close() } catch (e: Exception) {}
-                    try { output?.close() } catch (e: Exception) {}
-                    try { conn?.disconnect() } catch (e: Exception) {}
+                    try { if (input != null) input.close() } catch (e: Exception) {}
+                    try { if (output != null) output.close() } catch (e: Exception) {}
+                    try { if (conn != null) conn.disconnect() } catch (e: Exception) {}
                 }
-                
-                if (gl4esDownloaded) {
+                                if (gl4esDownloaded) {
                     libGL.setExecutable(true)
                     Log.d("Libs", "GL4ES installed")
                 }
@@ -139,21 +154,27 @@ object LibsDownloader {
                 true
                 
             } catch (e: Exception) {
-                Log.e("Libs", "Install failed: " + e.message)
+                val msg = e.message
+                Log.e("Libs", "Install failed: $msg")
                 false
             }
         }
     }
     
-    fun isLibsReady(context: Context): Boolean {        val path = File(context.filesDir, "game_runtime/jre/bin/java")
-        return path.exists() && path.length() > 0
+    fun isLibsReady(context: Context): Boolean {
+        val path = File(context.filesDir, "game_runtime/jre/bin/java")
+        val exists = path.exists()
+        val len = path.length()
+        return exists && len > 0
     }
     
     fun getJREPath(context: Context): String {
-        return File(context.filesDir, "game_runtime/jre").absolutePath
+        val file = File(context.filesDir, "game_runtime/jre")
+        return file.absolutePath
     }
     
     fun getNativesPath(context: Context): String {
-        return File(context.filesDir, "game_runtime/natives").absolutePath
+        val file = File(context.filesDir, "game_runtime/natives")
+        return file.absolutePath
     }
 }
