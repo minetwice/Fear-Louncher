@@ -18,24 +18,36 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         jstring j_assetsPath,
         jstring j_nativesPath) {
 
+    // Convert Java strings to C strings
     const char* c_jrePath = env->GetStringUTFChars(j_jrePath, nullptr);
     const char* c_jarPath = env->GetStringUTFChars(j_jarPath, nullptr);
     const char* c_version = env->GetStringUTFChars(j_version, nullptr);
     const char* c_assetsPath = env->GetStringUTFChars(j_assetsPath, nullptr);
     const char* c_nativesPath = env->GetStringUTFChars(j_nativesPath, nullptr);
 
+    // Declare ALL variables at the start to avoid scope issues with returns
+    void* handle = nullptr;
+    auto createVM = (JNI_CreateJavaVM_t)nullptr;
+    JavaVM* vm = nullptr;
+    JNIEnv* jni_env = nullptr;
+    jint res = -1;
+    jclass mainClass = nullptr;
+    jmethodID mainMethod = nullptr;
+    jobjectArray args = nullptr;
+    jclass stringClass = nullptr;
+
     // 1. Load libjvm.so
     std::string libjvm_path = std::string(c_jrePath) + "/lib/server/libjvm.so";
-    void* handle = dlopen(libjvm_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    handle = dlopen(libjvm_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     if (!handle) {
         LOGE("Failed to load libjvm.so: %s", dlerror());
-        goto release_strings;
+        goto cleanup;
     }
 
-    auto createVM = (JNI_CreateJavaVM_t)dlsym(handle, "JNI_CreateJavaVM");
+    // Get pointer to JNI_CreateJavaVM function
+    createVM = (JNI_CreateJavaVM_t)dlsym(handle, "JNI_CreateJavaVM");
     if (!createVM) {
-        LOGE("Failed to find JNI_CreateJavaVM");
-        goto close_handle;
+        LOGE("Failed to find JNI_CreateJavaVM");        goto cleanup;
     }
 
     // 2. JVM Options - FIX: Store strings in variables first
@@ -47,7 +59,8 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     
     std::string opt1_str = "-Djava.class.path";
     std::string opt4_str = "-Djava.library.path";
-    std::string opt5_str = "-Dorg.lwjgl.librarypath";    
+    std::string opt5_str = "-Dorg.lwjgl.librarypath";
+    
     JavaVMOption options[5];
     options[0].optionString = const_cast<char*>(opt1_str.c_str());
     options[0].extraInfo = const_cast<char*>(classpath_str.c_str());
@@ -70,52 +83,50 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     vm_args.options = options;
     vm_args.ignoreUnrecognized = JNI_TRUE;
 
-    JavaVM* vm = nullptr;
-    JNIEnv* jni_env = nullptr;
-    jint res = createVM(&vm, &jni_env, &vm_args);
+    // 3. Create the Java VM
+    res = createVM(&vm, &jni_env, &vm_args);
     if (res != JNI_OK || !vm || !jni_env) {
         LOGE("JVM Creation Failed: %d", res);
-        goto close_handle;
+        goto cleanup;
     }
 
-    // 3. Find Minecraft Main Class
-    jclass mainClass = jni_env->FindClass("net/minecraft/client/main/Main");
+    LOGI("JVM Created Successfully");
+
+    // 4. Find Minecraft Main Class
+    mainClass = jni_env->FindClass("net/minecraft/client/main/Main");
     if (!mainClass) {
         LOGE("net.minecraft.client.main.Main not found");
-        if (jni_env->ExceptionCheck()) jni_env->ExceptionDescribe();
-        goto destroy_vm;
+        if (jni_env->ExceptionCheck()) jni_env->ExceptionDescribe();        goto cleanup;
     }
 
-    // 4. Get Main Method ID
-    jmethodID mainMethod = jni_env->GetStaticMethodID(mainClass, "main", "([Ljava/lang/String;)V");
+    // 5. Get Main Method ID
+    mainMethod = jni_env->GetStaticMethodID(mainClass, "main", "([Ljava/lang/String;)V");
     if (!mainMethod) {
         LOGE("main() method not found");
         if (jni_env->ExceptionCheck()) jni_env->ExceptionDescribe();
-        goto destroy_vm;
+        goto cleanup;
     }
 
-    // 5. Build Args Array - FIX: Declare at start of block to avoid goto issues
-    jobjectArray args = nullptr;
-    {        jclass stringClass = jni_env->FindClass("java/lang/String");
-        if (stringClass) {
-            args = jni_env->NewObjectArray(10, stringClass, nullptr);
-            if (args) {
-                int idx = 0;
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--version"));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_version));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--gameDir"));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_jrePath));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--assetsDir"));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_assetsPath));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--assetIndex"));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_version));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--username"));
-                jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("FearPlayer"));
-            }
+    // 6. Build Args Array
+    stringClass = jni_env->FindClass("java/lang/String");
+    if (stringClass) {
+        args = jni_env->NewObjectArray(10, stringClass, nullptr);
+        if (args) {
+            int idx = 0;
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--version"));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_version));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--gameDir"));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_jrePath));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--assetsDir"));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_assetsPath));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--assetIndex"));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF(c_version));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("--username"));
+            jni_env->SetObjectArrayElement(args, idx++, jni_env->NewStringUTF("FearPlayer"));
         }
     }
 
-    // 6. Launch Minecraft
+    // 7. Launch Minecraft
     LOGI("Launching Minecraft via JVM...");
     jni_env->CallStaticVoidMethod(mainClass, mainMethod, args);
 
@@ -125,22 +136,18 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         jni_env->ExceptionClear();
     }
 
-    // 7. Cleanup
-    vm->DestroyJavaVM();
+    // 8. Cleanup - Destroy JVM
+    if (vm) vm->DestroyJavaVM();
 
-close_handle:
+cleanup:
+    // Close handle
     if (handle) dlclose(handle);
-
-release_strings:
+    
+    // Release Java strings
     env->ReleaseStringUTFChars(j_jrePath, c_jrePath);
-    env->ReleaseStringUTFChars(j_jarPath, c_jarPath);
-    env->ReleaseStringUTFChars(j_version, c_version);
+    env->ReleaseStringUTFChars(j_jarPath, c_jarPath);    env->ReleaseStringUTFChars(j_version, c_version);
     env->ReleaseStringUTFChars(j_assetsPath, c_assetsPath);
     env->ReleaseStringUTFChars(j_nativesPath, c_nativesPath);
 
     return 0;
-
-destroy_vm:
-    if (vm) vm->DestroyJavaVM();
-    goto close_handle;
 }
