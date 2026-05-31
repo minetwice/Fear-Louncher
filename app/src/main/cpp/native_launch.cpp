@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <android/log.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <dlfcn.h>
 
 #define TAG "NativeLaunch"
@@ -25,7 +26,7 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     const char* c_assetsPath = env->GetStringUTFChars(j_assetsPath, nullptr);
     const char* c_nativesPath = env->GetStringUTFChars(j_nativesPath, nullptr);
 
-    // Declare ALL variables at the start to avoid scope issues
+    // Declare ALL variables at the start
     void* handle = nullptr;
     JNI_CreateJavaVM_t createVM = nullptr;
     JavaVM* vm = nullptr;
@@ -36,24 +37,32 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     jobjectArray args = nullptr;
     jclass stringClass = nullptr;
     
-    // C-style strings for JVM options (no constructors/destructors)
+    // C-style buffers for paths
+    char libjvm_path[1024] = {0};
     char classpath[4096] = {0};
     char libPath[1024] = {0};
+    
+    // JVM option strings (static)
     char opt_classpath[] = "-Djava.class.path";
     char opt_libpath[] = "-Djava.library.path";
     char opt_lwjglpath[] = "-Dorg.lwjgl.librarypath";
     char opt_xmx[] = "-Xmx2G";
-    char opt_xms[] = "-Xms1G";
-    
+    char opt_xms[] = "-Xms1G";    
     JavaVMOption options[5];
 
-    // 1. Load libjvm.so    snprintf(classpath, sizeof(classpath), "%s:%s/lib/*:%s/lib/ext/*", 
-             c_jarPath, c_jrePath, c_jrePath);
-    snprintf(libPath, sizeof(libPath), "%s", c_nativesPath);
+    // 1. Build paths using sprintf (safe with fixed buffer sizes)
+    sprintf(libjvm_path, "%s/lib/server/libjvm.so", c_jrePath);
+    sprintf(libPath, "%s", c_nativesPath);
     
-    char libjvm_path[1024];
-    snprintf(libjvm_path, sizeof(libjvm_path), "%s/lib/server/libjvm.so", c_jrePath);
-    
+    // Build classpath: jarPath:jrePath/lib/*:jrePath/lib/ext/*
+    strcpy(classpath, c_jarPath);
+    strcat(classpath, ":");
+    strcat(classpath, c_jrePath);
+    strcat(classpath, "/lib/*:");
+    strcat(classpath, c_jrePath);
+    strcat(classpath, "/lib/ext/*");
+
+    // 2. Load libjvm.so
     handle = dlopen(libjvm_path, RTLD_LAZY | RTLD_GLOBAL);
     if (!handle) {
         LOGE("Failed to load libjvm.so: %s", dlerror());
@@ -67,7 +76,7 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         goto cleanup;
     }
 
-    // 2. Setup JVM Options using C-style strings
+    // 3. Setup JVM Options
     options[0].optionString = opt_classpath;
     options[0].extraInfo = classpath;
     
@@ -88,8 +97,7 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     vm_args.nOptions = 5;
     vm_args.options = options;
     vm_args.ignoreUnrecognized = JNI_TRUE;
-
-    // 3. Create the Java VM
+    // 4. Create the Java VM
     res = createVM(&vm, &jni_env, &vm_args);
     if (res != JNI_OK || !vm || !jni_env) {
         LOGE("JVM Creation Failed: %d", res);
@@ -97,7 +105,8 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
     }
 
     LOGI("JVM Created Successfully");
-    // 4. Find Minecraft Main Class
+
+    // 5. Find Minecraft Main Class
     mainClass = jni_env->FindClass("net/minecraft/client/main/Main");
     if (!mainClass) {
         LOGE("net.minecraft.client.main.Main not found");
@@ -105,7 +114,7 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         goto cleanup;
     }
 
-    // 5. Get Main Method ID
+    // 6. Get Main Method ID
     mainMethod = jni_env->GetStaticMethodID(mainClass, "main", "([Ljava/lang/String;)V");
     if (!mainMethod) {
         LOGE("main() method not found");
@@ -113,7 +122,7 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         goto cleanup;
     }
 
-    // 6. Build Args Array
+    // 7. Build Args Array
     stringClass = jni_env->FindClass("java/lang/String");
     if (stringClass) {
         args = jni_env->NewObjectArray(10, stringClass, nullptr);
@@ -132,20 +141,20 @@ Java_com_fearlauncher_launcher_GameLauncher_startMinecraftNative(
         }
     }
 
-    // 7. Launch Minecraft
+    // 8. Launch Minecraft
     LOGI("Launching Minecraft via JVM...");
     jni_env->CallStaticVoidMethod(mainClass, mainMethod, args);
 
-    if (jni_env->ExceptionCheck()) {
-        LOGE("Exception during execution:");
+    if (jni_env->ExceptionCheck()) {        LOGE("Exception during execution:");
         jni_env->ExceptionDescribe();
         jni_env->ExceptionClear();
     }
 
-    // 8. Cleanup - Destroy JVM
+    // 9. Cleanup - Destroy JVM
     if (vm) vm->DestroyJavaVM();
 
-cleanup:    // Close handle
+cleanup:
+    // Close handle
     if (handle) dlclose(handle);
     
     // Release Java strings
