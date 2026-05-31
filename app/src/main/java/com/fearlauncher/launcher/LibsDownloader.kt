@@ -21,7 +21,7 @@ data class DownloadProgress(
 object LibsDownloader {
     private const val TAG = "LibsDownloader"
     
-    // Direct download link for JRE
+    // Direct download links
     private const val JRE_URL = "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/jre8-pojav.zip"
     private const val GL4ES_URL = "https://github.com/ptitSeb/gl4es/releases/download/v1.1.5/libGL_arm64.so"
     
@@ -43,17 +43,16 @@ object LibsDownloader {
                 return@withContext Result.success("Already installed")
             }
 
+            // Create directories
             baseDir.mkdirs()
             File(baseDir, "jre").mkdirs()
             File(baseDir, "natives").mkdirs()
-
-            // Download JRE            val progressObj = DownloadProgress("JRE", 0, 100, 0f)
-            onProgress?.invoke(progressObj)
+            // Download JRE
             Log.d(TAG, "Downloading JRE")
             
             val jreZipFile = File(context.cacheDir, "jre8-pojav.zip")
             
-            val jreSuccess = downloadFile(JRE_URL, jreZipFile, "JRE")
+            val jreSuccess = downloadFile(JRE_URL, jreZipFile)
             
             if (!jreSuccess || jreZipFile.length() < JRE_MIN_SIZE) {
                 throw Exception("JRE download failed")
@@ -63,6 +62,7 @@ object LibsDownloader {
             extractZip(jreZipFile, File(baseDir, "jre"))
             jreZipFile.delete()
             
+            // Set executable permissions
             File(baseDir, "jre/bin/java").setExecutable(true)
             File(baseDir, "jre/lib/server/libjvm.so").setExecutable(true)
             
@@ -70,15 +70,15 @@ object LibsDownloader {
                 throw Exception("JRE extraction failed")
             }
             
-            val progressDone = DownloadProgress("JRE", 100, 100, 50f)
-            onProgress?.invoke(progressDone)
+            Log.d(TAG, "JRE installed")
 
-            // Download GL4ES
+            // Download GL4ES (optional)
             val libGLFile = File(baseDir, "natives/libGL.so")
-            val gl4esSuccess = downloadFile(GL4ES_URL, libGLFile, "GL4ES")
+            val gl4esSuccess = downloadFile(GL4ES_URL, libGLFile)
             
             if (gl4esSuccess && libGLFile.length() >= GL4ES_MIN_SIZE) {
                 libGLFile.setExecutable(true)
+                Log.d(TAG, "GL4ES installed")
             }
             
             Log.d(TAG, "Installation complete")
@@ -91,24 +91,31 @@ object LibsDownloader {
         }
     }
 
-    private fun downloadFile(url: String, destFile: File, label: String): Boolean {
-        return try {
-            val connection = URL(url).openConnection() as HttpURLConnection
+    // Simple download function - no lambdas, no complex logic
+    private fun downloadFile(url: String, destFile: File): Boolean {
+        var connection: HttpURLConnection? = null
+        var input: InputStream? = null
+        var output: FileOutputStream? = null
+                return try {
+            connection = URL(url).openConnection() as HttpURLConnection
             connection.connectTimeout = 60000
             connection.readTimeout = 120000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0")            connection.connect()
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+            connection.connect()
             
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 return false
             }
             
-            val input: InputStream = connection.inputStream
-            val output = FileOutputStream(destFile)
+            input = connection.inputStream
+            output = FileOutputStream(destFile)
             
             val buffer = ByteArray(16384)
             var bytesRead: Int
             
-            while (input.read(buffer).also { bytesRead = it } != -1) {
+            while (true) {
+                bytesRead = input.read(buffer)
+                if (bytesRead == -1) break
                 output.write(buffer, 0, bytesRead)
             }
             
@@ -119,12 +126,17 @@ object LibsDownloader {
             destFile.exists() && destFile.length() > 0
             
         } catch (e: Exception) {
-            Log.e(TAG, label + " download error: " + e.message)
-            destFile.delete()
+            Log.e(TAG, "Download error: " + e.message)
+            if (destFile.exists()) destFile.delete()
             false
+        } finally {
+            try { input?.close() } catch (e: Exception) {}
+            try { output?.close() } catch (e: Exception) {}
+            try { connection?.disconnect() } catch (e: Exception) {}
         }
     }
 
+    // Simple extraction function
     private fun extractZip(zipFile: File, destDir: File) {
         ZipFile(zipFile).use { zip ->
             zip.entries().asSequence().forEach { entry ->
@@ -133,9 +145,8 @@ object LibsDownloader {
                     outFile.mkdirs()
                 } else {
                     outFile.parentFile?.mkdirs()
-                    zip.getInputStream(entry).use { input ->
-                        FileOutputStream(outFile).use { output ->
-                            input.copyTo(output)
+                    zip.getInputStream(entry).use { inputStream ->                        FileOutputStream(outFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
                         }
                     }
                 }
@@ -143,14 +154,17 @@ object LibsDownloader {
         }
     }
 
+    // Cleanup function
     private fun cleanupPartial(baseDir: File) {
         try {
-            File(baseDir, "jre").deleteRecursively()            File(baseDir, "natives").deleteRecursively()
+            File(baseDir, "jre").deleteRecursively()
+            File(baseDir, "natives").deleteRecursively()
         } catch (e: Exception) {
             Log.e(TAG, "Cleanup error: " + e.message)
         }
     }
 
+    // Helper functions
     fun getJREPath(context: Context): String {
         return File(context.filesDir, "game_runtime/jre").absolutePath
     }
