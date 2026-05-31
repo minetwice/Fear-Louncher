@@ -62,8 +62,7 @@ object LibsDownloader {
                         jreDownloaded = exists && len > 0
                     }
                 } catch (e: Exception) {
-                    val msg = e.message
-                    Log.e("Libs", "JRE download error: " + msg)
+                    Log.e("Libs", "JRE download error")
                     if (jreZip.exists()) jreZip.delete()
                 } finally {
                     if (input != null) {
@@ -86,7 +85,7 @@ object LibsDownloader {
                 try {
                     val zipFile = ZipFile(jreZip)
                     val jreDir = File(baseDir, "jre")
-                    var entry: ZipEntry? = zipFile.nextEntry
+                    var entry: ZipEntry? = zipFile.nextEntry()
                     while (entry != null) {
                         val outFile = File(jreDir, entry.name)
                         if (entry.isDirectory) {
@@ -96,8 +95,8 @@ object LibsDownloader {
                             if (parent != null) parent.mkdirs()
                             val ins = zipFile.getInputStream(entry)
                             val outs = FileOutputStream(outFile)
-                            val buf = ByteArray(8192)                            var n: Int
-                            n = ins.read(buf)
+                            val buf = ByteArray(8192)
+                            var n: Int                            n = ins.read(buf)
                             while (n != -1) {
                                 outs.write(buf, 0, n)
                                 n = ins.read(buf)
@@ -105,15 +104,14 @@ object LibsDownloader {
                             outs.close()
                             ins.close()
                         }
-                        entry = zipFile.nextEntry
+                        entry = zipFile.nextEntry()
                     }
                     zipFile.close()
                     jreZip.delete()
                     val javaFile = File(baseDir, "jre/bin/java")
                     javaFile.setExecutable(true)
                 } catch (e: Exception) {
-                    val msg = e.message
-                    Log.e("Libs", "Extraction error: " + msg)
+                    Log.e("Libs", "Extraction error")
                     return@withContext false
                 }
                 
@@ -145,10 +143,9 @@ object LibsDownloader {
                         gl4esDownloaded = exists && len > 0
                     }
                 } catch (e: Exception) {
-                    val msg = e.message                    Log.e("Libs", "GL4ES download error: " + msg)
+                    Log.e("Libs", "GL4ES download error")
                 } finally {
-                    if (input != null) {
-                        try { input.close() } catch (e: Exception) {}
+                    if (input != null) {                        try { input.close() } catch (e: Exception) {}
                     }
                     if (output != null) {
                         try { output.close() } catch (e: Exception) {}
@@ -167,8 +164,7 @@ object LibsDownloader {
                 true
                 
             } catch (e: Exception) {
-                val msg = e.message
-                Log.e("Libs", "Install failed: " + msg)
+                Log.e("Libs", "Install failed")
                 false
             }
         }
