@@ -8,55 +8,60 @@ import java.io.File
 
 object GameLauncher {
     init {
-        System.loadLibrary("native_launch")
+        // Load native library for JVM launch
+        try {
+            System.loadLibrary("native_launch")
+        } catch (e: UnsatisfiedLinkError) {
+            Log.e("GameLauncher", "Failed to load native library: ${e.message}")
+        }
     }
 
     external fun startMinecraftNative(
-        jrePath: String, jarPath: String, version: String, assetsPath: String
+        jrePath: String,
+        jarPath: String,
+        version: String,
+        assetsPath: String,
+        nativesPath: String
     ): Int
 
-    suspend fun launch(context: Context, versionId: String): Boolean = withContext(Dispatchers.IO) {
-        val baseDir = MinecraftManager.getBaseDir(context)
-        val jreDir = File(baseDir, "jre_extracted")
-        
-        // Extract JRE from assets if not present
-        if (!jreDir.exists()) {
-            Log.d("Launcher", "Extracting JRE from assets...")
-            copyAssets(context.assets, "jre", jreDir)
+    suspend fun launch(context: Context, versionId: String): Result<String> = withContext(Dispatchers.IO) {
+        // Check if libs are ready
+        if (!LibsDownloader.isLibsReady(context)) {
+            return@withContext Result.failure(Exception("Libraries not installed. Please wait for installation to complete."))
         }
 
-        val jarPath = File(MinecraftManager.getVersionsDir(context), "$versionId/$versionId.jar").absolutePath
+        val jrePath = LibsDownloader.getJREPath(context)
+        val nativesPath = LibsDownloader.getNativesPath(context)
+        
+        val jarPath = File(
+            MinecraftManager.getVersionsDir(context),
+            "$versionId/$versionId.jar"
+        ).absolutePath
+        
         val assetsPath = MinecraftManager.getAssetsDir(context).absolutePath
 
+        // Check if Minecraft jar exists
         if (!File(jarPath).exists()) {
-            Log.e("Launcher", "❌ Minecraft Jar not found!")
-            return@withContext false
+            return@withContext Result.failure(Exception("Minecraft $versionId not found. Please install it first."))
         }
 
-        // Call Native JVM Launcher
-        val result: Int = startMinecraftNative(
-            jreDir.absolutePath, jarPath, versionId, assetsPath
-        )
+        try {
+            val result = startMinecraftNative(
+                jrePath,
+                jarPath,
+                versionId,
+                assetsPath,
+                nativesPath
+            )
 
-        // FIX: Compare Int with Int (not Long)
-        Log.d("Launcher", if (result == 0) "✅ Launch Success" else "❌ Launch Failed: $result")
-        return@withContext result == 0
-    }
-
-    private fun copyAssets(assetManager: android.content.res.AssetManager, assetPath: String, targetDir: File) {
-        val names = assetManager.list(assetPath) ?: return
-        targetDir.mkdirs()
-        for (name in names) {
-            val isFile = assetManager.openFd("$assetPath/$name")?.length ?: -1
-            if (isFile == -1L) {  // FIX: Compare Long with Long (-1L)
-                copyAssets(assetManager, "$assetPath/$name", File(targetDir, name))
+            if (result == 0) {
+                Result.success("Game launched successfully")
             } else {
-                assetManager.open("$assetPath/$name").use { input ->
-                    File(targetDir, name).outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                Result.failure(Exception("Game launch failed with code: $result"))
             }
+        } catch (e: Exception) {
+            Log.e("GameLauncher", "Launch failed: ${e.message}", e)
+            Result.failure(e)
         }
     }
 }
