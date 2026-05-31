@@ -7,7 +7,6 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -47,8 +46,8 @@ object LibsDownloader {
                     val code = conn.responseCode
                     if (code == 200) {
                         input = conn.inputStream
-                        output = FileOutputStream(jreZip)                        val buffer = ByteArray(8192)
-                        var count: Int
+                        output = FileOutputStream(jreZip)
+                        val buffer = ByteArray(8192)                        var count: Int = 0
                         count = input.read(buffer)
                         while (count != -1) {
                             output.write(buffer, 0, count)
@@ -85,8 +84,7 @@ object LibsDownloader {
                 try {
                     val zipFile = ZipFile(jreZip)
                     val jreDir = File(baseDir, "jre")
-                    var entry: ZipEntry? = zipFile.nextEntry()
-                    while (entry != null) {
+                    for (entry in zipFile.entries()) {
                         val outFile = File(jreDir, entry.name)
                         if (entry.isDirectory) {
                             outFile.mkdirs()
@@ -96,15 +94,14 @@ object LibsDownloader {
                             val ins = zipFile.getInputStream(entry)
                             val outs = FileOutputStream(outFile)
                             val buf = ByteArray(8192)
-                            var n: Int                            n = ins.read(buf)
-                            while (n != -1) {
-                                outs.write(buf, 0, n)
+                            var n: Int = 0
+                            n = ins.read(buf)
+                            while (n != -1) {                                outs.write(buf, 0, n)
                                 n = ins.read(buf)
                             }
                             outs.close()
                             ins.close()
                         }
-                        entry = zipFile.nextEntry()
                     }
                     zipFile.close()
                     jreZip.delete()
@@ -129,7 +126,7 @@ object LibsDownloader {
                         input = conn.inputStream
                         output = FileOutputStream(libGL)
                         val buffer = ByteArray(8192)
-                        var count: Int
+                        var count: Int = 0
                         count = input.read(buffer)
                         while (count != -1) {
                             output.write(buffer, 0, count)
@@ -145,10 +142,10 @@ object LibsDownloader {
                 } catch (e: Exception) {
                     Log.e("Libs", "GL4ES download error")
                 } finally {
-                    if (input != null) {                        try { input.close() } catch (e: Exception) {}
+                    if (input != null) {
+                        try { input.close() } catch (e: Exception) {}
                     }
-                    if (output != null) {
-                        try { output.close() } catch (e: Exception) {}
+                    if (output != null) {                        try { output.close() } catch (e: Exception) {}
                     }
                     if (conn != null) {
                         try { conn.disconnect() } catch (e: Exception) {}
