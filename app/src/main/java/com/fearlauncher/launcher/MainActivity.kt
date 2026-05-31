@@ -69,36 +69,34 @@ fun MainAppNavigator() {
     var installedVersions by remember { mutableStateOf<List<String>>(emptyList()) }
     
     var isInstalling by remember { mutableStateOf(false) }
-    var installationProgress by remember { mutableStateOf(0f) }
-    var installationStatus by remember { mutableStateOf("") }
+    var installationStatus by remember { mutableStateOf("Installing...") }
     
     val scope = rememberCoroutineScope()
 
+    // Install libs on first launch
     LaunchedEffect(Unit) {
         if (!LibsDownloader.isLibsReady(context)) {
             isInstalling = true
-            LibsDownloader.onProgress = { progress ->
-                installationProgress = progress.percentage
-                installationStatus = "Downloading ${progress.currentFile}... ${(progress.percentage).toInt()}%"
-            }
+            installationStatus = "Downloading JRE..."
             
-            val result = LibsDownloader.ensureAllLibsDownloaded(context)
+            // FIX: Use Boolean return type, not Result
+            val success = LibsDownloader.ensureAllLibsDownloaded(context)
             isInstalling = false
             
-            result.onSuccess {
-                installationStatus = "✅ Installation complete!"
+            if (success) {
+                installationStatus = "✅ Ready!"
                 Toast.makeText(context, "Libraries installed", Toast.LENGTH_SHORT).show()
-            }
-            result.onFailure {
-                installationStatus = "❌ Failed: ${it.message}"
+            } else {
+                installationStatus = "❌ Failed"
                 Toast.makeText(context, "Install failed", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    LaunchedEffect(activeTab) {        if (activeTab == "Home") {
-            installedVersions = MinecraftManager.getInstalledInstances(context)
-        }
+    // Refresh installed versions when switching to Home tab
+    LaunchedEffect(activeTab) {
+        if (activeTab == "Home") {
+            installedVersions = MinecraftManager.getInstalledInstances(context)        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
@@ -118,6 +116,7 @@ fun MainAppNavigator() {
             }
         }
         
+        // Installation overlay
         if (isInstalling) {
             Box(
                 modifier = Modifier
@@ -134,18 +133,10 @@ fun MainAppNavigator() {
                     Text("Installing Libraries...", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Text(installationStatus, color = TextSecondary, fontSize = 14.sp)
-                    Spacer(Modifier.height(16.dp))
-                    LinearProgressIndicator(
-                        progress = { installationProgress / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp),
-                        color = AccentGreen,
-                        trackColor = BorderGray
-                    )
                 }
             }
-        }    }
+        }
+    }
 }
 
 @Composable
@@ -155,7 +146,6 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
     Column(modifier = Modifier.fillMaxSize()) {
         Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(Modifier.height(16.dp))
-
         if (installedVersions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -195,6 +185,7 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
         }
     }
 }
+
 @Composable
 fun PlayBar(versionId: String, context: android.content.Context) {
     val scope = rememberCoroutineScope()
@@ -203,8 +194,7 @@ fun PlayBar(versionId: String, context: android.content.Context) {
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(80.dp)
+            .fillMaxWidth()            .height(80.dp)
             .background(SurfaceBlack)
             .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)),
         contentAlignment = Alignment.Center
@@ -223,13 +213,10 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                     if (isInstalled && !isLaunching) {
                         isLaunching = true
                         scope.launch {
-                            val result = GameLauncher.launch(context, versionId)
+                            val success = GameLauncher.launch(context, versionId).isSuccess
                             isLaunching = false
-                            Toast.makeText(
-                                context, 
-                                if (result.isSuccess) "Game Launched!" else "Launch Failed", 
-                                Toast.LENGTH_LONG
-                            ).show()
+                            val message = if (success) "Game Launched!" else "Launch Failed"
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         }
                     }
                 },
@@ -243,7 +230,8 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                     .width(150.dp)
                     .height(45.dp)
             ) {
-                Text(if (isLaunching) "Launching..." else "PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)            }
+                Text(if (isLaunching) "Launching..." else "PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
+            }
             Spacer(Modifier.width(30.dp))
         }
     }
@@ -255,8 +243,7 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     Column(
         modifier = Modifier
             .width(220.dp)
-            .fillMaxHeight()
-            .background(SurfaceBlack)
+            .fillMaxHeight()            .background(SurfaceBlack)
             .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray))
     ) {
         Box(modifier = Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
@@ -292,7 +279,8 @@ fun TopBar() {
             .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End
-    ) {        Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
+    ) {
+        Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
     }
