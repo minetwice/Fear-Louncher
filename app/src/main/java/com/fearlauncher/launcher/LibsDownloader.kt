@@ -16,6 +16,7 @@ object LibsDownloader {
     private const val JRE_URL = "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/jre8-pojav.zip"
     private const val GL4ES_URL = "https://github.com/ptitSeb/gl4es/releases/download/v1.1.5/libGL_arm64.so"
     
+    // Returns Boolean instead of Result
     suspend fun ensureAllLibsDownloaded(context: Context): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -46,17 +47,17 @@ object LibsDownloader {
                 File(baseDir, "jre/bin/java").setExecutable(true)
                 
                 // Download GL4ES (optional)
-                val libGL = File(baseDir, "natives/libGL.so")
-                downloadSimple(GL4ES_URL, libGL)                if (libGL.exists()) {
+                val libGL = File(baseDir, "natives/libGL.so")                downloadSimple(GL4ES_URL, libGL)
+                if (libGL.exists()) {
                     libGL.setExecutable(true)
                 }
                 
                 Log.d("Libs", "Installation complete")
-                true
+                true  // Return true on success
                 
             } catch (e: Exception) {
                 Log.e("Libs", "Error: " + e.message)
-                false
+                false  // Return false on error
             }
         }
     }
@@ -95,8 +96,8 @@ object LibsDownloader {
         }
     }
     
-    private fun extractSimple(zipFile: File, destDir: File) {
-        ZipFile(zipFile).use { zip ->            zip.entries().asSequence().forEach { entry ->
+    private fun extractSimple(zipFile: File, destDir: File) {        ZipFile(zipFile).use { zip ->
+            zip.entries().asSequence().forEach { entry ->
                 val outFile = File(destDir, entry.name)
                 if (entry.isDirectory) {
                     outFile.mkdirs()
