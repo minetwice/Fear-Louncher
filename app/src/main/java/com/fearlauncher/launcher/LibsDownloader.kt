@@ -84,7 +84,9 @@ object LibsDownloader {
                 try {
                     val zipFile = ZipFile(jreZip)
                     val jreDir = File(baseDir, "jre")
-                    for (entry in zipFile.entries()) {
+                    val entries = zipFile.entries()
+                    while (entries.hasMoreElements()) {
+                        val entry = entries.nextElement()
                         val outFile = File(jreDir, entry.name)
                         if (entry.isDirectory) {
                             outFile.mkdirs()
@@ -94,9 +96,9 @@ object LibsDownloader {
                             val ins = zipFile.getInputStream(entry)
                             val outs = FileOutputStream(outFile)
                             val buf = ByteArray(8192)
-                            var n: Int = 0
-                            n = ins.read(buf)
-                            while (n != -1) {                                outs.write(buf, 0, n)
+                            var n: Int = 0                            n = ins.read(buf)
+                            while (n != -1) {
+                                outs.write(buf, 0, n)
                                 n = ins.read(buf)
                             }
                             outs.close()
@@ -143,9 +145,9 @@ object LibsDownloader {
                     Log.e("Libs", "GL4ES download error")
                 } finally {
                     if (input != null) {
-                        try { input.close() } catch (e: Exception) {}
-                    }
-                    if (output != null) {                        try { output.close() } catch (e: Exception) {}
+                        try { input.close() } catch (e: Exception) {}                    }
+                    if (output != null) {
+                        try { output.close() } catch (e: Exception) {}
                     }
                     if (conn != null) {
                         try { conn.disconnect() } catch (e: Exception) {}
