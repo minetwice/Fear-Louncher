@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip  // ✅ FIX: Added missing import
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +42,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Request permission for Android 9 and below
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -69,14 +69,12 @@ fun MainAppNavigator() {
     var activeTab by remember { mutableStateOf("Home") }
     var installedVersions by remember { mutableStateOf<List<String>>(emptyList()) }
     
-    // Installation state
     var isInstalling by remember { mutableStateOf(false) }
     var installationProgress by remember { mutableStateOf(0f) }
     var installationStatus by remember { mutableStateOf("") }
     
     val scope = rememberCoroutineScope()
 
-    // Check and install libs on first launch
     LaunchedEffect(Unit) {
         if (!LibsDownloader.isLibsReady(context)) {
             isInstalling = true
@@ -96,9 +94,8 @@ fun MainAppNavigator() {
                 installationStatus = "❌ Installation failed: ${it.message}"
                 Toast.makeText(context, "Failed to install libraries", Toast.LENGTH_LONG).show()
             }
-        }    }
-
-    // Refresh installed versions when switching to Home tab
+        }
+    }
     LaunchedEffect(activeTab) {
         if (activeTab == "Home") {
             installedVersions = MinecraftManager.getInstalledInstances(context)
@@ -120,7 +117,6 @@ fun MainAppNavigator() {
             }
         }
         
-        // Installation overlay
         if (isInstalling) {
             Box(
                 modifier = Modifier
@@ -145,11 +141,11 @@ fun MainAppNavigator() {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = installationStatus,                        color = TextSecondary,
+                        text = installationStatus,
+                        color = TextSecondary,
                         fontSize = 14.sp
                     )
-                    Spacer(Modifier.height(16.dp))
-                    LinearProgressIndicator(
+                    Spacer(Modifier.height(16.dp))                    LinearProgressIndicator(
                         progress = { installationProgress / 100f },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -194,11 +190,11 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
                             Icon(Icons.Default.Computer, contentDescription = null, tint = if (selectedVersion == versionId) AccentGreen else TextSecondary)
                             Spacer(Modifier.width(16.dp))
                             Column {
-                                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Medium)                                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
+                                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
                             }
                         }
-                    }
-                }
+                    }                }
             }
         }
 
@@ -214,6 +210,7 @@ fun PlayBar(versionId: String, context: android.content.Context) {
     val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
     var isLaunching by remember { mutableStateOf(false) }
 
+    // ✅ FIX: Proper Box and Row syntax with modifiers
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,10 +240,10 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                             val result = GameLauncher.launch(context, versionId)
                             isLaunching = false
                             
-                            result.onSuccess {                                Toast.makeText(context, "Game Launched!", Toast.LENGTH_SHORT).show()
+                            result.onSuccess {
+                                Toast.makeText(context, "Game Launched!", Toast.LENGTH_SHORT).show()
                             }
-                            result.onFailure {
-                                Toast.makeText(context, "Launch Failed: ${it.message}", Toast.LENGTH_LONG).show()
+                            result.onFailure {                                Toast.makeText(context, "Launch Failed: ${it.message}", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -292,10 +289,10 @@ fun TopBar() {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
-    }}
+    }
+}
 
-@Composable
-fun PlaceholderContent(text: String) {
+@Composablefun PlaceholderContent(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
         Text(text, color = TextSecondary) 
     }
