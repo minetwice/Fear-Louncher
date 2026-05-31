@@ -55,7 +55,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Theme Colors
 val DeepBlack = Color(0xFF050505)
 val SurfaceBlack = Color(0xFF121212)
 val CardGray = Color(0xFF1E1E1E)
@@ -70,6 +69,35 @@ fun MainAppNavigator() {
     var activeTab by remember { mutableStateOf("Home") }
     var installedVersions by remember { mutableStateOf<List<String>>(emptyList()) }
     
+    // Installation state
+    var isInstalling by remember { mutableStateOf(false) }
+    var installationProgress by remember { mutableStateOf(0f) }
+    var installationStatus by remember { mutableStateOf("") }
+    
+    val scope = rememberCoroutineScope()
+
+    // Check and install libs on first launch
+    LaunchedEffect(Unit) {
+        if (!LibsDownloader.isLibsReady(context)) {
+            isInstalling = true
+            LibsDownloader.onProgress = { progress ->
+                installationProgress = progress.percentage
+                installationStatus = "Downloading ${progress.currentFile}... ${(progress.percentage).toInt()}%"
+            }
+            
+            val result = LibsDownloader.ensureAllLibsDownloaded(context)
+            isInstalling = false
+            
+            result.onSuccess {
+                installationStatus = "✅ Installation complete!"
+                Toast.makeText(context, "Libraries installed successfully", Toast.LENGTH_SHORT).show()
+            }
+            result.onFailure {
+                installationStatus = "❌ Installation failed: ${it.message}"
+                Toast.makeText(context, "Failed to install libraries", Toast.LENGTH_LONG).show()
+            }
+        }    }
+
     // Refresh installed versions when switching to Home tab
     LaunchedEffect(activeTab) {
         if (activeTab == "Home") {
@@ -91,12 +119,55 @@ fun MainAppNavigator() {
                 }
             }
         }
+        
+        // Installation overlay
+        if (isInstalling) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(64.dp),
+                        color = AccentGreen
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        text = "Installing Game Libraries...",
+                        color = TextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = installationStatus,                        color = TextSecondary,
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        progress = { installationProgress / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = AccentGreen,
+                        trackColor = BorderGray
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 fun HomeScreen(installedVersions: List<String>, context: android.content.Context) {
     var selectedVersion by remember { mutableStateOf<String?>(installedVersions.firstOrNull()) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Text("My Instances", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         Spacer(Modifier.height(16.dp))
@@ -123,8 +194,7 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
                             Icon(Icons.Default.Computer, contentDescription = null, tint = if (selectedVersion == versionId) AccentGreen else TextSecondary)
                             Spacer(Modifier.width(16.dp))
                             Column {
-                                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Medium)
-                                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
+                                Text(versionId, color = TextPrimary, fontWeight = FontWeight.Medium)                                Text("Ready to Launch", color = TextSecondary, fontSize = 12.sp)
                             }
                         }
                     }
@@ -144,12 +214,12 @@ fun PlayBar(versionId: String, context: android.content.Context) {
     val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
     var isLaunching by remember { mutableStateOf(false) }
 
-    // FIX: Proper Box and Row syntax
-    Box(        modifier = Modifier
+    Box(
+        modifier = Modifier
             .fillMaxWidth()
             .height(80.dp)
             .background(SurfaceBlack)
-            .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)), 
+            .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray)),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -170,13 +240,14 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                     if (isInstalled && !isLaunching) {
                         isLaunching = true
                         scope.launch {
-                            val success = GameLauncher.launch(context, versionId)
+                            val result = GameLauncher.launch(context, versionId)
                             isLaunching = false
-                            Toast.makeText(
-                                context, 
-                                if (success) "Game Launched!" else "Launch Failed. Check Logcat.", 
-                                Toast.LENGTH_LONG
-                            ).show()
+                            
+                            result.onSuccess {                                Toast.makeText(context, "Game Launched!", Toast.LENGTH_SHORT).show()
+                            }
+                            result.onFailure {
+                                Toast.makeText(context, "Launch Failed: ${it.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 },
@@ -194,6 +265,7 @@ fun PlayBar(versionId: String, context: android.content.Context) {
         }
     }
 }
+
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
@@ -220,8 +292,7 @@ fun TopBar() {
         Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
-    }
-}
+    }}
 
 @Composable
 fun PlaceholderContent(text: String) {
