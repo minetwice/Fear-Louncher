@@ -21,12 +21,12 @@ data class DownloadProgress(
 object LibsDownloader {
     private const val TAG = "LibsDownloader"
     
-    // ✅ EXACT DIRECT LINK (Jo maine pehle diya tha)
-    private const val JRE_DIRECT_URL = "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/jre8-pojav.zip"
+    // Direct download link for JRE
+    private const val JRE_URL = "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/jre8-pojav.zip"
     private const val GL4ES_URL = "https://github.com/ptitSeb/gl4es/releases/download/v1.1.5/libGL_arm64.so"
     
-    private const val JRE_MIN_SIZE = 50 * 1024 * 1024L  // 50 MB
-    private const val GL4ES_MIN_SIZE = 1 * 1024 * 1024L  // 1 MB
+    private const val JRE_MIN_SIZE = 50 * 1024 * 1024L
+    private const val GL4ES_MIN_SIZE = 1 * 1024 * 1024L
 
     var onProgress: ((DownloadProgress) -> Unit)? = null
 
@@ -39,7 +39,7 @@ object LibsDownloader {
             val libjvm = File(baseDir, "jre/lib/server/libjvm.so")
             
             if (jreBin.exists() && libjvm.exists() && jreBin.length() > 0) {
-                Log.d(TAG, "✅ JRE already installed")
+                Log.d(TAG, "JRE already installed")
                 return@withContext Result.success("Already installed")
             }
 
@@ -47,120 +47,85 @@ object LibsDownloader {
             File(baseDir, "jre").mkdirs()
             File(baseDir, "natives").mkdirs()
 
-            // 1. Download JRE from DIRECT LINK            onProgress?.invoke(DownloadProgress("JRE", 0, 100, 0f))
-            Log.d(TAG, "📥 Downloading JRE from: $JRE_DIRECT_URL")
+            // Download JRE            val progressObj = DownloadProgress("JRE", 0, 100, 0f)
+            onProgress?.invoke(progressObj)
+            Log.d(TAG, "Downloading JRE")
             
             val jreZipFile = File(context.cacheDir, "jre8-pojav.zip")
             
-            val jreDownloaded = downloadFileSimple(
-                JRE_DIRECT_URL, 
-                jreZipFile, 
-                "JRE"
-            ) { downloaded, total ->
-                val progress = (downloaded.toFloat() / total.toFloat()) * 50f
-                onProgress?.invoke(DownloadProgress("JRE", downloaded, total, progress))
+            val jreSuccess = downloadFile(JRE_URL, jreZipFile, "JRE")
+            
+            if (!jreSuccess || jreZipFile.length() < JRE_MIN_SIZE) {
+                throw Exception("JRE download failed")
             }
             
-            if (!jreDownloaded || jreZipFile.length() < JRE_MIN_SIZE) {
-                throw Exception("JRE download failed or incomplete. Size: ${jreZipFile.length()} bytes")
-            }
-            
-            Log.d(TAG, "📦 Extracting JRE (${jreZipFile.length()} bytes)...")
-            extractZipSimple(jreZipFile, File(baseDir, "jre"))
+            Log.d(TAG, "Extracting JRE")
+            extractZip(jreZipFile, File(baseDir, "jre"))
             jreZipFile.delete()
             
-            // Set executable
             File(baseDir, "jre/bin/java").setExecutable(true)
             File(baseDir, "jre/lib/server/libjvm.so").setExecutable(true)
             
             if (!File(baseDir, "jre/bin/java").exists()) {
-                throw Exception("JRE extraction failed - bin/java not found")
+                throw Exception("JRE extraction failed")
             }
             
-            onProgress?.invoke(DownloadProgress("JRE", 100, 100, 50f))
-            Log.d(TAG, "✅ JRE installed successfully")
+            val progressDone = DownloadProgress("JRE", 100, 100, 50f)
+            onProgress?.invoke(progressDone)
 
-            // 2. Download GL4ES (optional but recommended)
-            onProgress?.invoke(DownloadProgress("GL4ES", 0, 100, 50f))
-            Log.d(TAG, "📥 Downloading GL4ES...")
-            
+            // Download GL4ES
             val libGLFile = File(baseDir, "natives/libGL.so")
-            val gl4esDownloaded = downloadFileSimple(
-                GL4ES_URL, 
-                libGLFile, 
-                "GL4ES"
-            ) { downloaded, total ->
-                val progress = 50f + (downloaded.toFloat() / total.toFloat()) * 50f
-                onProgress?.invoke(DownloadProgress("GL4ES", downloaded, total, progress))
-            }
+            val gl4esSuccess = downloadFile(GL4ES_URL, libGLFile, "GL4ES")
             
-            if (gl4esDownloaded && libGLFile.length() >= GL4ES_MIN_SIZE) {
+            if (gl4esSuccess && libGLFile.length() >= GL4ES_MIN_SIZE) {
                 libGLFile.setExecutable(true)
-                Log.d(TAG, "✅ GL4ES installed")            } else {
-                Log.w(TAG, "⚠️ GL4ES skipped (optional)")
             }
             
-            onProgress?.invoke(DownloadProgress("GL4ES", 100, 100, 100f))
-
-            Log.d(TAG, "✅ All libs ready at: ${baseDir.absolutePath}")
-            Result.success("Installation complete!")
+            Log.d(TAG, "Installation complete")
+            Result.success("Done")
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Installation failed: ${e.message}", e)
-            cleanupPartial(baseDir)
+            Log.e(TAG, "Install failed: " + e.message)
+            cleanupPartial(File(context.filesDir, "game_runtime"))
             Result.failure(e)
         }
     }
 
-    // Simple download function (no complex retry logic)
-    private suspend fun downloadFileSimple(
-        url: String,
-        destFile: File,
-        label: String,
-        onProgress: (Long, Long) -> Unit
-    ): Boolean {
+    private fun downloadFile(url: String, destFile: File, label: String): Boolean {
         return try {
             val connection = URL(url).openConnection() as HttpURLConnection
             connection.connectTimeout = 60000
             connection.readTimeout = 120000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) FearLauncher")
-            connection.connect()
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0")            connection.connect()
             
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw Exception("HTTP ${connection.responseCode}")
+                return false
             }
             
-            val totalBytes = connection.contentLengthLong
             val input: InputStream = connection.inputStream
             val output = FileOutputStream(destFile)
             
-            val buffer = ByteArray(16384)  // Larger buffer for faster download
-            var downloaded: Long = 0
+            val buffer = ByteArray(16384)
             var bytesRead: Int
             
             while (input.read(buffer).also { bytesRead = it } != -1) {
                 output.write(buffer, 0, bytesRead)
-                downloaded += bytesRead
-                if (totalBytes > 0) {
-                    onProgress(downloaded, totalBytes)
-                }
             }
-                        output.close()
+            
+            output.close()
             input.close()
             connection.disconnect()
             
-            Log.d(TAG, "✅ $label downloaded: ${destFile.length()} bytes")
             destFile.exists() && destFile.length() > 0
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ $label download error: ${e.message}")
+            Log.e(TAG, label + " download error: " + e.message)
             destFile.delete()
             false
         }
     }
 
-    // Simple extraction (no complex error handling)
-    private fun extractZipSimple(zipFile: File, destDir: File) {
+    private fun extractZip(zipFile: File, destDir: File) {
         ZipFile(zipFile).use { zip ->
             zip.entries().asSequence().forEach { entry ->
                 val outFile = File(destDir, entry.name)
@@ -180,21 +145,23 @@ object LibsDownloader {
 
     private fun cleanupPartial(baseDir: File) {
         try {
-            File(baseDir, "jre").deleteRecursively()
-            File(baseDir, "natives").deleteRecursively()
+            File(baseDir, "jre").deleteRecursively()            File(baseDir, "natives").deleteRecursively()
         } catch (e: Exception) {
-            Log.e(TAG, "Cleanup error: ${e.message}")
+            Log.e(TAG, "Cleanup error: " + e.message)
         }
     }
 
-    fun getJREPath(context: Context): String = 
-        File(context.filesDir, "game_runtime/jre").absolutePath
+    fun getJREPath(context: Context): String {
+        return File(context.filesDir, "game_runtime/jre").absolutePath
+    }
 
-    fun getNativesPath(context: Context): String = 
-        File(context.filesDir, "game_runtime/natives").absolutePath
+    fun getNativesPath(context: Context): String {
+        return File(context.filesDir, "game_runtime/natives").absolutePath
+    }
 
     fun isLibsReady(context: Context): Boolean {
-        val jreBin = File(context.filesDir, "game_runtime/jre/bin/java")        val libjvm = File(context.filesDir, "game_runtime/jre/lib/server/libjvm.so")
+        val jreBin = File(context.filesDir, "game_runtime/jre/bin/java")
+        val libjvm = File(context.filesDir, "game_runtime/jre/lib/server/libjvm.so")
         return jreBin.exists() && libjvm.exists() && jreBin.length() > 0
     }
 }
