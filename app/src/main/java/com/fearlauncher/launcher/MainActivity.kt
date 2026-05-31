@@ -19,7 +19,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -47,8 +46,8 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+
+        setContent {            MaterialTheme(colorScheme = darkColorScheme()) {
                 MainAppNavigator()
             }
         }
@@ -96,8 +95,8 @@ fun MainAppNavigator() {
             }
         }
     }
-    LaunchedEffect(activeTab) {
-        if (activeTab == "Home") {
+
+    LaunchedEffect(activeTab) {        if (activeTab == "Home") {
             installedVersions = MinecraftManager.getInstalledInstances(context)
         }
     }
@@ -138,14 +137,16 @@ fun MainAppNavigator() {
                     Spacer(Modifier.height(16.dp))
                     LinearProgressIndicator(
                         progress = { installationProgress / 100f },
-                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
                         color = AccentGreen,
                         trackColor = BorderGray
                     )
                 }
             }
-        }
-    }}
+        }    }
+}
 
 @Composable
 fun HomeScreen(installedVersions: List<String>, context: android.content.Context) {
@@ -168,12 +169,15 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
             LazyColumn(Modifier.weight(1f)) {
                 items(installedVersions) { versionId ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selectedVersion = versionId },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable { selectedVersion = versionId },
                         shape = RoundedCornerShape(8.dp),
                         colors = CardDefaults.cardColors(containerColor = if (selectedVersion == versionId) SurfaceBlack else CardGray),
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (selectedVersion == versionId) AccentGreen else BorderGray)
                     ) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Computer, contentDescription = null, tint = if (selectedVersion == versionId) AccentGreen else TextSecondary)
                             Spacer(Modifier.width(16.dp))
                             Column {
@@ -191,10 +195,10 @@ fun HomeScreen(installedVersions: List<String>, context: android.content.Context
         }
     }
 }
-
 @Composable
 fun PlayBar(versionId: String, context: android.content.Context) {
-    val scope = rememberCoroutineScope()    val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
+    val scope = rememberCoroutineScope()
+    val isInstalled = MinecraftManager.isVersionInstalled(context, versionId)
     var isLaunching by remember { mutableStateOf(false) }
 
     Box(
@@ -235,26 +239,41 @@ fun PlayBar(versionId: String, context: android.content.Context) {
                     disabledContainerColor = CardGray
                 ),
                 shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.width(150.dp).height(45.dp)
+                modifier = Modifier
+                    .width(150.dp)
+                    .height(45.dp)
             ) {
-                Text(if (isLaunching) "Launching..." else "PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)
-            }
+                Text(if (isLaunching) "Launching..." else "PLAY", color = Color.White, fontWeight = FontWeight.ExtraBold)            }
             Spacer(Modifier.width(30.dp))
         }
     }
 }
+
 @Composable
 fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
     val items = listOf("Home" to Icons.Default.Home, "Java Edition" to Icons.Default.Code, "Settings" to Icons.Default.Settings)
-    Column(modifier = Modifier.width(220.dp).fillMaxHeight().background(SurfaceBlack).border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray))) {
-        Box(Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+    Column(
+        modifier = Modifier
+            .width(220.dp)
+            .fillMaxHeight()
+            .background(SurfaceBlack)
+            .border(androidx.compose.foundation.BorderStroke(1.dp, BorderGray))
+    ) {
+        Box(modifier = Modifier.height(80.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
             Text("FEAR", modifier = Modifier.padding(start = 24.dp), fontSize = 22.sp, fontWeight = FontWeight.Black, color = TextPrimary)
             Text("LAUNCHER", modifier = Modifier.padding(start = 24.dp).offset(y = 18.dp), fontSize = 10.sp, color = AccentGreen, letterSpacing = 2.sp)
         }
         Divider(color = BorderGray, thickness = 1.dp)
         items.forEach { (label, icon) ->
             val isSelected = activeTab == label
-            Row(Modifier.fillMaxWidth().height(56.dp).clickable { onTabClick(label) }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clickable { onTabClick(label) }
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(icon, contentDescription = label, tint = if (isSelected) AccentGreen else TextSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(16.dp))
                 Text(label, color = if (isSelected) TextPrimary else TextSecondary, fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal)
@@ -265,8 +284,15 @@ fun Sidebar(activeTab: String, onTabClick: (String) -> Unit) {
 
 @Composable
 fun TopBar() {
-    Row(Modifier.fillMaxWidth().height(60.dp).background(SurfaceBlack).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-        Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .background(SurfaceBlack)
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End
+    ) {        Icon(Icons.Default.Person, contentDescription = "Profile", tint = TextSecondary)
         Spacer(Modifier.width(12.dp))
         Text("Steve", color = TextSecondary)
     }
